@@ -29,7 +29,6 @@ import java.util.List;
 @Table(schema = "usuarios", name = "usuario")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User implements UserDetails, CredentialsContainer {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_usuario")

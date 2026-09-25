@@ -13,17 +13,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 
 public class ValidationExceptionHandler {
-    private static final String INVALID_FIELDS_MESSAGE = "Campos são inválidos";
-
-    private static final String UNREADABLE_BODY_MESSAGE = "Corpo da requisição inválido ou mal formatado";
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleMethodArgumentNotValid() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, INVALID_FIELDS_MESSAGE);
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Campos são inválidos");
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ProblemDetail handleHttpMessageNotReadable() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, UNREADABLE_BODY_MESSAGE);
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Corpo da requisição inválido ou mal formatado");
     }
 }

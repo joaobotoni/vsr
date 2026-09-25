@@ -7,13 +7,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record SignupRequest(
-        @NotBlank @Size(max = SignupRequest.MAX_NAME_LENGTH) String name,
+public record RegisterRequest(
+        @NotBlank @Size(max = 200) String name,
         @NotBlank String cpf,
-        @NotBlank @Email @Size(max = SignupRequest.MAX_EMAIL_LENGTH) String email,
+        @NotBlank @Email @Size(max = 254) String email,
         @JsonSetter(nulls = Nulls.FAIL) Password password
 ) {
-
-    private static final int MAX_NAME_LENGTH = 200;
-    private static final int MAX_EMAIL_LENGTH = 254;
 }

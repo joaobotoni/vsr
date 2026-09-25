@@ -12,10 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DatabaseExceptionHandler {
 
-    private static final String DATA_INTEGRITY_MESSAGE = "Os dados informados conflitam com registros existentes";
-
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleDataIntegrityViolation() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, DATA_INTEGRITY_MESSAGE);
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Os dados informados conflitam com registros existentes");
     }
 }

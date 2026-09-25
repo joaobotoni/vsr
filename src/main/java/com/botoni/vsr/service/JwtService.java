@@ -1,47 +1,69 @@
 package com.botoni.vsr.service;
 
-import com.botoni.vsr.entity.User;
-import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.stereotype.Service;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import java.util.Base64;
+import java.util.Date;
+import java.util.function.Function;
 
-import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
 
 @Service
 public class JwtService {
 
-    public static final String ISSUER = "visura";
+    private static final String SECRET_KEY_PROPERTY = "${security.jwt.secret-key}";
+
+    private static final String ISSUER_PROPERTY = "${security.jwt.issuer}";
 
     private static final String EXPIRATION_TIME_PROPERTY = "${security.jwt.expiration-time}";
-    private static final String EMAIL_CLAIM = "email";
-    private static final JwsHeader HEADER = JwsHeader.with(MacAlgorithm.HS256).build();
-    private final JwtEncoder jwtEncoder;
 
-    @Getter
-    private final long expirationMs;
+    @Value(SECRET_KEY_PROPERTY)
+    private String secretKey;
 
-    public JwtService(JwtEncoder jwtEncoder, @Value(EXPIRATION_TIME_PROPERTY) long expirationMs) {
-        this.jwtEncoder = jwtEncoder;
-        this.expirationMs = expirationMs;
+    @Value(ISSUER_PROPERTY)
+    private String issuer;
+
+    @Value(EXPIRATION_TIME_PROPERTY)
+    private long jwtExpiration;
+
+    public String extractUsername(String token) {
+        return extractClaim(token, DecodedJWT::getSubject);
     }
 
-    public String generateToken(User user) {
-        return jwtEncoder.encode(JwtEncoderParameters.from(HEADER, claimsFor(user))).getTokenValue();
+    public <T> T extractClaim(String token, Function<DecodedJWT, T> claimsResolver) {
+        final DecodedJWT decodedJWT = extractAllClaims(token);
+        return claimsResolver.apply(decodedJWT);
     }
 
-    private JwtClaimsSet claimsFor(User user) {
-        Instant now = Instant.now();
-        return JwtClaimsSet.builder()
-                .issuer(ISSUER)
-                .issuedAt(now)
-                .expiresAt(now.plusMillis(expirationMs))
-                .subject(user.getId().toString())
-                .claim(EMAIL_CLAIM, user.getEmail())
-                .build();
+    public String generateToken(UserDetails userDetails) {
+        return buildToken(userDetails, jwtExpiration);
+    }
+
+    public long getExpirationTime() {
+        return jwtExpiration;
+    }
+
+    private String buildToken(UserDetails userDetails, long expiration) {
+        return JWT.create()
+                .withIssuer(issuer)
+                .withSubject(userDetails.getUsername())
+                .withIssuedAt(new Date(System.currentTimeMillis()))
+                .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
+                .sign(getSignInAlgorithm());
+    }
+
+    private DecodedJWT extractAllClaims(String token) {
+        return JWT.require(getSignInAlgorithm())
+                .withIssuer(issuer)
+                .build()
+                .verify(token);
+    }
+
+    private Algorithm getSignInAlgorithm() {
+        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
+        return Algorithm.HMAC256(keyBytes);
     }
 }

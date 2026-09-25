@@ -17,12 +17,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class SignupPasswordTest extends EmbeddedPostgresTest {
+class RegisterPasswordTest extends EmbeddedPostgresTest {
 
-    private static final String SIGNUP_PATH = "/auth/signup";
-    private static final String SIGNUP_BODY = """
+    private static final String REGISTER_PATH = "/auth/register";
+    private static final String REGISTER_BODY = """
             {"name": "Gabriel Costa", "cpf": "%s", "email": "%s", "password": "%s"}""";
-    private static final String SIGNUP_BODY_WITHOUT_PASSWORD = """
+    private static final String REGISTER_BODY_WITHOUT_PASSWORD = """
             {"name": "Gabriel Costa", "cpf": "12345678909", "email": "sem-senha@example.com"}""";
     private static final String VALID_CPF = "12345678909";
     private static final String VALID_EMAIL = "gabriel@example.com";
@@ -35,30 +35,30 @@ class SignupPasswordTest extends EmbeddedPostgresTest {
     private final MockMvc mockMvc;
 
     @Autowired
-    SignupPasswordTest(MockMvc mockMvc) {
+    RegisterPasswordTest(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
     }
 
     @Test
     void shortPasswordReturns400() throws Exception {
-        signup(SIGNUP_BODY.formatted(OTHER_CPF, OTHER_EMAIL, SHORT_PASSWORD))
+        register(REGISTER_BODY.formatted(OTHER_CPF, OTHER_EMAIL, SHORT_PASSWORD))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(not(containsString(SHORT_PASSWORD))));
     }
 
     @Test
     void missingPasswordReturns400() throws Exception {
-        signup(SIGNUP_BODY_WITHOUT_PASSWORD).andExpect(status().isBadRequest());
+        register(REGISTER_BODY_WITHOUT_PASSWORD).andExpect(status().isBadRequest());
     }
 
     @Test
     void validPasswordReturns201() throws Exception {
-        signup(SIGNUP_BODY.formatted(VALID_CPF, VALID_EMAIL, VALID_PASSWORD))
+        register(REGISTER_BODY.formatted(VALID_CPF, VALID_EMAIL, VALID_PASSWORD))
                 .andExpect(status().isCreated())
                 .andExpect(content().string(not(containsString(PASSWORD_FIELD))));
     }
 
-    private ResultActions signup(String body) throws Exception {
-        return mockMvc.perform(post(SIGNUP_PATH).contentType(MediaType.APPLICATION_JSON).content(body));
+    private ResultActions register(String body) throws Exception {
+        return mockMvc.perform(post(REGISTER_PATH).contentType(MediaType.APPLICATION_JSON).content(body));
     }
 }

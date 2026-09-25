@@ -1,9 +1,12 @@
 package com.botoni.vsr.controller;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.botoni.vsr.EmbeddedPostgresTest;
 import com.botoni.vsr.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,6 +19,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,7 +37,7 @@ class AuthenticationTest extends EmbeddedPostgresTest {
 
     private static final Pattern TOKEN = Pattern.compile("\"token\"\\s*:\\s*\"([^\"]+)\"");
     private static final String BASE_URL = "http://localhost:%d%s";
-    private static final String SIGNUP_PATH = "/auth/signup";
+    private static final String REGISTER_PATH = "/auth/register";
     private static final String LOGIN_PATH = "/auth/login";
     private static final String ME_PATH = "/users/me";
     private static final String PASSWORD_PATH = "/users/me/password";
@@ -41,6 +46,13 @@ class AuthenticationTest extends EmbeddedPostgresTest {
     private static final String APPLICATION_JSON = "application/json";
     private static final String AUTHORIZATION = "Authorization";
     private static final String BEARER = "Bearer ";
+    private static final String SECRET_KEY_PROPERTY = "${security.jwt.secret-key}";
+    private static final String ISSUER = "visura";
+    private static final String MALFORMED_TOKEN = "not-a-jwt";
+    private static final String FOREIGN_SECRET = "another-secret-key-with-at-least-32-bytes";
+    private static final String INVALID_TOKEN_MESSAGE = "Token de acesso inválido ou expirado";
+    private static final String AUTHENTICATION_REQUIRED_MESSAGE = "Autenticação necessária para acessar este recurso";
+    private static final long ONE_HOUR_SECONDS = 3600;
 
     private static final String NAME = "Ana Souza";
     private static final String FORMATTED_CPF = "529.982.247-25";
@@ -59,7 +71,7 @@ class AuthenticationTest extends EmbeddedPostgresTest {
     private static final String EXPIRES_IN = "\"expiresInMs\":3600000";
     private static final String PASSWORD_FIELD = "password";
 
-    private static final String SIGNUP_BODY = """
+    private static final String REGISTER_BODY = """
             {"name": "%s", "cpf": "%s", "email": "%s", "password": "%s"}""";
     private static final String LOGIN_BODY = """
             {"email": "%s", "password": "%s"}""";
@@ -86,29 +98,33 @@ class AuthenticationTest extends EmbeddedPostgresTest {
     private final JdbcTemplate jdbcTemplate;
     private final AuthenticationManager authenticationManager;
     private final int port;
+    private final Algorithm algorithm;
 
     @Autowired
-    AuthenticationTest(JdbcTemplate jdbcTemplate, AuthenticationManager authenticationManager, @LocalServerPort int port) {
+    AuthenticationTest(JdbcTemplate jdbcTemplate, AuthenticationManager authenticationManager, @LocalServerPort int port,
+                       @Value(SECRET_KEY_PROPERTY) String secretKey) {
         this.jdbcTemplate = jdbcTemplate;
         this.authenticationManager = authenticationManager;
         this.port = port;
+        this.algorithm = Algorithm.HMAC256(Base64.getDecoder().decode(secretKey));
     }
 
     @Test
-    void signupLoginMeAndPasswordChange() throws Exception {
-        Map<String, Object> credential = assertSignup();
+    void registerLoginMeAndPasswordChange() throws Exception {
+        Map<String, Object> credential = assertRegister();
         assertPasswordErasedAfterAuthentication();
         String token = assertLogin();
         assertMe(token);
+        assertMeRejectsMissingOrInvalidToken(token);
         assertPasswordChange(token, credential);
     }
 
-    private Map<String, Object> assertSignup() throws Exception {
-        HttpResponse<String> signup = post(SIGNUP_PATH, SIGNUP_BODY.formatted(NAME, FORMATTED_CPF, RAW_EMAIL, PASSWORD));
-        assertStatus(CREATED, signup);
-        assertTrue(signup.body().contains(jsonField("email", EMAIL)), signup.body());
-        assertFalse(signup.body().contains(PASSWORD_FIELD), signup.body());
-        assertStatus(CONFLICT, post(SIGNUP_PATH, SIGNUP_BODY.formatted(NAME, CPF, OTHER_EMAIL, PASSWORD)));
+    private Map<String, Object> assertRegister() throws Exception {
+        HttpResponse<String> register = post(REGISTER_PATH, REGISTER_BODY.formatted(NAME, FORMATTED_CPF, RAW_EMAIL, PASSWORD));
+        assertStatus(CREATED, register);
+        assertTrue(register.body().contains(jsonField("email", EMAIL)), register.body());
+        assertFalse(register.body().contains(PASSWORD_FIELD), register.body());
+        assertStatus(CONFLICT, post(REGISTER_PATH, REGISTER_BODY.formatted(NAME, CPF, OTHER_EMAIL, PASSWORD)));
 
         Map<String, Object> credential = credentialOf(EMAIL);
         assertTrue(credential.get(HASH_COLUMN).toString().startsWith(BCRYPT_PREFIX));
@@ -142,7 +158,37 @@ class AuthenticationTest extends EmbeddedPostgresTest {
         assertTrue(me.body().contains(jsonField("name", NAME)), me.body());
         assertTrue(me.body().contains(jsonField("cpf", CPF)), me.body());
         assertFalse(me.body().contains(PASSWORD_FIELD), me.body());
-        assertStatus(UNAUTHORIZED, client.send(request(ME_PATH).GET().build(), HttpResponse.BodyHandlers.ofString()));
+    }
+
+    private void assertMeRejectsMissingOrInvalidToken(String validToken) throws Exception {
+        String userId = JWT.decode(validToken).getSubject();
+        assertUnauthorized(get(ME_PATH, null), AUTHENTICATION_REQUIRED_MESSAGE);
+        assertUnauthorized(get(ME_PATH, MALFORMED_TOKEN), INVALID_TOKEN_MESSAGE);
+        assertUnauthorized(get(ME_PATH, tokenSignedWith(Algorithm.HMAC256(FOREIGN_SECRET), userId)), INVALID_TOKEN_MESSAGE);
+        assertUnauthorized(get(ME_PATH, expiredToken(userId)), INVALID_TOKEN_MESSAGE);
+    }
+
+    private String expiredToken(String userId) {
+        Instant issuedAt = Instant.now().minusSeconds(2 * ONE_HOUR_SECONDS);
+        return JWT.create()
+                .withIssuer(ISSUER)
+                .withIssuedAt(issuedAt)
+                .withExpiresAt(issuedAt.plusSeconds(ONE_HOUR_SECONDS))
+                .withSubject(userId)
+                .sign(algorithm);
+    }
+
+    private static String tokenSignedWith(Algorithm algorithm, String userId) {
+        return JWT.create()
+                .withIssuer(ISSUER)
+                .withExpiresAt(Instant.now().plusSeconds(ONE_HOUR_SECONDS))
+                .withSubject(userId)
+                .sign(algorithm);
+    }
+
+    private static void assertUnauthorized(HttpResponse<String> response, String message) {
+        assertStatus(UNAUTHORIZED, response);
+        assertTrue(response.body().contains(message), response.body());
     }
 
     private void assertPasswordChange(String token, Map<String, Object> previousCredential) throws Exception {

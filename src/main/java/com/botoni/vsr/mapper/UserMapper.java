@@ -1,6 +1,6 @@
 package com.botoni.vsr.mapper;
 
-import com.botoni.vsr.dto.request.SignupRequest;
+import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.UserResponse;
 import com.botoni.vsr.entity.User;
 import com.botoni.vsr.mapper.configuration.MapperConfiguration;
@@ -19,5 +19,5 @@ public interface UserMapper {
     @Mapping(target = "email.value", source = "email")
     @Mapping(target = "withPassword", ignore = true)
     @Mapping(target = "authorities", ignore = true)
-    User toEntity(SignupRequest request);
+    User toEntity(RegisterRequest request);
 }

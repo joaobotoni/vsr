@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 @Table(schema = "usuarios", name = "credencial_local")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LocalCredential {
+
     @Id
     @Getter
     @Column(name = "id_usuario")
