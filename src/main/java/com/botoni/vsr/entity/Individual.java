@@ -1,11 +1,9 @@
 package com.botoni.vsr.entity;
 
+import com.botoni.vsr.converter.CpfConverter;
 import com.botoni.vsr.enums.PersonType;
 import com.botoni.vsr.vo.Cpf;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.PrimaryKeyJoinColumn;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,11 +15,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Individual extends Person {
 
+    @Convert(converter = CpfConverter.class)
     @Column(name = "cpf", nullable = false, updatable = false)
-    private String cpf;
+    private Cpf cpf;
 
     public Individual(String name, Cpf cpf) {
         super(PersonType.INDIVIDUAL, name);
-        this.cpf = cpf.value();
+        this.cpf = cpf;
     }
 }

@@ -1,4 +1,4 @@
-package com.botoni.vsr.entity;
+package com.botoni.vsr.converter;
 
 import com.botoni.vsr.enums.PersonType;
 import jakarta.persistence.AttributeConverter;

@@ -1,9 +1,11 @@
 package com.botoni.vsr.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
+import com.botoni.vsr.vo.Email;
+import com.botoni.vsr.vo.Password;
+import jakarta.validation.constraints.NotNull;
 
 public record LoginRequest(
-        @NotBlank String email,
-        @NotBlank String password
+        @NotNull Email email,
+        @NotNull Password password
 ) {
 }

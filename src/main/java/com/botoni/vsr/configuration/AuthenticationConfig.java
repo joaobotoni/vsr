@@ -2,6 +2,7 @@ package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.entity.LocalCredential;
 import com.botoni.vsr.repository.LocalCredentialRepository;
+import com.botoni.vsr.vo.Email;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,7 +24,7 @@ public class AuthenticationConfig {
 
     @Bean
     UserDetailsService userDetailsService() {
-        return username -> localCredentialRepository.findWithUserByEmail(username)
+        return username -> localCredentialRepository.findWithUserByEmail(Email.of(username))
                 .map(LocalCredential::authenticated).orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
     }
 

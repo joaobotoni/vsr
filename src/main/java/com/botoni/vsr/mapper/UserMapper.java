@@ -10,14 +10,14 @@ import org.mapstruct.Mapping;
 @Mapper(config = MapperConfiguration.class)
 public interface UserMapper {
 
-    @Mapping(target = "name", source = "person.name")
-    @Mapping(target = "cpf", source = "person.cpf")
-    UserResponse toResponse(User user);
-
     @Mapping(target = "person.name", source = "name")
-    @Mapping(target = "person.cpf.value", source = "cpf")
-    @Mapping(target = "email.value", source = "email")
+    @Mapping(target = "person.cpf", source = "cpf")
+    @Mapping(target = "email", source = "email")
     @Mapping(target = "withPassword", ignore = true)
     @Mapping(target = "authorities", ignore = true)
     User toEntity(RegisterRequest request);
+
+    @Mapping(target = "name", source = "person.name")
+    @Mapping(target = "cpf", source = "person.cpf")
+    UserResponse toResponse(User user);
 }

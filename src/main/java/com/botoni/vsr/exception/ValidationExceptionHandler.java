@@ -1,4 +1,4 @@
-package com.botoni.vsr.exception.handler;
+package com.botoni.vsr.exception;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -11,16 +11,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
-
 public class ValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail handleMethodArgumentNotValid() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Campos são inválidos");
+    ProblemDetail handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getAllErrors().getFirst().getDefaultMessage());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    ProblemDetail handleHttpMessageNotReadable() {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Corpo da requisição inválido ou mal formatado");
+    ProblemDetail handleHttpMessageNotReadable(HttpMessageNotReadableException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMostSpecificCause().getMessage());
     }
 }

@@ -1,6 +1,5 @@
 package com.botoni.vsr.domain.vo;
 
-import com.botoni.vsr.exception.custom.InvalidPasswordException;
 import com.botoni.vsr.vo.Password;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -17,14 +16,14 @@ class PasswordTest {
     @ParameterizedTest
     @NullAndEmptySource
     void rejectsNullAndEmpty(String rawValue) {
-        InvalidPasswordException exception = assertThrows(InvalidPasswordException.class, () -> new Password(rawValue));
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> new Password(rawValue));
         assertEquals(INVALID_PASSWORD, exception.getMessage());
     }
 
     @ParameterizedTest
     @ValueSource(ints = {7, 73})
     void rejectsLengthOutsideLimits(int length) {
-        assertThrows(InvalidPasswordException.class, () -> Password.of(ofLength(length)));
+        assertThrows(IllegalArgumentException.class, () -> Password.of(ofLength(length)));
     }
 
     @ParameterizedTest

@@ -1,7 +1,10 @@
 package com.botoni.vsr.entity;
 
+import com.botoni.vsr.converter.CnpjConverter;
 import com.botoni.vsr.enums.PersonType;
+import com.botoni.vsr.vo.Cnpj;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import jakarta.persistence.Table;
@@ -16,15 +19,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Company extends Person {
 
+    @Convert(converter = CnpjConverter.class)
     @Column(name = "cnpj", nullable = false, updatable = false)
-    private String cnpj;
+    private Cnpj cnpj;
 
     @Column(name = "nome_fantasia", nullable = false)
     private String tradeName;
 
-    public Company(String legalName, String tradeName, String cnpj) {
+    public Company(String legalName, String tradeName, Cnpj cnpj) {
         super(PersonType.COMPANY, legalName);
-        this.tradeName = tradeName;
+        this.tradeName = tradeName.trim();
         this.cnpj = cnpj;
     }
 }

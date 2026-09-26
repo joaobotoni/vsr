@@ -1,19 +1,18 @@
 package com.botoni.vsr.vo;
 
-import com.botoni.vsr.exception.custom.InvalidPasswordException;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import java.nio.charset.StandardCharsets;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 public record Password(String value) {
 
-    private static final int MAX_BYTES = 72;
     private static final int MIN_LENGTH = 8;
+    private static final int BCRYPT_MAX_BYTES = 72;
+    private static final String INVALID_PASSWORD = "A senha deve ter no mínimo 8 caracteres";
 
     public Password {
         if (isInvalid(value)) {
-            throw new InvalidPasswordException();
+            throw new IllegalArgumentException(INVALID_PASSWORD);
         }
     }
 
@@ -27,18 +26,22 @@ public record Password(String value) {
     }
 
     private static boolean isInvalid(String value) {
-        return isBlank(value) || isTooShort(value) || isTooLong(value);
+        return isMissing(value) || isBlank(value) || isShort(value) || isLong(value);
+    }
+
+    private static boolean isMissing(String value) {
+        return value == null;
     }
 
     private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
+        return value.isBlank();
     }
 
-    private static boolean isTooShort(String value) {
+    private static boolean isShort(String value) {
         return value.length() < MIN_LENGTH;
     }
 
-    private static boolean isTooLong(String value) {
-        return value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES;
+    private static boolean isLong(String value) {
+        return value.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES;
     }
 }

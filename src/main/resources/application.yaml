@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: ${APP_NAME}
+  config:
+    import:
+      - classpath:web.yaml
+      - classpath:database.yaml
+      - classpath:security.yaml

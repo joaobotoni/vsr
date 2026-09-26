@@ -1,6 +1,5 @@
 package com.botoni.vsr.vo;
 
-import com.botoni.vsr.exception.custom.DomainException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
@@ -51,7 +50,7 @@ class CpfTest {
             "529.982.247-26"
     })
     void failsFastOnInvalidInput(String rawValue) {
-        DomainException exception = assertThrows(DomainException.class, () -> new Cpf(rawValue));
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> new Cpf(rawValue));
         assertEquals(INVALID_CPF, exception.getMessage());
     }
 }

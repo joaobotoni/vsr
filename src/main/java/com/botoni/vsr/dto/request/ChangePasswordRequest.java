@@ -1,12 +1,10 @@
 package com.botoni.vsr.dto.request;
 
 import com.botoni.vsr.vo.Password;
-import com.fasterxml.jackson.annotation.JsonSetter;
-import com.fasterxml.jackson.annotation.Nulls;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record ChangePasswordRequest(
-        @NotBlank String currentPassword,
-        @JsonSetter(nulls = Nulls.FAIL) Password newPassword
+        @NotNull Password currentPassword,
+        @NotNull Password newPassword
 ) {
 }

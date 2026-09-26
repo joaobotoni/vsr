@@ -9,12 +9,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.time.OffsetDateTime;
 
 @Entity
 @Table(schema = "usuarios", name = "credencial_local")
@@ -37,25 +36,25 @@ public class LocalCredential {
     @Column(name = "senha_atualizada_em", nullable = false)
     private OffsetDateTime passwordUpdatedAt;
 
-    public LocalCredential(User user, Password password, PasswordEncoder passwordEncoder) {
+    private LocalCredential(User user) {
         this.user = user;
-        definePassword(password, passwordEncoder);
     }
 
-    public void changePassword(Password password, PasswordEncoder passwordEncoder) {
-        definePassword(password, passwordEncoder);
+    public static LocalCredential create(User user, Password password, PasswordEncoder encoder) {
+        LocalCredential credential = new LocalCredential(user);
+        credential.changePassword(password, encoder);
+        return credential;
     }
 
-    public boolean isPasswordValid(String rawPassword, PasswordEncoder passwordEncoder) {
-        return passwordEncoder.matches(rawPassword, passwordHash);
+    public void changePassword(Password password, PasswordEncoder encoder) {
+        this.passwordHash = password.encodeWith(encoder);
+        this.passwordUpdatedAt = OffsetDateTime.now();
+    }
+    public boolean matches(Password password, PasswordEncoder encoder) {
+        return encoder.matches(password.value(), passwordHash);
     }
 
     public User authenticated() {
         return user.withPassword(passwordHash);
-    }
-
-    private void definePassword(Password password, PasswordEncoder passwordEncoder) {
-        this.passwordHash = password.encodeWith(passwordEncoder);
-        this.passwordUpdatedAt = OffsetDateTime.now();
     }
 }

@@ -3,67 +3,58 @@ package com.botoni.vsr.service;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.botoni.vsr.configuration.properties.JwtProperties;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
-import java.util.Date;
 import java.util.function.Function;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY_PROPERTY = "${security.jwt.secret-key}";
+    private final JwtProperties properties;
 
-    private static final String ISSUER_PROPERTY = "${security.jwt.issuer}";
-
-    private static final String EXPIRATION_TIME_PROPERTY = "${security.jwt.expiration-time}";
-
-    @Value(SECRET_KEY_PROPERTY)
-    private String secretKey;
-
-    @Value(ISSUER_PROPERTY)
-    private String issuer;
-
-    @Value(EXPIRATION_TIME_PROPERTY)
-    private long jwtExpiration;
-
-    public String extractUsername(String token) {
-        return extractClaim(token, DecodedJWT::getSubject);
+    public JwtService(JwtProperties properties) {
+        this.properties = properties;
     }
 
-    public <T> T extractClaim(String token, Function<DecodedJWT, T> claimsResolver) {
-        final DecodedJWT decodedJWT = extractAllClaims(token);
-        return claimsResolver.apply(decodedJWT);
+    public String issue(UserDetails user) {
+        return build(user, properties.expirationTime());
     }
 
-    public String generateToken(UserDetails userDetails) {
-        return buildToken(userDetails, jwtExpiration);
+    public String subject(String token) {
+        return claim(token, DecodedJWT::getSubject);
     }
 
-    public long getExpirationTime() {
-        return jwtExpiration;
+    public <T> T claim(String token, Function<DecodedJWT, T> resolver) {
+        return resolver.apply(decode(token));
     }
 
-    private String buildToken(UserDetails userDetails, long expiration) {
+    public long expirationInMillis() {
+        return properties.expirationTime().toMillis();
+    }
+
+    private String build(UserDetails user, Duration validity) {
+        Instant issuedAt = Instant.now();
         return JWT.create()
-                .withIssuer(issuer)
-                .withSubject(userDetails.getUsername())
-                .withIssuedAt(new Date(System.currentTimeMillis()))
-                .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
-                .sign(getSignInAlgorithm());
+                .withIssuer(properties.issuer())
+                .withSubject(user.getUsername())
+                .withIssuedAt(issuedAt)
+                .withExpiresAt(issuedAt.plus(validity))
+                .sign(algorithm());
     }
 
-    private DecodedJWT extractAllClaims(String token) {
-        return JWT.require(getSignInAlgorithm())
-                .withIssuer(issuer)
+    private DecodedJWT decode(String token) {
+        return JWT.require(algorithm())
+                .withIssuer(properties.issuer())
                 .build()
                 .verify(token);
     }
 
-    private Algorithm getSignInAlgorithm() {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
-        return Algorithm.HMAC256(keyBytes);
+    private Algorithm algorithm() {
+        byte[] secret = Base64.getDecoder().decode(properties.secretKey());
+        return Algorithm.HMAC256(secret);
     }
 }
