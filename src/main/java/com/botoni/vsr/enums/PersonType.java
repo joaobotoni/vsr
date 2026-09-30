@@ -2,14 +2,11 @@ package com.botoni.vsr.enums;
 
 import lombok.Getter;
 
-import java.util.Arrays;
-
 @Getter
 public enum PersonType {
 
     INDIVIDUAL("pf"),
     COMPANY("pj");
-    private static final String UNKNOWN_PERSON_TYPE = "Unknown person type:\t";
 
     private final String value;
 
@@ -18,13 +15,11 @@ public enum PersonType {
     }
 
     public static PersonType fromValue(String value) {
-        return Arrays.stream(values())
-                .filter(type -> type.hasValue(value))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(UNKNOWN_PERSON_TYPE + value));
-    }
-
-    private boolean hasValue(String candidate) {
-        return value.equals(candidate);
+        for (PersonType type : values()) {
+            if (type.value.equals(value)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Tipo de pessoa desconhecido: " + value);
     }
 }

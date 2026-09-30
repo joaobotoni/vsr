@@ -3,32 +3,34 @@ package com.botoni.vsr.controller;
 import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.LoginResponse;
-import com.botoni.vsr.dto.response.UserResponse;
-import com.botoni.vsr.service.AuthenticationService;
+import com.botoni.vsr.dto.response.RegisterResponse;
+import com.botoni.vsr.service.LoginService;
+import com.botoni.vsr.service.RegisterService;
 import jakarta.validation.Valid;
+import java.net.URI;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping(path = "/auth", version = "1")
 @RequiredArgsConstructor
 public class AuthenticationController {
 
-    private final AuthenticationService authenticationService;
+    private final RegisterService registerService;
+    private final LoginService loginService;
 
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse register(@RequestBody @Valid RegisterRequest request) {
-        return authenticationService.register(request);
+    public ResponseEntity<RegisterResponse> register(@RequestBody @Valid RegisterRequest request) {
+        return ResponseEntity.ok(registerService.register(request));
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody @Valid LoginRequest request) {
-        return authenticationService.login(request);
+    public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
+        return ResponseEntity.ok(loginService.login(request));
     }
 }

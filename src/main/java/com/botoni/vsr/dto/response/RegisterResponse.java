@@ -1,6 +1,6 @@
 package com.botoni.vsr.dto.response;
 
-public record LoginResponse(
+public record RegisterResponse(
         UserResponse user,
         TokenResponse token
 ) {

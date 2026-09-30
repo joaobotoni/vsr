@@ -12,12 +12,10 @@ public interface UserMapper {
 
     @Mapping(target = "person.name", source = "name")
     @Mapping(target = "person.cpf", source = "cpf")
-    @Mapping(target = "email", source = "email")
-    @Mapping(target = "withPassword", ignore = true)
     @Mapping(target = "authorities", ignore = true)
     User toEntity(RegisterRequest request);
 
     @Mapping(target = "name", source = "person.name")
-    @Mapping(target = "cpf", source = "person.cpf")
+    @Mapping(target = "email", source = "email.value")
     UserResponse toResponse(User user);
 }

@@ -15,7 +15,7 @@ public class ValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getAllErrors().getFirst().getDefaultMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getAllErrors().get(0).getDefaultMessage());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -9,6 +9,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,12 +18,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Entity
+@Getter
 @Table(schema = "usuarios", name = "credencial_local")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LocalCredential {
-
     @Id
-    @Getter
     @Column(name = "id_usuario")
     private Integer id;
 
@@ -34,7 +35,7 @@ public class LocalCredential {
     private String passwordHash;
 
     @Column(name = "senha_atualizada_em", nullable = false)
-    private OffsetDateTime passwordUpdatedAt;
+    private Instant passwordUpdatedAt;
 
     private LocalCredential(User user) {
         this.user = user;
@@ -48,13 +49,15 @@ public class LocalCredential {
 
     public void changePassword(Password password, PasswordEncoder encoder) {
         this.passwordHash = password.encodeWith(encoder);
-        this.passwordUpdatedAt = OffsetDateTime.now();
+        this.passwordUpdatedAt = Instant.now();
     }
+
     public boolean matches(Password password, PasswordEncoder encoder) {
         return encoder.matches(password.value(), passwordHash);
     }
 
     public User authenticated() {
-        return user.withPassword(passwordHash);
+        this.user.with(passwordHash);
+        return this.user;
     }
 }

@@ -4,14 +4,13 @@ import com.botoni.vsr.converter.EmailConverter;
 import com.botoni.vsr.vo.Email;
 import jakarta.persistence.*;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.With;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
@@ -38,9 +37,8 @@ public class User implements UserDetails, CredentialsContainer {
     private Email email;
 
     @Column(name = "email_verificado_em")
-    private OffsetDateTime emailVerifiedAt;
+    private Instant emailVerifiedAt;
 
-    @With
     @Transient
     private String password;
 
@@ -57,6 +55,14 @@ public class User implements UserDetails, CredentialsContainer {
     @Override
     public @NonNull Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of();
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
+
+    void with(@NonNull String password) {
+        this.password = password;
     }
 
     @Override

@@ -3,62 +3,48 @@ package com.botoni.vsr.utils;
 public record Modulo11(int maxWeight) {
 
     private static final int MODULUS = 11;
-    private static final int MIN_WEIGHT = 2;
-    private static final int MIN_REMAINDER_FOR_SUBTRACTION = 2;
-    private static final int ZERO_CHECK_DIGIT = 0;
-    private static final char ZERO = '0';
+    private static final int FIRST_WEIGHT = 2;
+    private static final int ASCII_ZERO = 48;
 
-    public boolean hasValidCheckDigitAt(String value, int index) {
-        int expected = checkDigitOf(baseOf(value, index));
-        int actual = numericValueAt(value, index);
-        return expected == actual;
+    public boolean isInvalid(String number, int checkDigitIndex) {
+        String base = number.substring(0, checkDigitIndex);
+        return calculate(base) != value(number, checkDigitIndex);
     }
 
-    public int checkDigitOf(String base) {
-        return checkDigitFromRemainder(remainderOf(base));
+    public int calculate(String base) {
+        int complement = MODULUS - remainder(base);
+        return normalize(complement);
     }
 
-    private static int checkDigitFromRemainder(int remainder) {
-        if (resultsInZero(remainder)) {
-            return ZERO_CHECK_DIGIT;
+    private int remainder(String base) {
+        return sum(base) % MODULUS;
+    }
+
+    private int sum(String base) {
+        int total = 0;
+        int weight = FIRST_WEIGHT;
+        for (int i = base.length() - 1; i >= 0; i--) {
+            total += value(base, i) * weight;
+            weight = next(weight);
         }
-        return MODULUS - remainder;
+        return total;
     }
 
-    private static boolean resultsInZero(int remainder) {
-        return remainder < MIN_REMAINDER_FOR_SUBTRACTION;
-    }
-
-    private int remainderOf(String base) {
-        return weightedSumOf(base) % MODULUS;
-    }
-
-    private int weightedSumOf(String base) {
-        int sum = 0;
-        for (int position = 0; position < base.length(); position++) {
-            sum += weightedValueAt(base, position);
+    private int next(int weight) {
+        if (weight == maxWeight) {
+            return FIRST_WEIGHT;
         }
-        return sum;
+        return weight + 1;
     }
 
-    private int weightedValueAt(String base, int position) {
-        return numericValueAt(base, position) * weightAt(base, position);
+    private static int normalize(int complement) {
+        if (complement >= 10) {
+            return 0;
+        }
+        return complement;
     }
 
-    private int weightAt(String base, int position) {
-        int distanceFromEnd = base.length() - 1 - position;
-        return distanceFromEnd % weightCycleLength() + MIN_WEIGHT;
-    }
-
-    private int weightCycleLength() {
-        return maxWeight - MIN_WEIGHT + 1;
-    }
-
-    private static String baseOf(String value, int length) {
-        return value.substring(0, length);
-    }
-
-    private static int numericValueAt(String value, int index) {
-        return value.charAt(index) - ZERO;
+    private static int value(String number, int index) {
+        return number.charAt(index) - ASCII_ZERO;
     }
 }
