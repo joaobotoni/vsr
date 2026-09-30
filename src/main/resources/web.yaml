@@ -1,6 +1,9 @@
+server:
+  forward-headers-strategy: native
+
 spring:
   mvc:
-    apiversion:
+    api version:
       use:
         header: ${API_VERSION_HEADER}
       supported: ${API_VERSION_SUPPORTED}

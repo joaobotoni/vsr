@@ -2,7 +2,10 @@ package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.filter.AuthenticationFilter;
 import com.botoni.vsr.filter.ExceptionFilter;
+import com.botoni.vsr.filter.RateLimitFilter;
+import jakarta.servlet.Filter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -23,6 +26,7 @@ public class SecurityConfig {
     private final AuthenticationFilter authenticationFilter;
     private final ExceptionFilter exceptionFilter;
     private final AuthenticationProvider authenticationProvider;
+    private final RateLimitFilter rateLimitFilter;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
@@ -34,7 +38,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(exceptionFilter, AuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, AuthenticationFilter.class)
+                .addFilterBefore(exceptionFilter, RateLimitFilter.class)
                 .build();
     }
 }

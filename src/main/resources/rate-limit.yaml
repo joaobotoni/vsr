@@ -1,0 +1,4 @@
+rate-limit:
+  capacity: 10
+  refill-rate: 1
+  refill-interval: 1s

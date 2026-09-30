@@ -6,3 +6,4 @@ spring:
       - classpath:web.yaml
       - classpath:database.yaml
       - classpath:security.yaml
+      - classpath:rate-limit.yaml
