@@ -1,7 +1,10 @@
 package com.botoni.vsr.entity;
 
+import com.botoni.vsr.converter.PasswordHashConverter;
 import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.PasswordHash;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -11,7 +14,6 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Table(schema = "usuarios", name = "credencial_local")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LocalCredential {
+
     @Id
     @Column(name = "id_usuario")
     private Integer id;
@@ -31,8 +34,10 @@ public class LocalCredential {
     @JoinColumn(name = "id_usuario")
     private User user;
 
+    @Getter(AccessLevel.NONE)
+    @Convert(converter = PasswordHashConverter.class)
     @Column(name = "senha_hash", nullable = false)
-    private String passwordHash;
+    private PasswordHash passwordHash;
 
     @Column(name = "senha_atualizada_em", nullable = false)
     private Instant passwordUpdatedAt;
@@ -53,7 +58,11 @@ public class LocalCredential {
     }
 
     public boolean matches(Password password, PasswordEncoder encoder) {
-        return encoder.matches(password.value(), passwordHash);
+        return passwordHash.matches(password, encoder);
+    }
+
+    public boolean needsRehash(PasswordEncoder encoder) {
+        return passwordHash.needsRehash(encoder);
     }
 
     public User authenticated() {

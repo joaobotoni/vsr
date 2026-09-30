@@ -59,8 +59,8 @@ public record Password(String value) {
         return new Password(value);
     }
 
-    public String encodeWith(PasswordEncoder encoder) {
-        return encoder.encode(value);
+    public PasswordHash encodeWith(PasswordEncoder encoder) {
+        return PasswordHash.encode(this, encoder);
     }
 
     private static boolean isMissing(String value) {
