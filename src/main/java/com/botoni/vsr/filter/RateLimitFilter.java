@@ -1,59 +1,69 @@
 package com.botoni.vsr.filter;
 
-import com.botoni.vsr.configuration.properties.RateLimitProperties;
 import com.botoni.vsr.exception.infrastructure.RateLimitException;
-import com.botoni.vsr.lib.TokenBucket;
 import com.botoni.vsr.lib.TokenBucket.RateLimitResult;
+import com.botoni.vsr.ratelimit.Limit;
+import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.ratelimit.RateLimitPolicy;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.time.Instant;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.time.Instant;
-
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final TokenBucket limiter;
-    private final RateLimitProperties props;
+    private static final String LIMIT = "X-RateLimit-Limit";
+    private static final String REMAINING = "X-RateLimit-Remaining";
+    private static final String RESET = "X-RateLimit-Reset";
+    private static final String KEY = "ip:%s";
+    private static final long MIN_RETRY = 1;
 
-    public RateLimitFilter(TokenBucket limiter, RateLimitProperties props) {
-        this.limiter = limiter;
-        this.props = props;
+    private final RateLimitPolicy policy;
+
+    public RateLimitFilter(RateLimitPolicy policy) {
+        this.policy = policy;
     }
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                    @NonNull HttpServletResponse response,
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
-        RateLimitResult result = limiter.allow(key(request));
-        long refill = refillSeconds();
-        writeRateLimitHeaders(response, result, refill);
+
+        RateLimit rateLimit = policy.resolve(request);
+        Limit limit = rateLimit.limit();
+        RateLimitResult result = rateLimit.consume(key(request));
+
+        long retry = retryAfter(limit);
+        headers(response, limit, result, retry);
 
         if (!result.allowed()) {
-            response.setHeader(HttpHeaders.RETRY_AFTER, String.format("%d", refill));
-            throw new RateLimitException.Exceeded(refill);
+            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retry));
+            throw new RateLimitException.Exceeded(retry);
         }
 
         chain.doFilter(request, response);
     }
 
-    private void writeRateLimitHeaders(HttpServletResponse response, RateLimitResult result, long refill) {
-        response.setHeader("X-RateLimit-Limit", String.format("%d", props.capacity()));
-        response.setHeader("X-RateLimit-Remaining", String.format("%d", (int) result.remaining()));
-        response.setHeader("X-RateLimit-Reset", String.format("%d", Instant.now().getEpochSecond() + refill));
-    }
-
-    private long refillSeconds() {
-        return (long) Math.ceil(props.refillIntervalSeconds());
-    }
-
     private static String key(HttpServletRequest request) {
-        return String.format("ip:%s", request.getRemoteAddr());
+        return String.format(KEY, request.getRemoteAddr());
+    }
+
+    private static void headers(HttpServletResponse response, Limit limit, RateLimitResult result, long retry) {
+        long reset = Instant.now().getEpochSecond() + retry;
+        response.setHeader(LIMIT, String.valueOf(limit.capacity()));
+        response.setHeader(REMAINING, String.valueOf((long) result.remaining()));
+        response.setHeader(RESET, String.valueOf(reset));
+    }
+
+    private static long retryAfter(Limit limit) {
+        long millis = limit.refillInterval().toMillis();
+        long seconds = (millis + 999) / 1000;
+        return Math.max(MIN_RETRY, seconds);
     }
 }

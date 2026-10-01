@@ -1,11 +1,12 @@
 package com.botoni.vsr.vo;
 
 import com.botoni.vsr.vo.exceptions.PasswordHashException;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.NonNull;
 import java.util.regex.Pattern;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-public record PasswordHash(String value) {
+public record PasswordHash(@JsonValue String value) {
 
     private static final int MIN_LENGTH = 20;
     private static final int MAX_LENGTH = 255;

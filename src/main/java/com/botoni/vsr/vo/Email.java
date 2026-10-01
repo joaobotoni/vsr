@@ -2,10 +2,12 @@ package com.botoni.vsr.vo;
 
 import com.botoni.vsr.vo.exceptions.EmailException;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-public record Email(String value) {
+public record Email(@JsonValue String value) {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s");
     private static final Pattern LOCAL_PART = Pattern.compile("[a-z0-9._%+-]+");

@@ -1,6 +1,6 @@
 package com.botoni.vsr.vo;
 
-import com.botoni.vsr.utils.Modulo11;
+import com.botoni.vsr.lib.Modulo11;
 import com.botoni.vsr.vo.exceptions.CpfException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

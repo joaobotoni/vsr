@@ -1,4 +1,4 @@
-package com.botoni.vsr.utils;
+package com.botoni.vsr.lib;
 
 public record Modulo11(int maxWeight) {
 

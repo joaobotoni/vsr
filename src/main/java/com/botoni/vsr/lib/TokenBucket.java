@@ -1,6 +1,6 @@
 package com.botoni.vsr.lib;
 
-import com.botoni.vsr.exception.infrastructure.RateLimitException;
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -25,13 +25,17 @@ public class TokenBucket implements AutoCloseable {
 
     public TokenBucket(int capacity, double refillRate, double refillInterval) {
         if (capacity <= 0 || refillRate <= 0 || refillInterval <= 0) {
-            throw new RateLimitException.InvalidConfiguration();
+            throw new IllegalArgumentException("capacity, refillRate and refillInterval must be greater than zero");
         }
         this.capacity = capacity;
         this.refillRate = refillRate;
         this.refillInterval = refillInterval;
         this.ttl = ttl();
         schedule();
+    }
+
+    public TokenBucket(int capacity, double refillRate, Duration refillInterval) {
+        this(capacity, refillRate, refillInterval.toMillis() / 1000.0);
     }
 
     public RateLimitResult allow(String key) {
@@ -69,7 +73,8 @@ public class TokenBucket implements AutoCloseable {
     }
 
     void evict(double now) {
-        buckets.values().removeIf(b -> idle(b, now));
+        buckets.forEach((key, ignored) -> buckets.computeIfPresent(key,
+                (k, bucket) -> idle(bucket, now) ? null : bucket));
     }
 
     @Override
@@ -83,20 +88,20 @@ public class TokenBucket implements AutoCloseable {
     }
 
     private long period() {
-        return Math.max(MIN_PERIOD, (long) (ttl * 1000));
+        return Math.max(MIN_PERIOD, (long) Math.ceil(ttl * 1000));
     }
 
-    private boolean idle(Bucket b, double now) {
-        return now - b.lastRefill() >= ttl;
+    private boolean idle(Bucket bucket, double now) {
+        return now - bucket.lastRefill() >= ttl;
     }
 
     private void schedule() {
-        long p = period();
-        cleaner.scheduleAtFixedRate(() -> evict(now()), p, p, TimeUnit.MILLISECONDS);
+        long period = period();
+        cleaner.scheduleAtFixedRate(() -> evict(now()), period, period, TimeUnit.MILLISECONDS);
     }
 
     private static double now() {
-        return System.currentTimeMillis() / 1000.0;
+        return System.nanoTime() / 1_000_000_000.0;
     }
 
     private static ScheduledExecutorService cleaner() {
@@ -105,9 +110,9 @@ public class TokenBucket implements AutoCloseable {
 
     private static ThreadFactory daemon() {
         return r -> {
-            Thread t = new Thread(r, CLEANER_THREAD_NAME);
-            t.setDaemon(true);
-            return t;
+            Thread thread = new Thread(r, CLEANER_THREAD_NAME);
+            thread.setDaemon(true);
+            return thread;
         };
     }
 }

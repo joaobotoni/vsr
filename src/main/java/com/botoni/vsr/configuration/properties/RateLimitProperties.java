@@ -1,21 +1,18 @@
 package com.botoni.vsr.configuration.properties;
 
+import com.botoni.vsr.ratelimit.Limit;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
-
-import java.time.Duration;
 
 @Validated
 @ConfigurationProperties(prefix = "rate-limit")
 public record RateLimitProperties(
-        @Positive int capacity,
-        @Positive double refillRate,
-        @NotNull Duration refillInterval
+        @Valid @NotNull Limit api,
+        @Valid @NotNull Limit login,
+        @Valid @NotNull Limit register,
+        @Valid @NotNull Limit password,
+        @Valid @NotNull Limit upload
 ) {
-
-    public double refillIntervalSeconds() {
-        return refillInterval.toNanos() / 1_000_000_000.0;
-    }
 }

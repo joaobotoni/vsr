@@ -5,10 +5,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.NonNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-public record Password(String value) {
+public record Password(@JsonValue String value) {
 
     private static final int MIN_LENGTH = 8;
     private static final int MAX_BYTES = 72;
