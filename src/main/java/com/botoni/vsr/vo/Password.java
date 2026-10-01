@@ -1,5 +1,6 @@
 package com.botoni.vsr.vo;
 
+import com.botoni.vsr.vo.exceptions.PasswordException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
@@ -18,40 +19,11 @@ public record Password(String value) {
     private static final Pattern SPECIAL = Pattern.compile("[^A-Za-z0-9\\s]");
     private static final Pattern WHITESPACE = Pattern.compile("\\s");
 
-    private static final String REQUIRED_MESSAGE = "A senha é obrigatória";
-    private static final String TOO_SHORT_MESSAGE = "A senha deve ter no mínimo 8 caracteres";
-    private static final String TOO_LONG_MESSAGE = "A senha é longa demais";
-    private static final String UPPERCASE_MESSAGE = "A senha deve ter pelo menos uma letra maiúscula";
-    private static final String LOWERCASE_MESSAGE = "A senha deve ter pelo menos uma letra minúscula";
-    private static final String DIGIT_MESSAGE = "A senha deve ter pelo menos um número";
-    private static final String SPECIAL_MESSAGE = "A senha deve ter pelo menos um caractere especial";
-    private static final String WHITESPACE_MESSAGE = "A senha não pode conter espaços";
-
     public Password {
-        if (isMissing(value)) {
-            throw new IllegalArgumentException(REQUIRED_MESSAGE);
+        if (value == null) {
+            throw new PasswordException.Missing();
         }
-        if (isShort(value)) {
-            throw new IllegalArgumentException(TOO_SHORT_MESSAGE);
-        }
-        if (isLong(value)) {
-            throw new IllegalArgumentException(TOO_LONG_MESSAGE);
-        }
-        if (lacks(UPPERCASE, value)) {
-            throw new IllegalArgumentException(UPPERCASE_MESSAGE);
-        }
-        if (lacks(LOWERCASE, value)) {
-            throw new IllegalArgumentException(LOWERCASE_MESSAGE);
-        }
-        if (lacks(DIGIT, value)) {
-            throw new IllegalArgumentException(DIGIT_MESSAGE);
-        }
-        if (lacks(SPECIAL, value)) {
-            throw new IllegalArgumentException(SPECIAL_MESSAGE);
-        }
-        if (contains(WHITESPACE, value)) {
-            throw new IllegalArgumentException(WHITESPACE_MESSAGE);
-        }
+        validate(value);
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
@@ -59,12 +31,35 @@ public record Password(String value) {
         return new Password(value);
     }
 
-    public PasswordHash encodeWith(PasswordEncoder encoder) {
+    public PasswordHash encodeWith(@NonNull PasswordEncoder encoder) {
         return PasswordHash.encode(this, encoder);
     }
 
-    private static boolean isMissing(String value) {
-        return value == null || value.isBlank();
+    private static void validate(String value) {
+        if (value.isBlank()) {
+            throw new PasswordException.Missing();
+        }
+        if (isShort(value)) {
+            throw new PasswordException.TooShort(MIN_LENGTH);
+        }
+        if (isLong(value)) {
+            throw new PasswordException.TooLong();
+        }
+        if (lacksUppercase(value)) {
+            throw new PasswordException.MissingUppercase();
+        }
+        if (lacksLowercase(value)) {
+            throw new PasswordException.MissingLowercase();
+        }
+        if (lacksDigit(value)) {
+            throw new PasswordException.MissingDigit();
+        }
+        if (lacksSpecialCharacter(value)) {
+            throw new PasswordException.MissingSpecialCharacter();
+        }
+        if (containsWhitespace(value)) {
+            throw new PasswordException.ContainsWhitespace();
+        }
     }
 
     private static boolean isShort(String value) {
@@ -73,6 +68,26 @@ public record Password(String value) {
 
     private static boolean isLong(String value) {
         return value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES;
+    }
+
+    private static boolean lacksUppercase(String value) {
+        return lacks(UPPERCASE, value);
+    }
+
+    private static boolean lacksLowercase(String value) {
+        return lacks(LOWERCASE, value);
+    }
+
+    private static boolean lacksDigit(String value) {
+        return lacks(DIGIT, value);
+    }
+
+    private static boolean lacksSpecialCharacter(String value) {
+        return lacks(SPECIAL, value);
+    }
+
+    private static boolean containsWhitespace(String value) {
+        return contains(WHITESPACE, value);
     }
 
     private static boolean lacks(Pattern pattern, String value) {

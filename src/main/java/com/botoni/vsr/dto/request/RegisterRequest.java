@@ -9,9 +9,10 @@ import jakarta.validation.constraints.Size;
 
 
 public record RegisterRequest(
-        @NotBlank @Size(max = 200) String name,
-        @NotNull Cpf cpf,
-        @NotNull Email email,
-        @NotNull Password password
+        @NotBlank(message = "O nome é obrigatório.")
+        @Size(max = 200, message = "O nome deve conter no máximo 200 caracteres.") String name,
+        @NotNull(message = "O CPF é obrigatório.") Cpf cpf,
+        @NotNull(message = "O e-mail é obrigatório.") Email email,
+        @NotNull(message = "A senha é obrigatória.") Password password
 ) {
 }

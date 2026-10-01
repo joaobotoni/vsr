@@ -1,5 +1,6 @@
 package com.botoni.vsr.lib;
 
+import com.botoni.vsr.exception.infrastructure.RateLimitException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -24,7 +25,7 @@ public class TokenBucket implements AutoCloseable {
 
     public TokenBucket(int capacity, double refillRate, double refillInterval) {
         if (capacity <= 0 || refillRate <= 0 || refillInterval <= 0) {
-            throw new IllegalArgumentException("Invalid argument: values must be greater than zero.");
+            throw new RateLimitException.InvalidConfiguration();
         }
         this.capacity = capacity;
         this.refillRate = refillRate;

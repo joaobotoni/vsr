@@ -1,8 +1,7 @@
-package com.botoni.vsr.exception;
+package com.botoni.vsr.exception.handler;
 
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpStatus;
+import com.botoni.vsr.exception.handler.problems.ValidationProblem;
+import com.botoni.vsr.exception.lib.problem.Problems;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,16 +9,15 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
-@Order(Ordered.HIGHEST_PRECEDENCE)
 public class ValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getAllErrors().get(0).getDefaultMessage());
+        return Problems.of(ValidationProblem.INVALID_DATA, exception.getFieldErrors());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    ProblemDetail handleHttpMessageNotReadable(HttpMessageNotReadableException exception) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMostSpecificCause().getMessage());
+    ProblemDetail handleHttpMessageNotReadable() {
+        return Problems.of(ValidationProblem.UNREADABLE_BODY);
     }
 }

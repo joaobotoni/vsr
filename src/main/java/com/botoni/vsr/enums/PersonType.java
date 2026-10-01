@@ -1,5 +1,7 @@
 package com.botoni.vsr.enums;
 
+import com.botoni.vsr.exception.infrastructure.UnknownTypeException;
+
 import lombok.Getter;
 
 @Getter
@@ -20,6 +22,6 @@ public enum PersonType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Tipo de pessoa desconhecido: " + value);
+        throw new UnknownTypeException.Pessoa(value);
     }
 }

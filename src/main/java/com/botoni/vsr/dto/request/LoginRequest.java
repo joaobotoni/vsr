@@ -5,7 +5,7 @@ import com.botoni.vsr.vo.Password;
 import jakarta.validation.constraints.NotNull;
 
 public record LoginRequest(
-        @NotNull Email email,
-        @NotNull Password password
+        @NotNull(message = "O e-mail é obrigatório.") Email email,
+        @NotNull(message = "A senha é obrigatória.") Password password
 ) {
 }

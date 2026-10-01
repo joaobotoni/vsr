@@ -1,27 +1,29 @@
 package com.botoni.vsr.vo;
 
 import com.botoni.vsr.utils.Modulo11;
+import com.botoni.vsr.vo.exceptions.CnpjException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 public record Cnpj(@JsonValue String value) {
 
-    private static final String INVALID_MESSAGE = "CNPJ inválido";
-    private static final String IGNORED_CHARACTERS = "[^0-9A-Z]";
-    private static final Pattern FORMAT = Pattern.compile("^[0-9A-Z]{12}[0-9]{2}$");
+    private static final String MASK_CHARACTERS = "[./\\s-]";
+    private static final Pattern ALPHANUMERIC = Pattern.compile("[0-9A-Z]+");
+    private static final Pattern NUMERIC = Pattern.compile("[0-9]+");
+    private static final int LENGTH = 14;
+    private static final int BASE_LENGTH = 12;
     private static final int FIRST_CHECK_DIGIT_INDEX = 12;
     private static final int SECOND_CHECK_DIGIT_INDEX = 13;
     private static final Modulo11 MODULO_11 = new Modulo11(9);
 
     public Cnpj {
         if (value == null) {
-            throw new IllegalArgumentException(INVALID_MESSAGE);
+            throw new CnpjException.Missing();
         }
         value = normalize(value);
-        if (isInvalid(value)) {
-            throw new IllegalArgumentException(INVALID_MESSAGE);
-        }
+        validate(value);
     }
 
     @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
@@ -29,30 +31,53 @@ public record Cnpj(@JsonValue String value) {
         return new Cnpj(value);
     }
 
-    private static boolean isInvalid(String value) {
-        return hasWrongFormat(value) || hasRepeatedCharacters(value) || hasWrongDigits(value);
+    private static void validate(String value) {
+        if (value.isEmpty()) {
+            throw new CnpjException.Missing();
+        }
+        if (hasWrongLength(value)) {
+            throw new CnpjException.Length(LENGTH);
+        }
+        if (hasNonAlphanumericCharacters(value)) {
+            throw new CnpjException.Characters();
+        }
+        if (hasNonNumericCheckDigits(value)) {
+            throw new CnpjException.NonNumericCheckDigits();
+        }
+        if (hasRepeatedCharacters(value)) {
+            throw new CnpjException.RepeatedCharacters();
+        }
+        if (hasWrongCheckDigits(value)) {
+            throw new CnpjException.CheckDigits();
+        }
     }
 
-    private static boolean hasWrongFormat(String value) {
-        return !FORMAT.matcher(value).matches();
+    private static boolean hasWrongLength(String value) {
+        return value.length() != LENGTH;
+    }
+
+    private static boolean hasNonAlphanumericCharacters(String value) {
+        return !ALPHANUMERIC.matcher(value).matches();
+    }
+
+    private static boolean hasNonNumericCheckDigits(String value) {
+        return !NUMERIC.matcher(checkDigits(value)).matches();
     }
 
     private static boolean hasRepeatedCharacters(String value) {
-        char first = value.charAt(0);
-        for (int i = 1; i < value.length(); i++) {
-            if (value.charAt(i) != first) {
-                return false;
-            }
-        }
-        return true;
+        return value.chars().allMatch(c -> c == value.charAt(0));
     }
 
-    private static boolean hasWrongDigits(String value) {
+    private static boolean hasWrongCheckDigits(String value) {
         return MODULO_11.isInvalid(value, FIRST_CHECK_DIGIT_INDEX)
                 || MODULO_11.isInvalid(value, SECOND_CHECK_DIGIT_INDEX);
     }
 
+    private static String checkDigits(String value) {
+        return value.substring(BASE_LENGTH);
+    }
+
     private static String normalize(String value) {
-        return value.replaceAll(IGNORED_CHARACTERS, "");
+        return value.toUpperCase(Locale.ROOT).replaceAll(MASK_CHARACTERS, "");
     }
 }

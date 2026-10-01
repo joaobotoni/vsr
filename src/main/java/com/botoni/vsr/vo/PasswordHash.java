@@ -1,5 +1,6 @@
 package com.botoni.vsr.vo;
 
+import com.botoni.vsr.vo.exceptions.PasswordHashException;
 import lombok.NonNull;
 import java.util.regex.Pattern;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,41 +11,47 @@ public record PasswordHash(String value) {
     private static final int MAX_LENGTH = 255;
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s");
-
-    private static final String INVALID_MESSAGE = "Credencial inválida";
+    private static final Pattern PRINTABLE_ASCII = Pattern.compile("^[\\x21-\\x7E]+$");
 
     public PasswordHash {
-        if (isInvalid(value)) {
-            throw new IllegalArgumentException(INVALID_MESSAGE);
+        if (value == null) {
+            throw new PasswordHashException.Missing();
         }
+        validate(value);
     }
 
     public static PasswordHash of(String value) {
         return new PasswordHash(value);
     }
 
-    public static PasswordHash encode(Password password, PasswordEncoder encoder) {
+    public static PasswordHash encode(@NonNull Password password, @NonNull PasswordEncoder encoder) {
         return new PasswordHash(encoder.encode(password.value()));
     }
 
-    public boolean matches(Password password, PasswordEncoder encoder) {
+    public boolean matches(@NonNull Password password, @NonNull PasswordEncoder encoder) {
         return encoder.matches(password.value(), value);
     }
 
-    public boolean needsRehash(PasswordEncoder encoder) {
+    public boolean needsRehash(@NonNull PasswordEncoder encoder) {
         return encoder.upgradeEncoding(value);
     }
 
-    private static boolean isInvalid(String value) {
-        return isMissing(value) || isMalformed(value);
-    }
-
-    private static boolean isMalformed(String value) {
-        return isShort(value) || isLong(value) || contains(value);
-    }
-
-    private static boolean isMissing(String value) {
-        return value == null || value.isBlank();
+    private static void validate(String value) {
+        if (value.isBlank()) {
+            throw new PasswordHashException.Missing();
+        }
+        if (isShort(value)) {
+            throw new PasswordHashException.TooShort(MIN_LENGTH);
+        }
+        if (isLong(value)) {
+            throw new PasswordHashException.TooLong(MAX_LENGTH);
+        }
+        if (containsWhitespace(value)) {
+            throw new PasswordHashException.ContainsWhitespace();
+        }
+        if (hasInvalidCharacters(value)) {
+            throw new PasswordHashException.InvalidCharacters();
+        }
     }
 
     private static boolean isShort(String value) {
@@ -55,8 +62,12 @@ public record PasswordHash(String value) {
         return value.length() > MAX_LENGTH;
     }
 
-    private static boolean contains(String value) {
-        return PasswordHash.WHITESPACE.matcher(value).find();
+    private static boolean containsWhitespace(String value) {
+        return WHITESPACE.matcher(value).find();
+    }
+
+    private static boolean hasInvalidCharacters(String value) {
+        return !PRINTABLE_ASCII.matcher(value).matches();
     }
 
     @Override
