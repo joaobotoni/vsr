@@ -54,7 +54,6 @@ public enum CheckConstraint implements Constraint {
     CK_EVIDENCIA_DESCRICAO("ck_evidencia_descricao", text("A descrição da evidência", 500));
 
     private final String constraint;
-
     private final String message;
 
     @Override

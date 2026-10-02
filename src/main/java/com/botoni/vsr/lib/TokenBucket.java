@@ -1,6 +1,9 @@
 package com.botoni.vsr.lib;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -24,9 +27,11 @@ public class TokenBucket implements AutoCloseable {
     private final ScheduledExecutorService cleaner = cleaner();
 
     public TokenBucket(int capacity, double refillRate, double refillInterval) {
+
         if (capacity <= 0 || refillRate <= 0 || refillInterval <= 0) {
             throw new IllegalArgumentException("capacity, refillRate and refillInterval must be greater than zero");
         }
+
         this.capacity = capacity;
         this.refillRate = refillRate;
         this.refillInterval = refillInterval;
@@ -73,8 +78,23 @@ public class TokenBucket implements AutoCloseable {
     }
 
     void evict(double now) {
-        buckets.forEach((key, ignored) -> buckets.computeIfPresent(key,
-                (k, bucket) -> idle(bucket, now) ? null : bucket));
+        removeKeys(findIdleKeys(now));
+    }
+
+    private List<String> findIdleKeys(double now) {
+        List<String> idleKeys = new ArrayList<>();
+        for (Map.Entry<String, Bucket> entry : buckets.entrySet()) {
+            if (idle(entry.getValue(), now)) {
+                idleKeys.add(entry.getKey());
+            }
+        }
+        return idleKeys;
+    }
+
+    private void removeKeys(List<String> keys) {
+        for (String key : keys) {
+            buckets.remove(key);
+        }
     }
 
     @Override
@@ -96,8 +116,7 @@ public class TokenBucket implements AutoCloseable {
     }
 
     private void schedule() {
-        long period = period();
-        cleaner.scheduleAtFixedRate(() -> evict(now()), period, period, TimeUnit.MILLISECONDS);
+        cleaner.scheduleAtFixedRate(() -> evict(now()), period(), period(), TimeUnit.MILLISECONDS);
     }
 
     private static double now() {

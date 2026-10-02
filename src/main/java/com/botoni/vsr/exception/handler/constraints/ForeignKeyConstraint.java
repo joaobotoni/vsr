@@ -28,7 +28,6 @@ public enum ForeignKeyConstraint implements Constraint {
     FK_VISTORIA_ENTRADA("fk_vistoria_entrada", "A vistoria de entrada deve referir-se ao mesmo imóvel da vistoria de saída.");
 
     private final String constraint;
-
     private final String message;
 
     @Override

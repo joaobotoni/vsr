@@ -12,10 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum ValidationProblem implements Problem {
 
     INVALID_DATA(HttpStatus.BAD_REQUEST, "Os dados informados são inválidos."),
-
     UNREADABLE_BODY(HttpStatus.BAD_REQUEST, "O corpo da requisição é inválido.");
 
     private final HttpStatus status;
-
     private final String message;
 }

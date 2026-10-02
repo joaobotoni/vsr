@@ -14,7 +14,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class RequestExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
-    ProblemDetail handleNoResourceFound(NoResourceFoundException exception) {
+    ProblemDetail handleNoResourceFound() {
         return Problems.of(RequestProblem.RESOURCE_NOT_FOUND);
     }
 

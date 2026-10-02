@@ -12,10 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum UnexpectedProblem implements Problem {
 
     UNEXPECTED_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Ocorreu um erro inesperado."),
-
     REQUEST_FAILED(HttpStatus.BAD_REQUEST, "Não foi possível processar a requisição.");
 
     private final HttpStatus status;
-
     private final String message;
 }

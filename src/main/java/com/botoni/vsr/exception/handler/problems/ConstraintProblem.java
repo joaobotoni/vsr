@@ -14,6 +14,5 @@ public enum ConstraintProblem implements Problem {
     DATA_INTEGRITY_VIOLATION(HttpStatus.CONFLICT, "Os dados informados violam uma regra de integridade.");
 
     private final HttpStatus status;
-
     private final String message;
 }

@@ -15,22 +15,22 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class SecurityExceptionHandler {
 
     @ExceptionHandler(JWTVerificationException.class)
-    ProblemDetail handleJWTVerification(JWTVerificationException exception) {
+    ProblemDetail handleJWTVerification() {
         return Problems.of(SecurityProblem.INVALID_TOKEN);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    ProblemDetail handleBadCredentials(BadCredentialsException exception) {
+    ProblemDetail handleBadCredentials() {
         return Problems.of(SecurityProblem.BAD_CREDENTIALS);
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    ProblemDetail handleAuthentication(AuthenticationException exception) {
+    ProblemDetail handleAuthentication() {
         return Problems.of(SecurityProblem.AUTHENTICATION_FAILED);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    ProblemDetail handleAccessDenied(AccessDeniedException exception) {
+    ProblemDetail handleAccessDenied() {
         return Problems.of(SecurityProblem.ACCESS_DENIED);
     }
 }

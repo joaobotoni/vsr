@@ -42,7 +42,6 @@ public enum UniqueConstraint implements Constraint {
     UQ_EVIDENCIA_CAMINHO_ARQUIVO("uq_evidencia_caminho_arquivo", "Este arquivo já foi enviado anteriormente.");
 
     private final String constraint;
-
     private final String message;
 
     @Override
