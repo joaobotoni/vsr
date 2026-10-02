@@ -1,9 +1,11 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.service.auth;
 
 import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.dto.response.LoginResponse;
-import com.botoni.vsr.entity.User;
+import com.botoni.vsr.entity.users.User;
 import com.botoni.vsr.mapper.LoginMapper;
+import com.botoni.vsr.repository.DeviceRepository;
+import com.botoni.vsr.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

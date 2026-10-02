@@ -2,9 +2,9 @@ package com.botoni.vsr.controller;
 
 import com.botoni.vsr.dto.request.ChangePasswordRequest;
 import com.botoni.vsr.dto.response.UserResponse;
-import com.botoni.vsr.entity.User;
-import com.botoni.vsr.service.ChangePasswordService;
-import com.botoni.vsr.service.UserService;
+import com.botoni.vsr.entity.users.User;
+import com.botoni.vsr.service.password.ChangePasswordService;
+import com.botoni.vsr.service.user.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

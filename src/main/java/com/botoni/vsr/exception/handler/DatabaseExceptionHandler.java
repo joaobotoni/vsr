@@ -14,6 +14,6 @@ public class DatabaseExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException exception) {
-        return Problems.of(Constraints.of(exception), ConstraintProblem.DATA_INTEGRITY_VIOLATION);
+        return Problems.of(Constraints.of(exception), ConstraintProblem.DATA_INTEGRITY_VIOLATION).build();
     }
 }

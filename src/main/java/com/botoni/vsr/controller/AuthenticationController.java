@@ -4,17 +4,15 @@ import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.LoginResponse;
 import com.botoni.vsr.dto.response.RegisterResponse;
-import com.botoni.vsr.service.LoginService;
-import com.botoni.vsr.service.RegisterService;
+import com.botoni.vsr.service.auth.LoginService;
+import com.botoni.vsr.service.auth.RegisterService;
 import jakarta.validation.Valid;
-import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping(path = "/auth", version = "1")

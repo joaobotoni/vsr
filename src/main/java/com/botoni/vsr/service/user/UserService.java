@@ -1,4 +1,4 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.service.user;
 
 import com.botoni.vsr.dto.response.UserResponse;
 import com.botoni.vsr.exception.infrastructure.NotFoundException;

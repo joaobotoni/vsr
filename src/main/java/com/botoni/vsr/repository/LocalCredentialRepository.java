@@ -1,6 +1,6 @@
     package com.botoni.vsr.repository;
 
-    import com.botoni.vsr.entity.LocalCredential;
+    import com.botoni.vsr.entity.users.LocalCredential;
     import com.botoni.vsr.vo.Email;
     import org.springframework.data.jpa.repository.JpaRepository;
     import org.springframework.data.jpa.repository.Query;

@@ -14,11 +14,11 @@ public class ApplicationExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException exception) {
-        return Problems.of(HttpStatus.NOT_FOUND, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.NOT_FOUND).build();
     }
 
     @ExceptionHandler(CredentialException.class)
     ProblemDetail handleCredential(CredentialException exception) {
-        return Problems.of(HttpStatus.UNPROCESSABLE_CONTENT, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.UNPROCESSABLE_CONTENT).build();
     }
 }

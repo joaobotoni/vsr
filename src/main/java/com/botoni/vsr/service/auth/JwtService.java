@@ -1,4 +1,4 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.service.auth;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;

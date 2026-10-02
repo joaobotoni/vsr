@@ -1,6 +1,7 @@
-package com.botoni.vsr.entity;
+package com.botoni.vsr.entity.users;
 
 import com.botoni.vsr.converter.EmailConverter;
+import com.botoni.vsr.entity.person.Individual;
 import com.botoni.vsr.vo.Email;
 import com.botoni.vsr.vo.PasswordHash;
 import jakarta.persistence.*;

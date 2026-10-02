@@ -1,6 +1,6 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.service.password;
 
-import com.botoni.vsr.entity.LocalCredential;
+import com.botoni.vsr.entity.users.LocalCredential;
 import com.botoni.vsr.exception.infrastructure.CredentialException;
 import com.botoni.vsr.repository.LocalCredentialRepository;
 import com.botoni.vsr.vo.Password;

@@ -11,4 +11,10 @@ public abstract sealed class UnknownTypeException extends RuntimeException {
             super(String.format("O tipo de pessoa %s é desconhecido.", value));
         }
     }
+
+    public static final class Device extends UnknownTypeException {
+        public Device(String value) {
+            super(String.format("A plataforma de dispositivo %s é desconhecida.", value));
+        }
+    }
 }

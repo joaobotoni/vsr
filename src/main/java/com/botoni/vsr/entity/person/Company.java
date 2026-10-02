@@ -1,4 +1,4 @@
-package com.botoni.vsr.entity;
+package com.botoni.vsr.entity.person;
 
 import com.botoni.vsr.converter.CnpjConverter;
 import com.botoni.vsr.enums.PersonType;

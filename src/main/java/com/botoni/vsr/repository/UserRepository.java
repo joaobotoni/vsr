@@ -1,6 +1,6 @@
 package com.botoni.vsr.repository;
 
-import com.botoni.vsr.entity.User;
+import com.botoni.vsr.entity.users.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -14,11 +14,11 @@ public class InfrastructureExceptionHandler {
 
     @ExceptionHandler(RateLimitException.Exceeded.class)
     ProblemDetail handleRateLimitExceeded(RateLimitException.Exceeded exception) {
-        return Problems.of(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.TOO_MANY_REQUESTS).build();
     }
 
     @ExceptionHandler(UnknownTypeException.class)
     ProblemDetail handleUnknownType(UnknownTypeException exception) {
-        return Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 }

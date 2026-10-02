@@ -1,4 +1,4 @@
-package com.botoni.vsr.entity;
+package com.botoni.vsr.entity.users;
 
 import com.botoni.vsr.converter.PasswordHashConverter;
 import com.botoni.vsr.vo.Password;

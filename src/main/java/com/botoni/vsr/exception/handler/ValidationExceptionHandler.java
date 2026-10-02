@@ -13,11 +13,11 @@ public class ValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ProblemDetail handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
-        return Problems.of(ValidationProblem.INVALID_DATA, exception.getFieldErrors());
+        return Problems.of(ValidationProblem.INVALID_DATA).errors(exception.getFieldErrors()).build();
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ProblemDetail handleHttpMessageNotReadable() {
-        return Problems.of(ValidationProblem.UNREADABLE_BODY);
+        return Problems.of(ValidationProblem.UNREADABLE_BODY).build();
     }
 }

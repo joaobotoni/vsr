@@ -17,26 +17,26 @@ public class DomainExceptionHandler {
 
     @ExceptionHandler(CpfException.class)
     ProblemDetail handleCpf(CpfException exception) {
-        return Problems.of(HttpStatus.BAD_REQUEST, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.BAD_REQUEST).build();
     }
 
     @ExceptionHandler(CnpjException.class)
     ProblemDetail handleCnpj(CnpjException exception) {
-        return Problems.of(HttpStatus.BAD_REQUEST, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.BAD_REQUEST).build();
     }
 
     @ExceptionHandler(EmailException.class)
     ProblemDetail handleEmail(EmailException exception) {
-        return Problems.of(HttpStatus.BAD_REQUEST, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.BAD_REQUEST).build();
     }
 
     @ExceptionHandler(PasswordException.class)
     ProblemDetail handlePassword(PasswordException exception) {
-        return Problems.of(HttpStatus.BAD_REQUEST, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.BAD_REQUEST).build();
     }
 
     @ExceptionHandler(PasswordHashException.class)
     ProblemDetail handlePasswordHash(PasswordHashException exception) {
-        return Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage(), Problems.code(exception));
+        return Problems.of(exception, HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 }

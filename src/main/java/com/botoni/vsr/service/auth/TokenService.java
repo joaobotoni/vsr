@@ -1,9 +1,10 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.service.auth;
 
 import com.botoni.vsr.dto.response.TokenResponse;
-import com.botoni.vsr.entity.User;
+import com.botoni.vsr.entity.users.User;
 import com.botoni.vsr.mapper.TokenMapper;
 import java.time.Duration;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

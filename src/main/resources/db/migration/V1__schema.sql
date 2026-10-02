@@ -1,4 +1,5 @@
-create extension if not exists pgcrypto;
+create
+extension if not exists pgcrypto;
 
 create schema documento;
 create schema pessoas;
@@ -15,7 +16,8 @@ create function public.tg_set_updated_at()
 as
 $$
 begin
-    new.updated_at := now();
+    new.updated_at
+:= now();
 return new;
 end;
 $$;
@@ -28,23 +30,33 @@ as
 $$
 declare
 v_tam   int := length(p_base);
-    v_ciclo int := p_peso_maximo - 1;
-    v_soma  int := 0;
-    v_peso  int;
-    v_valor int;
-    v_resto int;
-    i       int;
+    v_ciclo
+int := p_peso_maximo - 1;
+    v_soma
+int := 0;
+    v_peso
+int;
+    v_valor
+int;
+    v_resto
+int;
+    i
+int;
 begin
 for i in 1..v_tam
         loop
             v_peso := ((v_tam - i) % v_ciclo) + 2;
-            v_valor := ascii(substr(p_base, i, 1)) - 48;
-            v_soma := v_soma + v_valor * v_peso;
+            v_valor
+:= ascii(substr(p_base, i, 1)) - 48;
+            v_soma
+:= v_soma + v_valor * v_peso;
 end loop;
 
-    v_resto := v_soma % 11;
+    v_resto
+:= v_soma % 11;
 
-    if v_resto < 2 then
+    if
+v_resto < 2 then
         return 0;
 else
         return 11 - v_resto;
@@ -59,19 +71,23 @@ create function documento.cpf_valido(p_cpf text)
 as
 $$
 begin
-    if p_cpf is null or p_cpf !~ '^[0-9]{11}$' then
+    if
+p_cpf is null or p_cpf !~ '^[0-9]{11}$' then
         return false;
 end if;
 
-    if p_cpf = repeat(left(p_cpf, 1), 11) then
+    if
+p_cpf = repeat(left(p_cpf, 1), 11) then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cpf, 1, 9), 11) <> ascii(substr(p_cpf, 10, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cpf, 1, 9), 11) <> ascii(substr(p_cpf, 10, 1)) - 48 then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cpf, 1, 10), 11) <> ascii(substr(p_cpf, 11, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cpf, 1, 10), 11) <> ascii(substr(p_cpf, 11, 1)) - 48 then
         return false;
 end if;
 
@@ -86,19 +102,23 @@ create function documento.cnpj_valido(p_cnpj text)
 as
 $$
 begin
-    if p_cnpj is null or p_cnpj !~ '^[0-9A-Z]{12}[0-9]{2}$' then
+    if
+p_cnpj is null or p_cnpj !~ '^[0-9A-Z]{12}[0-9]{2}$' then
         return false;
 end if;
 
-    if p_cnpj = repeat(left(p_cnpj, 1), 14) then
+    if
+p_cnpj = repeat(left(p_cnpj, 1), 14) then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cnpj, 1, 12), 9) <> ascii(substr(p_cnpj, 13, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cnpj, 1, 12), 9) <> ascii(substr(p_cnpj, 13, 1)) - 48 then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cnpj, 1, 13), 9) <> ascii(substr(p_cnpj, 14, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cnpj, 1, 13), 9) <> ascii(substr(p_cnpj, 14, 1)) - 48 then
         return false;
 end if;
 
@@ -108,8 +128,7 @@ $$;
 
 create function documento.cep_valido(p_cep text)
     returns boolean
-    language sql
-    immutable parallel safe
+    language sql immutable parallel safe
 as
 $$
 select p_cep is not null
@@ -119,19 +138,17 @@ $$;
 
 create function documento.uf_valida(p_uf text)
     returns boolean
-    language sql
-    immutable parallel safe
+    language sql immutable parallel safe
 as
 $$
 select p_uf is not null
-           and p_uf = any (array ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
+           and p_uf = any (array['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
                            'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']);
 $$;
 
 create function documento.telefone_valido(p_telefone text)
     returns boolean
-    language sql
-    immutable parallel safe
+    language sql immutable parallel safe
 as
 $$
 select p_telefone is not null
@@ -140,8 +157,7 @@ $$;
 
 create function documento.texto_valido(p_texto text, p_min int, p_max int)
     returns boolean
-    language sql
-    immutable parallel safe
+    language sql immutable parallel safe
 as
 $$
 select p_texto is not null
@@ -151,8 +167,7 @@ $$;
 
 create function usuarios.email_valido(p_email text)
     returns boolean
-    language sql
-    immutable parallel safe
+    language sql immutable parallel safe
 as
 $$
 select p_email is not null
@@ -210,6 +225,7 @@ create table usuarios.usuario
 );
 
 create type usuarios.provedor_social as enum ('google');
+create type usuarios.plataforma_dispositivo as enum ('android', 'ios');
 
 create table usuarios.credencial_local
 (
@@ -232,6 +248,56 @@ create table usuarios.credencial_social
     constraint pk_credencial_social primary key (id_usuario, provedor),
     constraint fk_credencial_social_usuario foreign key (id_usuario) references usuarios.usuario (id_usuario) on delete cascade
 );
+
+create table usuarios.dispositivo
+(
+    id_dispositivo   int generated always as identity,
+    id_usuario       int                             not null,
+    identificador    uuid                            not null,
+    plataforma       usuarios.plataforma_dispositivo not null,
+    fabricante       text                            not null,
+    modelo           text                            not null,
+    versao_so        text                            not null,
+    ultimo_ip        inet                            not null,
+    ultimo_acesso_em timestamptz                     not null default now(),
+    created_at       timestamptz                     not null default now(),
+    updated_at       timestamptz                     not null default now(),
+    constraint pk_dispositivo primary key (id_dispositivo),
+    constraint fk_dispositivo_usuario foreign key (id_usuario) references usuarios.usuario (id_usuario) on delete cascade,
+    constraint uq_dispositivo_usuario_identificador unique (id_usuario, identificador),
+    constraint ck_dispositivo_fabricante check (length(btrim(fabricante)) between 1 and 100),
+    constraint ck_dispositivo_modelo check (length(btrim(modelo)) between 1 and 100),
+    constraint ck_dispositivo_versao_so check (length(btrim(versao_so)) between 1 and 50)
+);
+create table usuarios.sessao
+(
+    id_sessao      int generated always as identity,
+    id_dispositivo int         not null,
+    expira_em      timestamptz not null,
+    revogada_em    timestamptz,
+    created_at     timestamptz not null default now(),
+    updated_at     timestamptz not null default now(),
+    constraint pk_sessao primary key (id_sessao),
+    constraint fk_sessao_dispositivo foreign key (id_dispositivo) references usuarios.dispositivo (id_dispositivo) on delete cascade
+);
+
+create index ix_sessao_dispositivo on usuarios.sessao (id_dispositivo) where revogada_em is null;
+create index ix_sessao_expira_em on usuarios.sessao (expira_em);
+create index ix_sessao_revogada_em on usuarios.sessao (revogada_em) where revogada_em is not null;
+
+create table usuarios.refresh_token
+(
+    id_refresh_token bigint generated always as identity,
+    id_sessao        int         not null,
+    token_hash       text        not null,
+    usado_em         timestamptz,
+    created_at       timestamptz not null default now(),
+    constraint pk_refresh_token primary key (id_refresh_token),
+    constraint fk_refresh_token_sessao foreign key (id_sessao) references usuarios.sessao (id_sessao) on delete cascade
+);
+
+create index ix_refresh_token_sessao on usuarios.refresh_token (id_sessao) where usado_em is null;
+create index ix_refresh_token_usado_em on usuarios.refresh_token (usado_em) where usado_em is not null;
 
 create type vinculos.tipo_vinculo as enum ('socio', 'representante', 'mei', 'funcionario');
 
@@ -561,6 +627,12 @@ alter table usuarios.usuario
 alter table usuarios.credencial_social
     add constraint uq_credencial_social_identidade unique (provedor, identificador_externo);
 
+alter table usuarios.dispositivo
+    add constraint uq_dispositivo_usuario_identificador unique (id_usuario, identificador);
+
+alter table usuarios.refresh_token
+    add constraint uq_refresh_token_hash unique (token_hash);
+
 alter table vinculos.vinculo_pessoa_empresa
     add constraint uq_vinculo unique (id_pessoa_fisica, id_pessoa_juridica);
 
@@ -598,6 +670,19 @@ alter table usuarios.usuario
 
 alter table usuarios.credencial_local
     add constraint ck_credencial_local_hash check (senha_hash ~ '^\$(2[aby]|argon2(i|d|id))\$');
+
+alter table usuarios.dispositivo
+    add constraint ck_dispositivo_fabricante check (fabricante is null or documento.texto_valido(fabricante, 1, 64)),
+    add constraint ck_dispositivo_modelo check (modelo is null or documento.texto_valido(modelo, 1, 64)),
+    add constraint ck_dispositivo_versao_so check (versao_so is null or documento.texto_valido(versao_so, 1, 16));
+
+alter table usuarios.sessao
+    add constraint ck_sessao_expira_em check (expira_em > created_at),
+    add constraint ck_sessao_revogada_em check (revogada_em is null or revogada_em >= created_at);
+
+alter table usuarios.refresh_token
+    add constraint ck_refresh_token_hash check (token_hash ~ '^[0-9a-f]{64}$'),
+    add constraint ck_refresh_token_usado_em check (usado_em is null or usado_em >= created_at);
 
 alter table pessoas.pessoa_contato
     add constraint ck_pessoa_contato_telefone check (documento.telefone_valido(telefone)),
@@ -699,6 +784,20 @@ execute function public.tg_set_updated_at();
 create trigger tg_credencial_social_updated_at
     before update
     on usuarios.credencial_social
+    for each row
+    when (old is distinct from new)
+execute function public.tg_set_updated_at();
+
+create trigger tg_dispositivo_updated_at
+    before update
+    on usuarios.dispositivo
+    for each row
+    when (old is distinct from new)
+execute function public.tg_set_updated_at();
+
+create trigger tg_sessao_updated_at
+    before update
+    on usuarios.sessao
     for each row
     when (old is distinct from new)
 execute function public.tg_set_updated_at();

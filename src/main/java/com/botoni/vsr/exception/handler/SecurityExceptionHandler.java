@@ -16,21 +16,21 @@ public class SecurityExceptionHandler {
 
     @ExceptionHandler(JWTVerificationException.class)
     ProblemDetail handleJWTVerification() {
-        return Problems.of(SecurityProblem.INVALID_TOKEN);
+        return Problems.of(SecurityProblem.INVALID_TOKEN).build();
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     ProblemDetail handleBadCredentials() {
-        return Problems.of(SecurityProblem.BAD_CREDENTIALS);
+        return Problems.of(SecurityProblem.BAD_CREDENTIALS).build();
     }
 
     @ExceptionHandler(AuthenticationException.class)
     ProblemDetail handleAuthentication() {
-        return Problems.of(SecurityProblem.AUTHENTICATION_FAILED);
+        return Problems.of(SecurityProblem.AUTHENTICATION_FAILED).build();
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     ProblemDetail handleAccessDenied() {
-        return Problems.of(SecurityProblem.ACCESS_DENIED);
+        return Problems.of(SecurityProblem.ACCESS_DENIED).build();
     }
 }
