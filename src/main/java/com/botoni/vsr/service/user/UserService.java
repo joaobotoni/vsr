@@ -2,7 +2,7 @@ package com.botoni.vsr.service.user;
 
 import com.botoni.vsr.dto.response.UserResponse;
 import com.botoni.vsr.exception.infrastructure.NotFoundException;
-import com.botoni.vsr.mapper.UserMapper;
+import com.botoni.vsr.mapper.user.UserMapper;
 import com.botoni.vsr.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

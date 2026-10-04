@@ -1,6 +1,7 @@
 package com.botoni.vsr.enums;
 
 import com.botoni.vsr.exception.infrastructure.UnknownTypeException;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import lombok.Getter;
 
@@ -10,6 +11,7 @@ public enum DevicePlatform {
     ANDROID("android"),
     IOS("ios");
 
+    @JsonValue
     private final String value;
 
     DevicePlatform(String value) {

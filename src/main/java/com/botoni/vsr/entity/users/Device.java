@@ -2,23 +2,30 @@ package com.botoni.vsr.entity.users;
 
 import com.botoni.vsr.converter.DevicePlatformConverter;
 import com.botoni.vsr.enums.DevicePlatform;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Generated;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.generator.EventType;
-import org.hibernate.type.SqlTypes;
+import lombok.Setter;
+import org.hibernate.annotations.ColumnTransformer;
 
-import java.net.InetAddress;
-import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Getter
+@Setter
 @Builder
 @Table(schema = "usuarios", name = "dispositivo")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -38,31 +45,16 @@ public class Device {
     private UUID identifier;
 
     @Convert(converter = DevicePlatformConverter.class)
+    @ColumnTransformer(write = "?::usuarios.plataforma_dispositivo")
     @Column(name = "plataforma", nullable = false)
     private DevicePlatform platform;
 
-    @Column(name = "fabricante")
+    @Column(name = "fabricante", nullable = false, length = 64)
     private String manufacturer;
 
-    @Column(name = "modelo")
+    @Column(name = "modelo", nullable = false, length = 64)
     private String model;
 
-    @Column(name = "versao_so")
+    @Column(name = "versao_so", nullable = false, length = 16)
     private String osVersion;
-
-    @JdbcTypeCode(SqlTypes.INET)
-    @Column(name = "ultimo_ip", nullable = false)
-    private InetAddress lastIp;
-
-    @Builder.Default
-    @Column(name = "ultimo_acesso_em", nullable = false)
-    private Instant lastAccessAt = Instant.now();
-
-    @Generated(event = EventType.INSERT)
-    @Column(name = "created_at", insertable = false, updatable = false)
-    private Instant createdAt;
-
-    @Generated(event = {EventType.INSERT, EventType.UPDATE})
-    @Column(name = "updated_at", insertable = false, updatable = false)
-    private Instant updatedAt;
 }

@@ -1,8 +1,8 @@
 package com.botoni.vsr.controller;
 
-import com.botoni.vsr.dto.request.ChangePasswordRequest;
+import com.botoni.vsr.dto.request.password.ChangePasswordRequest;
 import com.botoni.vsr.dto.response.UserResponse;
-import com.botoni.vsr.entity.users.User;
+import com.botoni.vsr.security.Principal;
 import com.botoni.vsr.service.password.ChangePasswordService;
 import com.botoni.vsr.service.user.UserService;
 import jakarta.validation.Valid;
@@ -24,13 +24,13 @@ public class UserController {
     private final ChangePasswordService changePasswordService;
 
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(userService.findById(user.getId()));
+    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal Principal principal) {
+        return ResponseEntity.ok(userService.findById(principal.user().getId()));
     }
 
     @PatchMapping("/me/password")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal User user, @RequestBody @Valid ChangePasswordRequest request) {
-        changePasswordService.changePassword(user.getId(), request.currentPassword(), request.newPassword());
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Principal principal, @RequestBody @Valid ChangePasswordRequest request) {
+        changePasswordService.changePassword(principal.user().getId(), request.currentPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
 }

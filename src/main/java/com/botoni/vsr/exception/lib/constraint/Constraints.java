@@ -1,8 +1,5 @@
 package com.botoni.vsr.exception.lib.constraint;
 
-import com.botoni.vsr.exception.handler.constraints.CheckConstraint;
-import com.botoni.vsr.exception.handler.constraints.ForeignKeyConstraint;
-import com.botoni.vsr.exception.handler.constraints.UniqueConstraint;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 
@@ -15,38 +12,39 @@ public final class Constraints {
     private static final String DUPLICATE = "Duplicate constraint '%s': %s and %s";
     private static final String UNNAMED = "Constraint without name: %s";
 
-    private static final Map<String, Constraint> CONSTRAINTS = index(
-            CheckConstraint.values(),
-            ForeignKeyConstraint.values(),
-            UniqueConstraint.values()
-    );
+    private final Map<String, Constraint> constraints;
 
-    private Constraints() {
+    private Constraints(Map<String, Constraint> constraints) {
+        this.constraints = constraints;
     }
 
-    public static Constraint of(DataIntegrityViolationException exception) {
-        ConstraintViolationException violation = find(exception);
-        if (violation == null) {
-            return null;
-        }
-        return of(violation.getConstraintName());
+    public static Constraints of(Constraint[]... groups) {
+        return new Constraints(index(groups));
     }
 
-    public static Constraint of(String name) {
+    public Constraint find(DataIntegrityViolationException exception) {
+        return find(name(violation(exception)));
+    }
+
+    public Constraint find(String name) {
         if (name == null) {
             return null;
         }
-        return CONSTRAINTS.get(normalize(name));
+        return constraints.get(normalize(name));
     }
 
-    private static ConstraintViolationException find(Throwable cause) {
+    private static String name(ConstraintViolationException violation) {
+        return violation == null ? null : violation.getConstraintName();
+    }
+
+    private static ConstraintViolationException violation(Throwable cause) {
         if (cause == null) {
             return null;
         }
         if (cause instanceof ConstraintViolationException violation) {
             return violation;
         }
-        return find(cause.getCause());
+        return violation(cause.getCause());
     }
 
     private static Map<String, Constraint> index(Constraint[]... groups) {
@@ -59,23 +57,30 @@ public final class Constraints {
 
     private static void putAll(Map<String, Constraint> map, Constraint[] group) {
         for (Constraint constraint : group) {
-            put(map, constraint);
+            put(map, key(constraint), constraint);
         }
     }
 
-    private static void put(Map<String, Constraint> map, Constraint constraint) {
-        Constraint previous = map.putIfAbsent(key(constraint), constraint);
-        if (previous != null) {
-            throw new IllegalStateException(String.format(DUPLICATE, constraint.constraint(), previous, constraint));
+    private static void put(Map<String, Constraint> map, String key, Constraint constraint) {
+        if (map.containsKey(key)) {
+            throw duplicate(map.get(key), constraint);
         }
+        map.put(key, constraint);
     }
 
     private static String key(Constraint constraint) {
-        String name = constraint.constraint();
-        if (name == null) {
-            throw new IllegalStateException(String.format(UNNAMED, constraint));
+        if (constraint.constraint() == null) {
+            throw unnamed(constraint);
         }
-        return normalize(name);
+        return normalize(constraint.constraint());
+    }
+
+    private static IllegalStateException duplicate(Constraint previous, Constraint current) {
+        return new IllegalStateException(String.format(DUPLICATE, current.constraint(), previous, current));
+    }
+
+    private static IllegalStateException unnamed(Constraint constraint) {
+        return new IllegalStateException(String.format(UNNAMED, constraint));
     }
 
     private static String normalize(String name) {

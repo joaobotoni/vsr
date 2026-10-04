@@ -29,8 +29,8 @@ public record PasswordHash(@JsonValue String value) {
         return new PasswordHash(encoder.encode(password.value()));
     }
 
-    public boolean matches(@NonNull Password password, @NonNull PasswordEncoder encoder) {
-        return encoder.matches(password.value(), value);
+    public boolean matches(@NonNull String raw, @NonNull PasswordEncoder encoder) {
+        return encoder.matches(raw, value);
     }
 
     public boolean needsRehash(@NonNull PasswordEncoder encoder) {

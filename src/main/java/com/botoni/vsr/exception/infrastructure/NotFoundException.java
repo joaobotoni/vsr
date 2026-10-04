@@ -11,4 +11,5 @@ public abstract sealed class NotFoundException extends RuntimeException {
             super("O usuário solicitado não foi encontrado.");
         }
     }
+
 }

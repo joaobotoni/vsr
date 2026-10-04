@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Getter
@@ -20,6 +21,7 @@ public abstract class Person {
     private Integer id;
 
     @Convert(converter = PersonTypeConverter.class)
+    @ColumnTransformer(write = "?::pessoas.tipo_pessoa")
     @Column(name = "tipo", nullable = false, updatable = false)
     private PersonType type;
 

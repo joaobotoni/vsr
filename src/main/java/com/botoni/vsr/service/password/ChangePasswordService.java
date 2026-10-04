@@ -9,6 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class ChangePasswordService {
@@ -17,14 +20,26 @@ public class ChangePasswordService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public void changePassword(Integer userId, Password currentPassword, Password newPassword) {
-        LocalCredential credential = localCredentialRepository.findById(userId)
+    public void changePassword(Integer userId, String currentPassword, Password newPassword) {
+        LocalCredential credential = verified(userId, currentPassword);
+        change(credential, newPassword);
+    }
+
+    private LocalCredential verified(Integer userId, String password) {
+        return find(userId).filter(credential -> matches(credential, password))
                 .orElseThrow(CredentialException.IncorrectCurrentPassword::new);
+    }
 
-        if (!credential.matches(currentPassword, passwordEncoder)) {
-            throw new CredentialException.IncorrectCurrentPassword();
-        }
+    private Optional<LocalCredential> find(Integer userId) {
+        return localCredentialRepository.findById(userId);
+    }
 
-        credential.changePassword(newPassword, passwordEncoder);
+    private boolean matches(LocalCredential credential, String password) {
+        return credential.getPasswordHash().matches(password, passwordEncoder);
+    }
+
+    private void change(LocalCredential credential, Password password) {
+        credential.setPasswordHash(password.encodeWith(passwordEncoder));
+        credential.setPasswordUpdatedAt(Instant.now());
     }
 }

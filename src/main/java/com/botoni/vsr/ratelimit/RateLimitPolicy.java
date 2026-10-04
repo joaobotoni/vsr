@@ -1,6 +1,6 @@
 package com.botoni.vsr.ratelimit;
 
-import com.botoni.vsr.configuration.properties.RateLimitProperties;
+import com.botoni.vsr.properties.ratelimit.RateLimitProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpMethod;
 

@@ -3,11 +3,14 @@ package com.botoni.vsr.exception.handler;
 import com.botoni.vsr.exception.handler.problems.UnexpectedProblem;
 import com.botoni.vsr.exception.lib.problem.Problems;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Order(Ordered.LOWEST_PRECEDENCE)
 @RestControllerAdvice
 public class UnexpectedExceptionHandler {
 

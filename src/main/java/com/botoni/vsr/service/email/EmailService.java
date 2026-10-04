@@ -1,6 +1,6 @@
 package com.botoni.vsr.service.email;
 
-import com.botoni.vsr.configuration.properties.EmailProperties;
+import com.botoni.vsr.properties.mail.EmailProperties;
 import com.botoni.vsr.email.Details;
 import com.botoni.vsr.email.Sender;
 import com.botoni.vsr.email.exceptions.SenderException;

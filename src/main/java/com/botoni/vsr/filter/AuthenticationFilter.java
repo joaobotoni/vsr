@@ -1,7 +1,6 @@
 package com.botoni.vsr.filter;
 
-import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.botoni.vsr.service.auth.JwtService;
+import com.botoni.vsr.service.token.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,7 +14,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -40,12 +38,8 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void authenticate(HttpServletRequest request) {
-        try {
-            UserDetails user = loadUserByToken(getToken(request));
-            setAuthentication(authenticationToken(user));
-        } catch (JWTVerificationException | UsernameNotFoundException exception) {
-            SecurityContextHolder.clearContext();
-        }
+        UserDetails user = loadUserByToken(getToken(request));
+        setAuthentication(authenticationToken(user));
     }
 
     private UserDetails loadUserByToken(String token) {

@@ -1,40 +1,49 @@
-    package com.botoni.vsr.entity.users;
+package com.botoni.vsr.entity.users;
 
-    import jakarta.persistence.*;
-    import lombok.AccessLevel;
-    import lombok.AllArgsConstructor;
-    import lombok.Builder;
-    import lombok.Getter;
-    import lombok.NoArgsConstructor;
-    import org.hibernate.annotations.Generated;
-    import org.hibernate.generator.EventType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-    import java.time.Instant;
+import java.time.Instant;
 
-    @Entity
-    @Getter
-    @Builder
-    @Table(schema = "usuarios", name = "refresh_token")
-    @NoArgsConstructor(access = AccessLevel.PROTECTED)
-    @AllArgsConstructor(access = AccessLevel.PRIVATE)
-    public class RefreshToken {
+@Entity
+@Getter
+@Setter
+@Builder
+@Table(schema = "usuarios", name = "refresh_token")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+public class RefreshToken {
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        @Column(name = "id_refresh_token")
-        private Long id;
+    @Id
+    @Column(name = "id_sessao")
+    private Integer id;
 
-        @ManyToOne(fetch = FetchType.LAZY, optional = false)
-        @JoinColumn(name = "id_sessao", nullable = false, updatable = false)
-        private Session session;
+    @MapsId
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_sessao")
+    private Session session;
 
-        @Column(name = "token_hash", nullable = false, updatable = false)
-        private String hash;
+    @Column(name = "hash_atual", nullable = false)
+    private byte[] currentHash;
 
-        @Column(name = "usado_em")
-        private Instant usedAt;
+    @Column(name = "hash_anterior")
+    private byte[] previousHash;
 
-        @Generated(event = EventType.INSERT)
-        @Column(name = "created_at", insertable = false, updatable = false)
-        private Instant createdAt;
-    }
+    @Column(name = "expira_em", nullable = false)
+    private Instant expiresAt;
+
+    @Column(name = "renovado_em")
+    private Instant renewedAt;
+}
