@@ -1,4 +1,5 @@
-create extension if not exists pgcrypto;
+create
+extension if not exists pgcrypto;
 
 create schema documento;
 create schema pessoas;
@@ -15,7 +16,8 @@ create function public.tg_set_updated_at()
 as
 $$
 begin
-    new.updated_at := now();
+    new.updated_at
+:= now();
 return new;
 end;
 $$;
@@ -28,23 +30,33 @@ as
 $$
 declare
 v_tam   int := length(p_base);
-    v_ciclo int := p_peso_maximo - 1;
-    v_soma  int := 0;
-    v_peso  int;
-    v_valor int;
-    v_resto int;
-    i       int;
+    v_ciclo
+int := p_peso_maximo - 1;
+    v_soma
+int := 0;
+    v_peso
+int;
+    v_valor
+int;
+    v_resto
+int;
+    i
+int;
 begin
 for i in 1..v_tam
         loop
             v_peso := ((v_tam - i) % v_ciclo) + 2;
-            v_valor := ascii(substr(p_base, i, 1)) - 48;
-            v_soma := v_soma + v_valor * v_peso;
+            v_valor
+:= ascii(substr(p_base, i, 1)) - 48;
+            v_soma
+:= v_soma + v_valor * v_peso;
 end loop;
 
-    v_resto := v_soma % 11;
+    v_resto
+:= v_soma % 11;
 
-    if v_resto < 2 then
+    if
+v_resto < 2 then
         return 0;
 else
         return 11 - v_resto;
@@ -59,19 +71,23 @@ create function documento.cpf_valido(p_cpf text)
 as
 $$
 begin
-    if p_cpf is null or p_cpf !~ '^[0-9]{11}$' then
+    if
+p_cpf is null or p_cpf !~ '^[0-9]{11}$' then
         return false;
 end if;
 
-    if p_cpf = repeat(left(p_cpf, 1), 11) then
+    if
+p_cpf = repeat(left(p_cpf, 1), 11) then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cpf, 1, 9), 11) <> ascii(substr(p_cpf, 10, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cpf, 1, 9), 11) <> ascii(substr(p_cpf, 10, 1)) - 48 then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cpf, 1, 10), 11) <> ascii(substr(p_cpf, 11, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cpf, 1, 10), 11) <> ascii(substr(p_cpf, 11, 1)) - 48 then
         return false;
 end if;
 
@@ -86,19 +102,23 @@ create function documento.cnpj_valido(p_cnpj text)
 as
 $$
 begin
-    if p_cnpj is null or p_cnpj !~ '^[0-9A-Z]{12}[0-9]{2}$' then
+    if
+p_cnpj is null or p_cnpj !~ '^[0-9A-Z]{12}[0-9]{2}$' then
         return false;
 end if;
 
-    if p_cnpj = repeat(left(p_cnpj, 1), 14) then
+    if
+p_cnpj = repeat(left(p_cnpj, 1), 14) then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cnpj, 1, 12), 9) <> ascii(substr(p_cnpj, 13, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cnpj, 1, 12), 9) <> ascii(substr(p_cnpj, 13, 1)) - 48 then
         return false;
 end if;
 
-    if documento.dv_modulo11(substr(p_cnpj, 1, 13), 9) <> ascii(substr(p_cnpj, 14, 1)) - 48 then
+    if
+documento.dv_modulo11(substr(p_cnpj, 1, 13), 9) <> ascii(substr(p_cnpj, 14, 1)) - 48 then
         return false;
 end if;
 
@@ -122,7 +142,7 @@ create function documento.uf_valida(p_uf text)
 as
 $$
 select p_uf is not null
-           and p_uf = any (array ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
+           and p_uf = any (array['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
                            'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']);
 $$;
 
@@ -205,11 +225,11 @@ create type usuarios.plataforma_dispositivo as enum ('android', 'ios');
 
 create table usuarios.usuario
 (
-    id_usuario          int generated always as identity,
-    id_pessoa           int         not null,
-    email               text        not null,
-    created_at          timestamptz not null default now(),
-    updated_at          timestamptz not null default now(),
+    id_usuario int generated always as identity,
+    id_pessoa  int         not null,
+    email      text        not null,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
     constraint pk_usuario primary key (id_usuario),
     constraint fk_usuario_pessoa foreign key (id_pessoa) references pessoas.pessoa_fisica (id_pessoa) on delete cascade,
     constraint uq_usuario_pessoa unique (id_pessoa),
@@ -226,7 +246,8 @@ create table usuarios.credencial_local
     updated_at          timestamptz not null default now(),
     constraint pk_credencial_local primary key (id_usuario),
     constraint fk_credencial_local_usuario foreign key (id_usuario) references usuarios.usuario (id_usuario) on delete cascade,
-    constraint ck_credencial_local_hash check (senha_hash ~ '^\$(2[aby]|argon2(i|d|id))\$')
+    constraint ck_credencial_local_hash check (senha_hash ~ '^\$(2[aby]|argon2(i|d|id))\$'
+)
     );
 
 create table usuarios.credencial_social
@@ -243,15 +264,15 @@ create table usuarios.credencial_social
 
 create table usuarios.dispositivo
 (
-    id_dispositivo   int generated always as identity,
-    id_usuario       int                             not null,
-    identificador    uuid                            not null,
-    plataforma       usuarios.plataforma_dispositivo not null,
-    fabricante       text                            not null,
-    modelo           text                            not null,
-    versao_so        text                            not null,
-    created_at       timestamptz                     not null default now(),
-    updated_at       timestamptz                     not null default now(),
+    id_dispositivo int generated always as identity,
+    id_usuario     int                             not null,
+    identificador  uuid                            not null,
+    plataforma     usuarios.plataforma_dispositivo not null,
+    fabricante     text                            not null,
+    modelo         text                            not null,
+    versao_so      text                            not null,
+    created_at     timestamptz                     not null default now(),
+    updated_at     timestamptz                     not null default now(),
     constraint pk_dispositivo primary key (id_dispositivo),
     constraint fk_dispositivo_usuario foreign key (id_usuario) references usuarios.usuario (id_usuario) on delete cascade,
     constraint uq_dispositivo_usuario_identificador unique (id_usuario, identificador),
@@ -547,7 +568,8 @@ create table vistorias.vistoria
     constraint fk_vistoria_pessoa_juridica foreign key (id_pessoa_juridica) references pessoas.pessoa_juridica (id_pessoa),
     constraint fk_vistoria_imovel foreign key (id_imovel) references imoveis.imovel (id_imovel),
     constraint fk_vistoria_entrada foreign key (id_vistoria_entrada, id_imovel) references vistorias.vistoria (id_vistoria, id_imovel),
-    constraint ck_vistoria_observacoes check (observacoes_iniciais is null or documento.texto_valido(observacoes_iniciais, 1, 2000)),
+    constraint ck_vistoria_observacoes check (observacoes_iniciais is null or
+                                              documento.texto_valido(observacoes_iniciais, 1, 2000)),
     constraint ck_vistoria_entrada check (id_vistoria_entrada is null or tipo = 'saida'),
     constraint ck_vistoria_finalizada check ((status = 'finalizada') = (finalizada_em is not null)),
     constraint ck_vistoria_datas check (finalizada_em is null or finalizada_em >= iniciada_em)
@@ -656,129 +678,229 @@ create index ix_evidencia_ambiente on vistorias.evidencia (id_ambiente);
 create index ix_evidencia_item on vistorias.evidencia (id_item);
 
 create trigger tg_pessoa_updated_at
-    before update on pessoas.pessoa
+    before update
+    on pessoas.pessoa
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_pessoa_fisica_updated_at
-    before update on pessoas.pessoa_fisica
+    before update
+    on pessoas.pessoa_fisica
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_pessoa_juridica_updated_at
-    before update on pessoas.pessoa_juridica
+    before update
+    on pessoas.pessoa_juridica
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_usuario_updated_at
-    before update on usuarios.usuario
+    before update
+    on usuarios.usuario
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_credencial_local_updated_at
-    before update on usuarios.credencial_local
+    before update
+    on usuarios.credencial_local
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_credencial_social_updated_at
-    before update on usuarios.credencial_social
+    before update
+    on usuarios.credencial_social
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_dispositivo_updated_at
-    before update on usuarios.dispositivo
+    before update
+    on usuarios.dispositivo
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_sessao_updated_at
-    before update on usuarios.sessao
+    before update
+    on usuarios.sessao
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_refresh_token_updated_at
-    before update on usuarios.refresh_token
+    before update
+    on usuarios.refresh_token
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_vinculo_updated_at
-    before update on vinculos.vinculo_pessoa_empresa
+    before update
+    on vinculos.vinculo_pessoa_empresa
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_pessoa_contato_updated_at
-    before update on pessoas.pessoa_contato
+    before update
+    on pessoas.pessoa_contato
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_pessoa_titularidade_updated_at
-    before update on pessoas.pessoa_titularidade
+    before update
+    on pessoas.pessoa_titularidade
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_estado_updated_at
-    before update on enderecos.estado
+    before update
+    on enderecos.estado
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_cidade_updated_at
-    before update on enderecos.cidade
+    before update
+    on enderecos.cidade
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_bairro_updated_at
-    before update on enderecos.bairro
+    before update
+    on enderecos.bairro
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_logradouro_updated_at
-    before update on enderecos.logradouro
+    before update
+    on enderecos.logradouro
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_endereco_updated_at
-    before update on enderecos.endereco
+    before update
+    on enderecos.endereco
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_imovel_updated_at
-    before update on imoveis.imovel
+    before update
+    on imoveis.imovel
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_tipo_ambiente_updated_at
-    before update on catalogo.tipo_ambiente
+    before update
+    on catalogo.tipo_ambiente
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_tipo_item_updated_at
-    before update on catalogo.tipo_item
+    before update
+    on catalogo.tipo_item
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_vistoria_updated_at
-    before update on vistorias.vistoria
+    before update
+    on vistorias.vistoria
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_vistoria_pessoa_updated_at
-    before update on vistorias.vistoria_pessoa
+    before update
+    on vistorias.vistoria_pessoa
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_ambiente_updated_at
-    before update on vistorias.ambiente
+    before update
+    on vistorias.ambiente
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_item_updated_at
-    before update on vistorias.item
+    before update
+    on vistorias.item
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
 
 create trigger tg_evidencia_updated_at
-    before update on vistorias.evidencia
+    before update
+    on vistorias.evidencia
     for each row when (old is distinct from new)
 execute function public.tg_set_updated_at();
+
+create procedure usuarios.registrar_dispositivo(p_id_usuario int, p_identificador uuid, p_plataforma text,
+                                                p_fabricante text, p_modelo text, p_versao_so text)
+    language sql as
+$$
+insert into usuarios.dispositivo (id_usuario, identificador, plataforma, fabricante, modelo, versao_so)
+values (p_id_usuario, p_identificador, p_plataforma::usuarios.plataforma_dispositivo, p_fabricante, p_modelo, p_versao_so)
+on conflict (id_usuario, identificador) do
+update
+    set plataforma = excluded.plataforma,
+    fabricante = excluded.fabricante,
+    modelo = excluded.modelo,
+    versao_so = excluded.versao_so;
+$$;
+
+create procedure usuarios.registrar_acesso_sessao(p_id_sessao int)
+    language sql as
+$$
+update usuarios.sessao
+set ultimo_acesso_em = now()
+where id_sessao = p_id_sessao
+  and revogada_em is null
+  and expira_em > now();
+$$;
+
+create procedure usuarios.revogar_sessoes_usuario(p_id_usuario int, p_id_sessao_mantida int)
+    language sql as
+$$
+update usuarios.sessao s
+set revogada_em = now() from usuarios.dispositivo d
+where d.id_dispositivo = s.id_dispositivo
+  and d.id_usuario = p_id_usuario
+  and s.id_sessao <> p_id_sessao_mantida
+  and s.revogada_em is null
+  and s.expira_em
+    > now();
+$$;
+
+create procedure usuarios.revogar_sessoes_dispositivo(p_id_dispositivo int)
+    language sql as
+$$
+update usuarios.sessao
+set revogada_em = now()
+where id_dispositivo = p_id_dispositivo
+  and revogada_em is null
+  and expira_em > now();
+$$;
+
+create procedure usuarios.revogar_sessao(p_id_sessao int)
+    language sql as
+$$
+update usuarios.sessao
+set revogada_em = now()
+where id_sessao = p_id_sessao
+  and revogada_em is null;
+$$;
+
+create procedure usuarios.emitir_refresh_token(p_id_sessao int, p_hash bytea)
+    language sql as
+$$
+insert into usuarios.refresh_token (id_sessao, hash_atual, expira_em)
+select id_sessao, p_hash, expira_em
+from usuarios.sessao
+where id_sessao = p_id_sessao;
+$$;
+
+create procedure usuarios.renovar_refresh_token(p_id_sessao int, p_hash_novo bytea)
+    language sql as
+$$
+update usuarios.refresh_token
+set hash_anterior = hash_atual,
+    hash_atual    = p_hash_novo,
+    renovado_em   = now()
+where id_sessao = p_id_sessao;
+$$;
 
 insert into enderecos.estado (sigla, nome)
 values ('AC', 'Acre'),
