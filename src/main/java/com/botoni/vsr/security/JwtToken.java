@@ -31,10 +31,14 @@ public final class JwtToken {
         this.verifier = verifier(algorithm, issuer);
     }
 
-    public String issue(UserDetails user, Integer session) {
-        requireUser(user);
-        requireSession(session);
-        return create(user, session);
+    public String issue(UserDetails principal, Integer session) {
+        if (principal == null) {
+            throw new JwtException(JwtProblem.MISSING_USER);
+        }
+        if (session == null) {
+            throw new JwtException(JwtProblem.MISSING_SESSION);
+        }
+        return create(principal, session);
     }
 
     public Claims verify(String token) {
@@ -46,11 +50,11 @@ public final class JwtToken {
         return expirationTime.toSeconds();
     }
 
-    private String create(UserDetails user, Integer session) {
+    private String create(UserDetails principal, Integer session) {
         Instant now = Instant.now();
         return JWT.create()
                 .withIssuer(issuer)
-                .withSubject(user.getUsername())
+                .withSubject(principal.getUsername())
                 .withClaim(SESSION_CLAIM, session)
                 .withIssuedAt(now)
                 .withExpiresAt(now.plus(expirationTime))
@@ -58,26 +62,10 @@ public final class JwtToken {
     }
 
     private DecodedJWT decode(String token) {
-        requireToken(token);
-        return verifier.verify(token);
-    }
-
-    private static void requireUser(UserDetails user) {
-        if (user == null) {
-            throw new JwtException(JwtProblem.MISSING_USER);
-        }
-    }
-
-    private static void requireSession(Integer session) {
-        if (session == null) {
-            throw new JwtException(JwtProblem.MISSING_SESSION);
-        }
-    }
-
-    private static void requireToken(String token) {
         if (token == null || token.isBlank()) {
             throw new JwtException(JwtProblem.MISSING_TOKEN);
         }
+        return verifier.verify(token);
     }
 
     private static String subject(DecodedJWT jwt) {

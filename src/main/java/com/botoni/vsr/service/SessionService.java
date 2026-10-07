@@ -21,12 +21,13 @@ public class SessionService {
 
     private final SessionRepository sessionRepository;
     private final SessionMapper sessionMapper;
-    private final SessionProperties properties;
+    private final SessionProperties sessionProperties;
 
     @Transactional
     public Session open(Device device, InetAddress ip) {
         revokeDevice(device);
-        return save(device, ip);
+        Session session = create(device, ip);
+        return persist(session);
     }
 
     @Transactional
@@ -38,21 +39,19 @@ public class SessionService {
     @Transactional
     public void revoke(User user, Integer session) {
         Session found = find(user, session);
-        revoke(found);
+        revokeSession(found);
     }
 
     @Transactional
-    public void revokeUser(User user, Integer keptSession) {
+    public void revokeOthers(User user, Integer keptSession) {
         Session kept = findActive(user, keptSession);
-        revokeOthers(user, kept);
+        revokeExcept(user, kept);
     }
 
-    private Session save(Device device, InetAddress ip) {
-        return sessionRepository.save(create(device, ip));
-    }
-
-    private void revoke(Session session) {
-        sessionRepository.revoke(session.getId());
+    @Transactional(readOnly = true)
+    public User findOwner(Integer session) {
+        Session found = findWithUser(session);
+        return owner(found);
     }
 
     private void revokeDevice(Device device) {
@@ -63,23 +62,16 @@ public class SessionService {
         return sessionMapper.toEntity(device, ip, expiration());
     }
 
-    private void registerAccess(Session session) {
-        sessionRepository.access(session.getId());
-    }
-
-    private void revokeOthers(User user, Session kept) {
-        sessionRepository.revokeUser(user.getId(), kept.getId());
+    private Session persist(Session session) {
+        return sessionRepository.save(session);
     }
 
     private Session findActive(User user, Integer session) {
-        Session found = find(user, session);
-        requireActive(found);
-        return found;
+        return active(find(user, session));
     }
 
-    private void requireActive(Session session) {
-        requireNotRevoked(session);
-        requireNotExpired(session);
+    private void registerAccess(Session session) {
+        sessionRepository.access(session.getId());
     }
 
     private Session find(User user, Integer session) {
@@ -87,20 +79,35 @@ public class SessionService {
                 .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
-    private Instant expiration() {
-        return Instant.now().plus(properties.ttl());
+    private void revokeSession(Session session) {
+        sessionRepository.revoke(session.getId());
     }
 
-    private static void requireNotRevoked(Session session) {
+    private void revokeExcept(User user, Session kept) {
+        sessionRepository.revokeUser(user.getId(), kept.getId());
+    }
+
+    private Session findWithUser(Integer session) {
+        return sessionRepository.findWithUserById(session)
+                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
+    }
+
+    private Instant expiration() {
+        return Instant.now().plus(sessionProperties.ttl());
+    }
+
+    private static Session active(Session session) {
         if (isRevoked(session)) {
             throw new SessionException(SessionProblem.REVOKED);
         }
-    }
-
-    private static void requireNotExpired(Session session) {
         if (isExpired(session)) {
             throw new SessionException(SessionProblem.EXPIRED);
         }
+        return session;
+    }
+
+    private static User owner(Session session) {
+        return session.getDevice().getUser();
     }
 
     private static boolean isRevoked(Session session) {

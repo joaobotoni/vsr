@@ -25,7 +25,14 @@ public class Company extends Person {
 
     public Company(String legalName, String tradeName, Cnpj cnpj) {
         super(PersonType.COMPANY, legalName);
-        this.tradeName = tradeName.trim();
+        this.tradeName = trim(tradeName);
         this.cnpj = cnpj;
+    }
+
+    private static String trim(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
     }
 }

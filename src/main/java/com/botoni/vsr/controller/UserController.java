@@ -25,12 +25,12 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal Principal principal) {
-        return ResponseEntity.ok(userService.find(principal.user().getId()));
+        return ResponseEntity.ok(userService.profile(principal.user()));
     }
 
     @PatchMapping("/me/password")
     public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Principal principal, @RequestBody @Valid ChangePasswordRequest request) {
-        changePasswordService.changePassword(principal.user(), principal.session(), request.currentPassword(), request.newPassword());
+        changePasswordService.change(principal.user(), principal.session(), request.currentPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
 }

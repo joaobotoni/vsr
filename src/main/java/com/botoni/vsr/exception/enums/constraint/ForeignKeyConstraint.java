@@ -19,6 +19,7 @@ public enum ForeignKeyConstraint implements Constraint {
     FK_DISPOSITIVO_USUARIO("fk_dispositivo_usuario", "O usuário informado para o dispositivo não existe."),
     FK_SESSAO_DISPOSITIVO("fk_sessao_dispositivo", "O dispositivo informado para a sessão não existe."),
     FK_REFRESH_TOKEN_SESSAO("fk_refresh_token_sessao", "A sessão informada para o refresh token não existe."),
+    FK_REFRESH_TOKEN_USADO_REFRESH_TOKEN("fk_refresh_token_usado_refresh_token", "O refresh token informado para o histórico não existe."),
     FK_VINCULO_PESSOA_FISICA("fk_vinculo_pessoa_fisica", "A pessoa física informada para o vínculo não existe."),
     FK_VINCULO_PESSOA_JURIDICA("fk_vinculo_pessoa_juridica", "A empresa informada para o vínculo não existe."),
     FK_PESSOA_CONTATO_PESSOA("fk_pessoa_contato_pessoa", "A pessoa informada para o contato não existe."),

@@ -1,7 +1,6 @@
 package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.RefreshToken;
-import com.botoni.vsr.database.entity.Session;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.dto.request.RefreshRequest;
 import com.botoni.vsr.dto.response.TokenResponse;
@@ -20,59 +19,60 @@ public class RefreshService {
     private final TokenService tokenService;
 
     public TokenResponse refresh(RefreshRequest request) {
-        RefreshToken refreshToken = find(request);
-        revokeIfReused(refreshToken, request);
-        requireNotReused(refreshToken, request);
-        access(refreshToken);
-        String renewed = renew(refreshToken);
-        return issue(refreshToken, renewed);
+        RefreshToken stored = find(request);
+        revokeIfReused(stored, request);
+        return exchange(stored, request);
     }
 
     private RefreshToken find(RefreshRequest request) {
         return refreshTokenService.find(request.refreshToken());
     }
 
-    private void revokeIfReused(RefreshToken refreshToken, RefreshRequest request) {
-        if (isReused(refreshToken, request)) {
-            revoke(refreshToken);
+    private void revokeIfReused(RefreshToken stored, RefreshRequest request) {
+        if (!isReused(stored, request)) {
+            return;
         }
+        revoke(stored);
     }
 
-    private void requireNotReused(RefreshToken refreshToken, RefreshRequest request) {
-        if (isReused(refreshToken, request)) {
+    private TokenResponse exchange(RefreshToken stored, RefreshRequest request) {
+        if (isReused(stored, request)) {
             throw new RefreshTokenException(RefreshTokenProblem.REUSED);
         }
+        return rotate(stored, findOwner(stored));
     }
 
-    private boolean isReused(RefreshToken refreshToken, RefreshRequest request) {
-        return refreshTokenService.isReused(refreshToken, request.refreshToken());
+    private boolean isReused(RefreshToken stored, RefreshRequest request) {
+        return refreshTokenService.isReused(stored, request.refreshToken());
     }
 
-    private void revoke(RefreshToken refreshToken) {
-        sessionService.revoke(user(refreshToken), session(refreshToken).getId());
+    private void revoke(RefreshToken stored) {
+        sessionService.revoke(findOwner(stored), session(stored));
     }
 
-    private void access(RefreshToken refreshToken) {
-        sessionService.access(user(refreshToken), session(refreshToken).getId());
+    private User findOwner(RefreshToken stored) {
+        return sessionService.findOwner(session(stored));
     }
 
-    private String renew(RefreshToken refreshToken) {
-        return refreshTokenService.renew(refreshToken);
+    private TokenResponse rotate(RefreshToken stored, User user) {
+        access(user, stored);
+        String refreshToken = renew(stored);
+        return issue(user, stored, refreshToken);
     }
 
-    private TokenResponse issue(RefreshToken refreshToken, String renewed) {
-        return tokenService.issue(principal(refreshToken), session(refreshToken).getId(), renewed);
+    private void access(User user, RefreshToken stored) {
+        sessionService.access(user, session(stored));
     }
 
-    private static Principal principal(RefreshToken refreshToken) {
-        return Principal.from(user(refreshToken));
+    private String renew(RefreshToken stored) {
+        return refreshTokenService.renew(stored);
     }
 
-    private static Session session(RefreshToken refreshToken) {
-        return refreshToken.getSession();
+    private TokenResponse issue(User user, RefreshToken stored, String refreshToken) {
+        return tokenService.issue(Principal.from(user), session(stored), refreshToken);
     }
 
-    private static User user(RefreshToken refreshToken) {
-        return session(refreshToken).getDevice().getUser();
+    private static Integer session(RefreshToken stored) {
+        return stored.getId();
     }
 }

@@ -11,7 +11,10 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum OpaqueTokenProblem implements Problem {
 
-    MISSING_ALGORITHM(HttpStatus.INTERNAL_SERVER_ERROR, "O algoritmo de hash do token não está disponível.");
+    MISSING_ALGORITHM(HttpStatus.INTERNAL_SERVER_ERROR, "O algoritmo de hash do token não está disponível."),
+    MISSING_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "A chave do refresh token não foi configurada."),
+    INVALID_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "A chave do refresh token deve estar codificada em Base64."),
+    WEAK_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "A chave do refresh token precisa ter pelo menos 256 bits (32 bytes).");
 
     private final HttpStatus status;
     private final String message;

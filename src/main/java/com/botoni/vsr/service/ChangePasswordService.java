@@ -15,7 +15,7 @@ public class ChangePasswordService {
     private final SessionService sessionService;
 
     @Transactional
-    public void changePassword(User user, Integer session, Password currentPassword, Password newPassword) {
+    public void change(User user, Integer session, Password currentPassword, Password newPassword) {
         LocalCredential credential = verify(user, currentPassword);
         update(credential, newPassword);
         revokeOthers(user, session);
@@ -30,6 +30,6 @@ public class ChangePasswordService {
     }
 
     private void revokeOthers(User user, Integer session) {
-        sessionService.revokeUser(user, session);
+        sessionService.revokeOthers(user, session);
     }
 }

@@ -23,57 +23,53 @@ public class RefreshTokenService {
     @Transactional
     public String issue(Session session) {
         String token = generate();
-        save(session, token);
+        persist(session, token);
         return token;
     }
 
     @Transactional(readOnly = true)
     public RefreshToken find(String token) {
-        RefreshToken found = findByHash(hash(token));
-        requireNotExpired(found);
-        return found;
+        byte[] digest = hash(token);
+        return findByHash(digest);
     }
 
     @Transactional
-    public String renew(RefreshToken refreshToken) {
+    public String renew(RefreshToken stored) {
+        if (isExpired(stored)) {
+            throw new RefreshTokenException(RefreshTokenProblem.EXPIRED);
+        }
         String token = generate();
-        rotate(refreshToken, token);
+        rotate(stored, token);
         return token;
     }
 
-    public boolean isReused(RefreshToken refreshToken, String token) {
-        return Arrays.equals(refreshToken.getPreviousHash(), hash(token));
-    }
-
-    private void save(Session session, String token) {
-        refreshTokenRepository.issue(session.getId(), hash(token));
-    }
-
-    private void rotate(RefreshToken refreshToken, String token) {
-        refreshTokenRepository.renew(refreshToken.getId(), hash(token));
-    }
-
-    private RefreshToken findByHash(byte[] hash) {
-        return refreshTokenRepository.findByCurrentHash(hash)
-                .or(() -> refreshTokenRepository.findByPreviousHash(hash))
-                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
+    public boolean isReused(RefreshToken stored, String token) {
+        return !Arrays.equals(stored.getCurrentHash(), hash(token));
     }
 
     private String generate() {
         return opaqueToken.generate();
     }
 
+    private void persist(Session session, String token) {
+        refreshTokenRepository.issue(session.getId(), hash(token));
+    }
+
     private byte[] hash(String token) {
         return opaqueToken.hash(token);
     }
 
-    private static void requireNotExpired(RefreshToken refreshToken) {
-        if (isExpired(refreshToken)) {
-            throw new RefreshTokenException(RefreshTokenProblem.EXPIRED);
-        }
+    private RefreshToken findByHash(byte[] hash) {
+        return refreshTokenRepository.findByCurrentHash(hash)
+                .or(() -> refreshTokenRepository.findByUsedHash(hash))
+                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
     }
 
-    private static boolean isExpired(RefreshToken refreshToken) {
-        return !refreshToken.getExpiresAt().isAfter(Instant.now());
+    private void rotate(RefreshToken stored, String token) {
+        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), hash(token));
+    }
+
+    private static boolean isExpired(RefreshToken stored) {
+        return !stored.getExpiresAt().isAfter(Instant.now());
     }
 }

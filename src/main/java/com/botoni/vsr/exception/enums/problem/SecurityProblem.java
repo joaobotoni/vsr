@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 public enum SecurityProblem implements Problem {
 
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "O token de acesso é inválido ou expirou."),
+    INVALID_SESSION(HttpStatus.UNAUTHORIZED, "A sessão é inválida. Faça login novamente."),
     BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED, "E-mail ou senha incorretos."),
     AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "Não foi possível autenticar a requisição."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "O acesso ao recurso solicitado foi negado.");

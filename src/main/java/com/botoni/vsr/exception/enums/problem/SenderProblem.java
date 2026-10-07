@@ -12,7 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum SenderProblem implements Problem {
 
     MISSING_DETAILS(HttpStatus.INTERNAL_SERVER_ERROR, "Os dados do e-mail são obrigatórios."),
-    MISSING_ATTACHMENTS(HttpStatus.INTERNAL_SERVER_ERROR, "Informe ao menos um anexo.");
+    MISSING_ATTACHMENTS(HttpStatus.INTERNAL_SERVER_ERROR, "Informe ao menos um anexo."),
+    ATTACHMENT_OUTSIDE_DIRECTORY(HttpStatus.INTERNAL_SERVER_ERROR, "O anexo deve estar dentro do diretório de anexos configurado.");
 
     private final HttpStatus status;
     private final String message;

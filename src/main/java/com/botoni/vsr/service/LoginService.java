@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,20 +19,35 @@ import java.net.InetAddress;
 @RequiredArgsConstructor
 public class LoginService {
 
+    private final LoginAttemptService loginAttemptService;
     private final AccessService accessService;
     private final AuthenticationManager authenticationManager;
     private final AuthenticationMapper authenticationMapper;
 
     @Transactional
     public AuthenticationResponse login(LoginRequest request, InetAddress ip) {
-        Principal principal = authenticate(request);
+        checkAttempts(request);
+        Authentication authentication = authenticate(request);
+        Principal principal = principal(authentication);
         TokenResponse token = grant(principal, request, ip);
         return respond(principal, token);
     }
 
-    private Principal authenticate(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(credentials(request));
-        return (Principal) authentication.getPrincipal();
+    private void checkAttempts(LoginRequest request) {
+        loginAttemptService.check(request.email());
+    }
+
+    private Authentication authenticate(LoginRequest request) {
+        try {
+            return authenticationManager.authenticate(credentials(request));
+        } catch (AuthenticationException exception) {
+            registerFailure(request);
+            throw exception;
+        }
+    }
+
+    private void registerFailure(LoginRequest request) {
+        loginAttemptService.fail(request.email());
     }
 
     private TokenResponse grant(Principal principal, LoginRequest request, InetAddress ip) {
@@ -40,6 +56,10 @@ public class LoginService {
 
     private AuthenticationResponse respond(Principal principal, TokenResponse token) {
         return authenticationMapper.toResponse(principal.user(), token);
+    }
+
+    private static Principal principal(Authentication authentication) {
+        return (Principal) authentication.getPrincipal();
     }
 
     private static UsernamePasswordAuthenticationToken credentials(LoginRequest request) {

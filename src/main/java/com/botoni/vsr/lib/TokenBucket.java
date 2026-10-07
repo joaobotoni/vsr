@@ -1,9 +1,6 @@
 package com.botoni.vsr.lib;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -13,8 +10,20 @@ import java.util.concurrent.TimeUnit;
 
 public class TokenBucket implements AutoCloseable {
 
-    public record RateLimitResult(boolean allowed, double remaining, double resetIn) {}
-    private record Bucket(double tokens, double lastRefill) {}
+    public record RateLimitResult(boolean allowed, double remaining, double resetIn) {
+
+        private static final long MIN_RETRY = 1;
+
+        public boolean exceeded() {
+            return !allowed;
+        }
+
+        public long retryAfter() {
+            return Math.max(MIN_RETRY, (long) Math.ceil(resetIn));
+        }
+    }
+
+    private record Bucket(double tokens, double lastRefill, boolean allowed) {}
 
     private static final long MIN_PERIOD = 1000L;
     private static final String CLEANER_THREAD_NAME = "token-bucket-cleaner";
@@ -27,7 +36,6 @@ public class TokenBucket implements AutoCloseable {
     private final ScheduledExecutorService cleaner = cleaner();
 
     public TokenBucket(int capacity, double refillRate, double refillInterval) {
-
         if (capacity <= 0 || refillRate <= 0 || refillInterval <= 0) {
             throw new IllegalArgumentException("capacity, refillRate and refillInterval must be greater than zero");
         }
@@ -48,60 +56,54 @@ public class TokenBucket implements AutoCloseable {
     }
 
     public RateLimitResult allow(String key, double now) {
-        double[] result = new double[3];
+        return result(buckets.compute(key, (k, bucket) -> consume(refill(bucket, now))), now);
+    }
 
-        buckets.compute(key, (k, bucket) -> {
-            double tokens = bucket == null ? capacity : bucket.tokens();
-            double lastRefill = bucket == null ? now : bucket.lastRefill();
+    public RateLimitResult peek(String key) {
+        return peek(key, now());
+    }
 
-            double timePassed = now - lastRefill;
-            double refills = Math.floor(timePassed / refillInterval);
+    public RateLimitResult peek(String key, double now) {
+        return result(buckets.compute(key, (k, bucket) -> inspect(refill(bucket, now))), now);
+    }
 
-            if (refills > 0) {
-                tokens = Math.min(capacity, tokens + (refills * refillRate));
-                lastRefill = lastRefill + (refills * refillInterval);
-            }
+    private Bucket refill(Bucket bucket, double now) {
+        if (bucket == null) {
+            return new Bucket(capacity, now, false);
+        }
+        return replenish(bucket, refills(bucket, now));
+    }
 
-            long allowed = 0;
-            if (tokens >= 1) {
-                tokens = tokens - 1;
-                allowed = 1;
-            }
+    private Bucket replenish(Bucket bucket, double refills) {
+        if (refills <= 0) {
+            return bucket;
+        }
+        return new Bucket(Math.min(capacity, bucket.tokens() + refills * refillRate),
+                bucket.lastRefill() + refills * refillInterval, false);
+    }
 
-            result[0] = allowed;
-            result[1] = Math.floor(tokens);
-            result[2] = lastRefill + refillInterval - now;
+    private static Bucket consume(Bucket bucket) {
+        if (bucket.tokens() < 1) {
+            return new Bucket(bucket.tokens(), bucket.lastRefill(), false);
+        }
+        return new Bucket(bucket.tokens() - 1, bucket.lastRefill(), true);
+    }
 
-            return new Bucket(tokens, lastRefill);
-        });
+    private static Bucket inspect(Bucket bucket) {
+        return new Bucket(bucket.tokens(), bucket.lastRefill(), bucket.tokens() >= 1);
+    }
 
-        return new RateLimitResult(result[0] == 1, result[1], result[2]);
+    private double refills(Bucket bucket, double now) {
+        return Math.floor((now - bucket.lastRefill()) / refillInterval);
+    }
+
+    private RateLimitResult result(Bucket bucket, double now) {
+        return new RateLimitResult(bucket.allowed(), Math.floor(bucket.tokens()),
+                bucket.lastRefill() + refillInterval - now);
     }
 
     void evict(double now) {
-        removeKeys(findIdleKeys(now));
-    }
-
-    private List<String> findIdleKeys(double now) {
-        List<String> idleKeys = new ArrayList<>();
-        for (Map.Entry<String, Bucket> entry : buckets.entrySet()) {
-            if (idle(entry.getValue(), now)) {
-                idleKeys.add(entry.getKey());
-            }
-        }
-        return idleKeys;
-    }
-
-    private void removeKeys(List<String> keys) {
-        for (String key : keys) {
-            buckets.remove(key);
-        }
-    }
-
-    @Override
-    public void close() {
-        cleaner.shutdownNow();
-        buckets.clear();
+        buckets.entrySet().removeIf(entry -> idle(entry.getValue(), now));
     }
 
     private double ttl() {
@@ -134,5 +136,11 @@ public class TokenBucket implements AutoCloseable {
             thread.setDaemon(true);
             return thread;
         };
+    }
+
+    @Override
+    public void close() {
+        cleaner.shutdownNow();
+        buckets.clear();
     }
 }

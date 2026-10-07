@@ -2,8 +2,10 @@ package com.botoni.vsr.dto.response;
 
 import com.botoni.vsr.vo.Email;
 
+import java.util.UUID;
+
 public record UserResponse(
-        Integer id,
+        UUID id,
         String name,
         Email email
 ) {

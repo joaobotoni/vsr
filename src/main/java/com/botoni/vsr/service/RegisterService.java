@@ -1,5 +1,6 @@
 package com.botoni.vsr.service;
 
+import com.botoni.vsr.database.entity.Individual;
 import com.botoni.vsr.database.entity.LocalCredential;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.dto.request.RegisterRequest;
@@ -18,25 +19,31 @@ import java.net.InetAddress;
 public class RegisterService {
 
     private final AccessService accessService;
+    private final IndividualService individualService;
     private final UserService userService;
     private final LocalCredentialService localCredentialService;
     private final AuthenticationMapper authenticationMapper;
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request, InetAddress ip) {
-        User user = saveUser(request);
-        Principal principal = saveCredential(user, request);
+        Individual person = savePerson(request);
+        User user = saveUser(person, request);
+        LocalCredential credential = saveCredential(user, request);
+        Principal principal = principal(credential);
         TokenResponse token = grant(principal, request, ip);
         return respond(principal, token);
     }
 
-    private User saveUser(RegisterRequest request) {
-        return userService.save(request);
+    private Individual savePerson(RegisterRequest request) {
+        return individualService.save(request.name(), request.cpf());
     }
 
-    private Principal saveCredential(User user, RegisterRequest request) {
-        LocalCredential credential = localCredentialService.save(user, request.password());
-        return Principal.from(credential);
+    private User saveUser(Individual person, RegisterRequest request) {
+        return userService.save(person, request.email());
+    }
+
+    private LocalCredential saveCredential(User user, RegisterRequest request) {
+        return localCredentialService.save(user, request.password());
     }
 
     private TokenResponse grant(Principal principal, RegisterRequest request, InetAddress ip) {
@@ -45,5 +52,9 @@ public class RegisterService {
 
     private AuthenticationResponse respond(Principal principal, TokenResponse token) {
         return authenticationMapper.toResponse(principal.user(), token);
+    }
+
+    private static Principal principal(LocalCredential credential) {
+        return Principal.from(credential);
     }
 }

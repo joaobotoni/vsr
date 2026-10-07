@@ -2,6 +2,7 @@ package com.botoni.vsr.exception.handler;
 
 import com.botoni.vsr.exception.enums.constraint.CheckConstraint;
 import com.botoni.vsr.exception.enums.constraint.ForeignKeyConstraint;
+import com.botoni.vsr.exception.enums.constraint.RuleConstraint;
 import com.botoni.vsr.exception.enums.constraint.UniqueConstraint;
 import com.botoni.vsr.exception.enums.problem.ConstraintProblem;
 import com.botoni.vsr.exception.lib.constraint.Constraints;
@@ -21,7 +22,8 @@ public class ConstraintExceptionHandler {
     private static final Constraints CONSTRAINTS = Constraints.of(
             CheckConstraint.values(),
             ForeignKeyConstraint.values(),
-            UniqueConstraint.values()
+            UniqueConstraint.values(),
+            RuleConstraint.values()
     );
 
     @ExceptionHandler(DataIntegrityViolationException.class)

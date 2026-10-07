@@ -19,18 +19,22 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
 
     @Transactional
-    public Device upsert(User user, DeviceRequest request) {
-        register(user, request);
+    public Device register(User user, DeviceRequest request) {
+        upsert(user, request);
         return find(user, request.identifier());
     }
 
-    private void register(User user, DeviceRequest request) {
-        deviceRepository.upsert(user.getId(), request.identifier(), request.platform().getValue(),
+    private void upsert(User user, DeviceRequest request) {
+        deviceRepository.upsert(user.getId(), request.identifier(), platform(request),
                 request.manufacturer(), request.model(), request.osVersion());
     }
 
     private Device find(User user, UUID identifier) {
         return deviceRepository.findByUserAndIdentifier(user, identifier)
                 .orElseThrow(() -> new DeviceException(DeviceProblem.NOT_FOUND));
+    }
+
+    private static String platform(DeviceRequest request) {
+        return request.platform().getValue();
     }
 }

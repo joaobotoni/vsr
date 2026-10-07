@@ -12,91 +12,123 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
-import lombok.RequiredArgsConstructor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessagePreparator;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 @Service
-@RequiredArgsConstructor
 public class EmailService implements Sender {
 
     private static final String CHARSET = StandardCharsets.UTF_8.name();
 
-    private final EmailProperties emailProperties;
+    private final String sender;
+
+    private final Path directory;
+
     private final JavaMailSender mailSender;
+
+    public EmailService(EmailProperties emailProperties, JavaMailSender mailSender) {
+        this.sender = emailProperties.from().value();
+        this.directory = normalize(emailProperties.attachments());
+        this.mailSender = mailSender;
+    }
 
     @Override
     public void send(Details details) {
-        requireDetails(details);
-        mailSender.send(message(details));
+        if (details == null) {
+            throw new SenderException(SenderProblem.MISSING_DETAILS);
+        }
+        SimpleMailMessage message = text(details);
+        deliverText(message);
     }
 
     @Override
     public void send(Details details, Path... attachments) {
-        requireDetails(details);
-        requireAttachments(attachments);
-        mailSender.send(mime -> write(mime, details, attachments));
+        if (details == null) {
+            throw new SenderException(SenderProblem.MISSING_DETAILS);
+        }
+        if (!hasAttachments(attachments)) {
+            throw new SenderException(SenderProblem.MISSING_ATTACHMENTS);
+        }
+        if (!areInsideDirectory(attachments)) {
+            throw new SenderException(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
+        }
+        MimeMessagePreparator message = mime(details, attachments);
+        deliverMime(message);
     }
 
-    private String from() {
-        return emailProperties.from().value();
-    }
-
-    private SimpleMailMessage message(Details details) {
+    private SimpleMailMessage text(Details details) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from());
-        message.setTo(details.to().value());
+        message.setFrom(sender);
+        message.setTo(to(details));
         message.setSubject(details.subject());
         message.setText(details.body());
         return message;
     }
 
-    private void write(MimeMessage mime, Details details, Path... attachments) throws MessagingException, IOException {
-        mime.setFrom(new InternetAddress(from()));
-        mime.setRecipient(Message.RecipientType.TO, new InternetAddress(details.to().value()));
-        mime.setSubject(details.subject(), CHARSET);
-        mime.setContent(content(details.body(), attachments));
+    private void deliverText(SimpleMailMessage message) {
+        mailSender.send(message);
     }
 
-    private static void requireDetails(Details details) {
-        if (details == null) {
-            throw new SenderException(SenderProblem.MISSING_DETAILS);
-        }
+    private MimeMessagePreparator mime(Details details, Path... attachments) {
+        return message -> fill(message, details, attachments);
     }
 
-    private static void requireAttachments(Path... attachments) {
-        if (!hasAttachments(attachments)) {
-            throw new SenderException(SenderProblem.MISSING_ATTACHMENTS);
+    private void fill(MimeMessage message, Details details, Path... attachments) throws MessagingException, IOException {
+        message.setFrom(new InternetAddress(sender));
+        message.setRecipient(Message.RecipientType.TO, new InternetAddress(to(details)));
+        message.setSubject(details.subject(), CHARSET);
+        message.setContent(parts(details.body(), attachments));
+    }
+
+    private void deliverMime(MimeMessagePreparator message) {
+        mailSender.send(message);
+    }
+
+    private static Multipart parts(String body, Path... attachments) throws MessagingException, IOException {
+        Multipart multipart = new MimeMultipart();
+        multipart.addBodyPart(body(body));
+        for (Path attachment : attachments) {
+            multipart.addBodyPart(file(attachment));
         }
+        return multipart;
+    }
+
+    private static MimeBodyPart body(String body) throws MessagingException {
+        MimeBodyPart part = new MimeBodyPart();
+        part.setText(body, CHARSET);
+        return part;
+    }
+
+    private static MimeBodyPart file(Path attachment) throws MessagingException, IOException {
+        MimeBodyPart part = new MimeBodyPart();
+        part.attachFile(attachment.toFile());
+        return part;
+    }
+
+    private static String to(Details details) {
+        return details.to().value();
     }
 
     private static boolean hasAttachments(Path... attachments) {
         return attachments != null && attachments.length > 0;
     }
 
-    private static Multipart content(String body, Path... attachments) throws MessagingException, IOException {
-        Multipart multipart = new MimeMultipart();
-        multipart.addBodyPart(text(body));
-        for (Path path : attachments) {
-            multipart.addBodyPart(file(path));
-        }
-        return multipart;
+    private boolean areInsideDirectory(Path... attachments) {
+        return Arrays.stream(attachments).allMatch(this::isInsideDirectory);
     }
 
-    private static MimeBodyPart text(String body) throws MessagingException {
-        MimeBodyPart part = new MimeBodyPart();
-        part.setText(body, CHARSET);
-        return part;
+    private boolean isInsideDirectory(Path attachment) {
+        return normalize(attachment).startsWith(directory);
     }
 
-    private static MimeBodyPart file(Path path) throws MessagingException, IOException {
-        MimeBodyPart part = new MimeBodyPart();
-        part.attachFile(path.toFile());
-        return part;
+    private static Path normalize(Path path) {
+        return path.toAbsolutePath().normalize();
     }
 }

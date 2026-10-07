@@ -1,13 +1,13 @@
 package com.botoni.vsr.service;
 
+import com.botoni.vsr.database.entity.Individual;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.database.repository.UserRepository;
-import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.UserResponse;
 import com.botoni.vsr.exception.custom.UserException;
 import com.botoni.vsr.exception.enums.problem.UserProblem;
-import com.botoni.vsr.mapper.RegisterMapper;
 import com.botoni.vsr.mapper.UserMapper;
+import com.botoni.vsr.vo.Email;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,26 +18,29 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final RegisterMapper registerMapper;
 
     @Transactional
-    public User save(RegisterRequest request) {
-        User user = create(request);
-        return userRepository.save(user);
+    public User save(Individual person, Email email) {
+        User user = create(person, email);
+        return persist(user);
     }
 
     @Transactional(readOnly = true)
-    public UserResponse find(Integer id) {
-        User user = findWithPerson(id);
-        return respond(user);
+    public UserResponse profile(User user) {
+        User found = find(user);
+        return respond(found);
     }
 
-    private User create(RegisterRequest request) {
-        return registerMapper.toEntity(request);
+    private User create(Individual person, Email email) {
+        return userMapper.toEntity(person, email);
     }
 
-    private User findWithPerson(Integer id) {
-        return userRepository.findWithPersonById(id)
+    private User persist(User user) {
+        return userRepository.save(user);
+    }
+
+    private User find(User user) {
+        return userRepository.findWithPersonById(user.getId())
                 .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
     }
 

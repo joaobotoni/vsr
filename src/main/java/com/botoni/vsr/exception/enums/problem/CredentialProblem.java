@@ -12,7 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum CredentialProblem implements Problem {
 
     NOT_FOUND(HttpStatus.NOT_FOUND, "A credencial informada não foi encontrada."),
-    INCORRECT_CURRENT_PASSWORD(HttpStatus.UNPROCESSABLE_CONTENT, "A senha atual informada está incorreta.");
+    INCORRECT_CURRENT_PASSWORD(HttpStatus.UNPROCESSABLE_CONTENT, "A senha atual informada está incorreta."),
+    SAME_PASSWORD(HttpStatus.UNPROCESSABLE_CONTENT, "A nova senha deve ser diferente da senha atual.");
 
     private final HttpStatus status;
     private final String message;

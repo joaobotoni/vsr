@@ -11,6 +11,14 @@ rate-limit:
     capacity: ${RATE_LIMIT_REGISTER_CAPACITY}
     refill-rate: ${RATE_LIMIT_REGISTER_REFILL_RATE}
     refill-interval: ${RATE_LIMIT_REGISTER_REFILL_INTERVAL}
+  refresh:
+    capacity: ${RATE_LIMIT_REFRESH_CAPACITY}
+    refill-rate: ${RATE_LIMIT_REFRESH_REFILL_RATE}
+    refill-interval: ${RATE_LIMIT_REFRESH_REFILL_INTERVAL}
+  account:
+    capacity: ${RATE_LIMIT_ACCOUNT_CAPACITY}
+    refill-rate: ${RATE_LIMIT_ACCOUNT_REFILL_RATE}
+    refill-interval: ${RATE_LIMIT_ACCOUNT_REFILL_INTERVAL}
   password:
     capacity: ${RATE_LIMIT_PASSWORD_RESET_CAPACITY}
     refill-rate: ${RATE_LIMIT_PASSWORD_RESET_REFILL_RATE}

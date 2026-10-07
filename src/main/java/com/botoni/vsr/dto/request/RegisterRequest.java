@@ -26,4 +26,15 @@ public record RegisterRequest(
         @NotNull(message = "Os dados do dispositivo são obrigatórios.")
         DeviceRequest device
 ) {
+
+    public RegisterRequest {
+        name = trim(name);
+    }
+
+    private static String trim(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
+    }
 }

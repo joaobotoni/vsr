@@ -26,24 +26,29 @@ public class LocalCredentialService {
     @Transactional
     public LocalCredential save(User user, Password password) {
         LocalCredential credential = create(user, password);
-        return localCredentialRepository.save(credential);
+        return persist(credential);
     }
 
     @Transactional(readOnly = true)
     public LocalCredential verify(User user, Password password) {
-        LocalCredential credential = find(user);
-        requireMatch(credential, password);
-        return credential;
+        return matched(find(user), password);
     }
 
     @Transactional
     public void update(LocalCredential credential, Password password) {
-        credential.setPasswordHash(hash(password));
-        credential.setPasswordUpdatedAt(Instant.now());
+        if (matches(credential, password)) {
+            throw new CredentialException(CredentialProblem.SAME_PASSWORD);
+        }
+        change(credential, password);
+        persist(credential);
     }
 
     private LocalCredential create(User user, Password password) {
         return localCredentialMapper.toEntity(user, hash(password));
+    }
+
+    private LocalCredential persist(LocalCredential credential) {
+        return localCredentialRepository.save(credential);
     }
 
     private LocalCredential find(User user) {
@@ -51,10 +56,16 @@ public class LocalCredentialService {
                 .orElseThrow(() -> new CredentialException(CredentialProblem.NOT_FOUND));
     }
 
-    private void requireMatch(LocalCredential credential, Password password) {
+    private LocalCredential matched(LocalCredential credential, Password password) {
         if (!matches(credential, password)) {
             throw new CredentialException(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
         }
+        return credential;
+    }
+
+    private void change(LocalCredential credential, Password password) {
+        credential.setPasswordHash(hash(password));
+        credential.setPasswordUpdatedAt(Instant.now());
     }
 
     private boolean matches(LocalCredential credential, Password password) {

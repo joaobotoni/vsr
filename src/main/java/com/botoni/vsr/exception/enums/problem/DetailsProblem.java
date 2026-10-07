@@ -15,6 +15,7 @@ public enum DetailsProblem implements Problem {
     MISSING_RECIPIENT(HttpStatus.INTERNAL_SERVER_ERROR, "O destinatário do e-mail é obrigatório."),
     MISSING_SUBJECT(HttpStatus.INTERNAL_SERVER_ERROR, "O assunto do e-mail é obrigatório."),
     SUBJECT_TOO_LONG(HttpStatus.INTERNAL_SERVER_ERROR, "O assunto do e-mail deve conter no máximo %d caracteres."),
+    INVALID_SUBJECT(HttpStatus.INTERNAL_SERVER_ERROR, "O assunto do e-mail não pode conter quebras de linha."),
     MISSING_BODY(HttpStatus.INTERNAL_SERVER_ERROR, "O corpo do e-mail é obrigatório.");
 
     private final HttpStatus status;

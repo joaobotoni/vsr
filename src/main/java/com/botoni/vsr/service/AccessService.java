@@ -22,21 +22,21 @@ public class AccessService {
 
     @Transactional
     public TokenResponse grant(Principal principal, DeviceRequest request, InetAddress ip) {
-        Device device = register(principal, request);
+        Device device = registerDevice(principal, request);
         Session session = open(device, ip);
-        String refreshToken = issueRefresh(session);
+        String refreshToken = issueRefreshToken(session);
         return issue(principal, session, refreshToken);
     }
 
-    private Device register(Principal principal, DeviceRequest request) {
-        return deviceService.upsert(principal.user(), request);
+    private Device registerDevice(Principal principal, DeviceRequest request) {
+        return deviceService.register(principal.user(), request);
     }
 
     private Session open(Device device, InetAddress ip) {
         return sessionService.open(device, ip);
     }
 
-    private String issueRefresh(Session session) {
+    private String issueRefreshToken(Session session) {
         return refreshTokenService.issue(session);
     }
 

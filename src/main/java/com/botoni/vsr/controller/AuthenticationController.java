@@ -15,19 +15,23 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping(path = "/auth", version = "1")
 @RequiredArgsConstructor
 public class AuthenticationController {
+
+    private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
 
     private final RegisterService registerService;
     private final LoginService loginService;
@@ -56,6 +60,25 @@ public class AuthenticationController {
     }
 
     private static InetAddress ip(HttpServletRequest http) {
-        return new ServletServerHttpRequest(http).getRemoteAddress().getAddress();
+        return literal(http.getRemoteAddr());
+    }
+
+    private static InetAddress literal(String address) {
+        if (!isLiteral(address)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        return parse(address);
+    }
+
+    private static boolean isLiteral(String address) {
+        return address != null && (IPV4.matcher(address).matches() || address.contains(":"));
+    }
+
+    private static InetAddress parse(String address) {
+        try {
+            return InetAddress.getByName(address);
+        } catch (UnknownHostException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
     }
 }

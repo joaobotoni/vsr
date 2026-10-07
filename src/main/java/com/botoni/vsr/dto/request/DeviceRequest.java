@@ -28,4 +28,17 @@ public record DeviceRequest(
         @Pattern(regexp = "^[0-9A-Za-z._\\- ]+$", message = "A versão do sistema contém caracteres inválidos.")
         String osVersion
 ) {
+
+    public DeviceRequest {
+        manufacturer = trim(manufacturer);
+        model = trim(model);
+        osVersion = trim(osVersion);
+    }
+
+    private static String trim(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim();
+    }
 }

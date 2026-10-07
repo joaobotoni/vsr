@@ -3,6 +3,7 @@ package com.botoni.vsr.filter;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
 import com.botoni.vsr.lib.TokenBucket.RateLimitResult;
+import com.botoni.vsr.ratelimit.ClientNetwork;
 import com.botoni.vsr.ratelimit.Limit;
 import com.botoni.vsr.ratelimit.RateLimit;
 import com.botoni.vsr.ratelimit.RateLimitPolicy;
@@ -26,7 +27,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String REMAINING = "X-RateLimit-Remaining";
     private static final String RESET = "X-RateLimit-Reset";
     private static final String KEY = "ip:%s";
-    private static final long MIN_RETRY = 1;
 
     private final RateLimitPolicy policy;
 
@@ -35,37 +35,38 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain chain) throws ServletException, IOException {
         RateLimit rateLimit = policy.resolve(request);
         RateLimitResult result = consume(rateLimit, request);
-        long retry = retry(result);
-
-        headers(response, rateLimit.limit(), result, retry);
-
-        if (isExceeded(result)) {
-            retryAfter(response, retry);
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, retry);
-        }
-        chain.doFilter(request, response);
+        headers(response, rateLimit.limit(), result);
+        retryAfterIfExceeded(response, result);
+        proceed(request, response, chain, result);
     }
 
     private static RateLimitResult consume(RateLimit rateLimit, HttpServletRequest request) {
         return rateLimit.consume(key(request));
     }
 
-    private static void headers(HttpServletResponse response, Limit limit, RateLimitResult result, long retry) {
+    private static void headers(HttpServletResponse response, Limit limit, RateLimitResult result) {
         response.setHeader(LIMIT, String.valueOf(limit.capacity()));
         response.setHeader(REMAINING, String.valueOf(remaining(result)));
-        response.setHeader(RESET, String.valueOf(reset(retry)));
+        response.setHeader(RESET, String.valueOf(reset(result.retryAfter())));
     }
 
-    private static void retryAfter(HttpServletResponse response, long retry) {
-        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retry));
+    private static void retryAfterIfExceeded(HttpServletResponse response, RateLimitResult result) {
+        if (!result.exceeded()) {
+            return;
+        }
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(result.retryAfter()));
     }
 
-    private static boolean isExceeded(RateLimitResult result) {
-        return !result.allowed();
+    private static void proceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
+                                RateLimitResult result) throws ServletException, IOException {
+        if (result.exceeded()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, result.retryAfter());
+        }
+        chain.doFilter(request, response);
     }
 
     private static String key(HttpServletRequest request) {
-        return String.format(KEY, request.getRemoteAddr());
+        return String.format(KEY, ClientNetwork.of(request.getRemoteAddr()));
     }
 
     private static long remaining(RateLimitResult result) {
@@ -74,9 +75,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static long reset(long retry) {
         return Instant.now().getEpochSecond() + retry;
-    }
-
-    private static long retry(RateLimitResult result) {
-        return Math.max(MIN_RETRY, (long) Math.ceil(result.resetIn()));
     }
 }

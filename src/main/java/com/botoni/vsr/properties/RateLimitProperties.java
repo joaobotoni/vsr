@@ -13,6 +13,7 @@ public record RateLimitProperties(
         @Valid @NotNull Limit login,
         @Valid @NotNull Limit register,
         @Valid @NotNull Limit refresh,
+        @Valid @NotNull Limit account,
         @Valid @NotNull Limit password,
         @Valid @NotNull Limit upload
 ) {

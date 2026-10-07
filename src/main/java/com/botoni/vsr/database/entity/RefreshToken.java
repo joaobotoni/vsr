@@ -38,9 +38,6 @@ public class RefreshToken {
     @Column(name = "hash_atual", nullable = false)
     private byte[] currentHash;
 
-    @Column(name = "hash_anterior")
-    private byte[] previousHash;
-
     @Column(name = "expira_em", nullable = false)
     private Instant expiresAt;
 
