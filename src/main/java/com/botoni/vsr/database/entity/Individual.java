@@ -2,6 +2,7 @@ package com.botoni.vsr.database.entity;
 
 import com.botoni.vsr.database.enums.PersonType;
 import com.botoni.vsr.vo.Cpf;
+import com.botoni.vsr.vo.Name;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
@@ -20,7 +21,7 @@ public class Individual extends Person {
     @Column(name = "cpf", nullable = false, updatable = false)
     private Cpf cpf;
 
-    public Individual(String name, Cpf cpf) {
+    public Individual(Name name, Cpf cpf) {
         super(PersonType.INDIVIDUAL, name);
         this.cpf = cpf;
     }

@@ -51,6 +51,17 @@ class AuthenticationControllerTest {
 
     @Test
     @Controle
+    @DisplayName("nome só com espaços é barrado pelo VO antes de chegar ao serviço")
+    void blankNameIsRejected() throws Exception {
+        mockMvc.perform(Requests.registerRaw(Requests.loginBody().replace("{", "{\"name\":\"   \",\"cpf\":\"529.982.247-25\",")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("NameProblem.MISSING"));
+
+        verify(registerService, never()).register(any(), any());
+    }
+
+    @Test
+    @Controle
     @DisplayName("JSON malformado responde 400 genérico, sem detalhes internos")
     void malformedBodyIsRejected() throws Exception {
         mockMvc.perform(Requests.registerRaw("{\"name\": "))
@@ -60,25 +71,48 @@ class AuthenticationControllerTest {
         verifyNoInteractions(registerService);
     }
 
-    @Brecha
-    @ParameterizedTest(name = "cadastro revela {0} já cadastrado")
+    @Controle
+    @ParameterizedTest(name = "{0} já cadastrado responde a mesma recusa genérica")
     @CsvSource(delimiter = '|', value = {
-            "e-mail | uq_usuario_email     | Já existe um usuário cadastrado com o e-mail informado.",
-            "CPF    | uq_pessoa_fisica_cpf | Já existe um cadastro com o CPF informado."
+            "e-mail | uq_usuario_email",
+            "CPF    | uq_pessoa_fisica_cpf"
     })
-    void registerRevealsExistingData(String data, String constraint, String message) throws Exception {
+    void registerDoesNotRevealWhichDataExists(String data, String constraint) throws Exception {
         when(registerService.register(any(), any())).thenThrow(violation(constraint));
 
         mockMvc.perform(Requests.register())
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value(message));
+                .andExpect(jsonPath("$.code").value("RegisterProblem.UNAVAILABLE"))
+                .andExpect(jsonPath("$.detail").value("Não foi possível concluir o cadastro com os dados informados."));
+    }
+
+    @Brecha
+    @Test
+    @DisplayName("o 409 ainda revela que algum dado do cadastro já existe")
+    void registerStillRevealsThatSomethingExists() throws Exception {
+        when(registerService.register(any(), any())).thenThrow(violation("uq_usuario_email"));
+
+        mockMvc.perform(Requests.register()).andExpect(status().isConflict());
+    }
+
+    @Test
+    @Controle
+    @DisplayName("outras violações de unicidade continuam com a mensagem específica")
+    void otherConstraintsKeepSpecificMessage() throws Exception {
+        when(registerService.register(any(), any())).thenThrow(violation("uq_dispositivo_usuario_identificador"));
+
+        mockMvc.perform(Requests.register())
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("UniqueConstraint.UQ_DISPOSITIVO_USUARIO_IDENTIFICADOR"));
     }
 
     @Test
     @Controle
     @DisplayName("endereço remoto que não é IP é recusado com 400, sem consulta DNS")
     void nonLiteralRemoteAddressIsRejected() throws Exception {
-        mockMvc.perform(Requests.login().with(Requests.from("atacante.invalid"))).andExpect(status().isBadRequest());
+        mockMvc.perform(Requests.login().with(Requests.from("atacante.invalid")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("RequestProblem.INVALID_ADDRESS"));
 
         verify(loginService, never()).login(any(), any());
     }

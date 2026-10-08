@@ -2,7 +2,7 @@ package com.botoni.vsr.service;
 
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
-import com.botoni.vsr.lib.TokenBucket.RateLimitResult;
+import com.botoni.vsr.ratelimit.Quota;
 import com.botoni.vsr.ratelimit.RateLimit;
 import com.botoni.vsr.vo.Email;
 import lombok.RequiredArgsConstructor;
@@ -16,23 +16,22 @@ public class LoginAttemptService {
 
     private final RateLimit accountRateLimit;
 
-    public RateLimitResult check(Email email) {
-        return allowed(peek(email));
+    public void check(Email email) {
+        rejectIfExceeded(quota(email));
     }
 
     public void fail(Email email) {
         accountRateLimit.consume(key(email));
     }
 
-    private RateLimitResult peek(Email email) {
+    private Quota quota(Email email) {
         return accountRateLimit.check(key(email));
     }
 
-    private static RateLimitResult allowed(RateLimitResult result) {
-        if (result.exceeded()) {
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, result.retryAfter());
+    private static void rejectIfExceeded(Quota quota) {
+        if (quota.exceeded()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, quota.retryAfter());
         }
-        return result;
     }
 
     private static String key(Email email) {

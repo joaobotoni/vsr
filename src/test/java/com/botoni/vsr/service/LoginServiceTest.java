@@ -5,7 +5,6 @@ import com.botoni.vsr.dto.request.DeviceRequest;
 import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
-import com.botoni.vsr.mapper.AuthenticationMapper;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Email;
@@ -22,6 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -33,8 +33,9 @@ class LoginServiceTest {
 
     private final LoginAttemptService loginAttemptService = mock(LoginAttemptService.class);
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+    private final UserService userService = mock(UserService.class);
     private final LoginService loginService = new LoginService(
-            loginAttemptService, mock(AccessService.class), authenticationManager, mock(AuthenticationMapper.class));
+            loginAttemptService, userService, mock(AccessService.class), authenticationManager);
 
     private final LoginRequest request = new LoginRequest(Email.of("ana@vsr.com"), Password.of("senha segura 123"),
             new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14"));
@@ -77,9 +78,21 @@ class LoginServiceTest {
 
     @Test
     @Controle
+    @DisplayName("login certo carrega o usuário junto com a pessoa, que a resposta usa fora da transação da busca")
+    void userIsLoadedWithPerson() {
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(UsernamePasswordAuthenticationToken.authenticated(Users.principal(), null, null));
+
+        login();
+
+        verify(userService).findWithPerson(Users.UUID);
+    }
+
+    @Test
+    @Controle
     @DisplayName("com o limite da conta estourado a senha nem chega a ser conferida")
     void exceededAccountSkipsAuthentication() {
-        when(loginAttemptService.check(request.email())).thenThrow(new RateLimitException(RateLimitProblem.EXCEEDED, 60L));
+        doThrow(new RateLimitException(RateLimitProblem.EXCEEDED, 60L)).when(loginAttemptService).check(request.email());
 
         assertThatThrownBy(this::login).isInstanceOf(RateLimitException.class);
 

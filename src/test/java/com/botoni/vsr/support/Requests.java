@@ -6,6 +6,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 public final class Requests {
@@ -18,6 +19,9 @@ public final class Requests {
 
     private static final String LOGIN = """
             {"email":"%s","password":"%s","device":%s}""";
+
+    private static final String CHANGE_PASSWORD = """
+            {"currentPassword":"%s","newPassword":"%s"}""";
 
     private static final String REGISTER = """
             {"name":"Ana","cpf":"529.982.247-25","email":"%s","password":"%s","device":%s}""";
@@ -33,12 +37,25 @@ public final class Requests {
         return me().header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 
+    public static MockHttpServletRequestBuilder changePassword(String token) {
+        return json(patch("/api/1/users/me/password"), CHANGE_PASSWORD.formatted(VALID_PASSWORD, "nova senha 4567"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+    }
+
     public static MockHttpServletRequestBuilder logout(String token) {
         return post("/api/1/auth/logout").with(from(Ips.next())).header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 
     public static MockHttpServletRequestBuilder login() {
-        return json(post("/api/1/auth/login"), LOGIN.formatted(Users.EMAIL, VALID_PASSWORD, DEVICE));
+        return loginRaw(loginBody());
+    }
+
+    public static MockHttpServletRequestBuilder loginRaw(String body) {
+        return json(post("/api/1/auth/login"), body);
+    }
+
+    public static String loginBody() {
+        return LOGIN.formatted(Users.EMAIL, VALID_PASSWORD, DEVICE);
     }
 
     public static MockHttpServletRequestBuilder register() {

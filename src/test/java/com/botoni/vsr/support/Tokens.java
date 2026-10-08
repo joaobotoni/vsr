@@ -3,7 +3,7 @@ package com.botoni.vsr.support;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.botoni.vsr.security.JwtToken;
+import com.botoni.vsr.token.JwtToken;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -27,7 +27,7 @@ public final class Tokens {
     }
 
     public static String valid() {
-        return jwt().issue(Users.principal(), SESSION);
+        return jwt().issue(Users.UUID, SESSION);
     }
 
     public static String forged() {
@@ -47,13 +47,17 @@ public final class Tokens {
     }
 
     public static String withoutSession() {
-        return JWT.create().withIssuer(ISSUER).withSubject(Users.EMAIL).withExpiresAt(Instant.now().plus(LIFETIME)).sign(KEY);
+        return JWT.create().withIssuer(ISSUER).withSubject(Users.UUID.toString()).withExpiresAt(Instant.now().plus(LIFETIME)).sign(KEY);
+    }
+
+    public static String withEmailSubject() {
+        return claims().withSubject(Users.EMAIL).sign(KEY);
     }
 
     private static JWTCreator.Builder claims() {
         return JWT.create()
                 .withIssuer(ISSUER)
-                .withSubject(Users.EMAIL)
+                .withSubject(Users.UUID.toString())
                 .withClaim("sid", SESSION)
                 .withExpiresAt(Instant.now().plus(LIFETIME));
     }

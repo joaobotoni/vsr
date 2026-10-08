@@ -5,12 +5,11 @@ import com.botoni.vsr.database.entity.Session;
 import com.botoni.vsr.database.repository.RefreshTokenRepository;
 import com.botoni.vsr.exception.custom.RefreshTokenException;
 import com.botoni.vsr.exception.enums.problem.RefreshTokenProblem;
-import com.botoni.vsr.security.OpaqueToken;
+import com.botoni.vsr.token.OpaqueToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Arrays;
 
 @Service
@@ -22,54 +21,42 @@ public class RefreshTokenService {
 
     @Transactional
     public String issue(Session session) {
-        String token = generate();
-        persist(session, token);
-        return token;
+        String refreshToken = generate();
+        persist(session, refreshToken);
+        return refreshToken;
+    }
+
+    public byte[] digest(String refreshToken) {
+        return opaqueToken.hash(refreshToken);
     }
 
     @Transactional(readOnly = true)
-    public RefreshToken find(String token) {
-        byte[] digest = hash(token);
-        return findByHash(digest);
+    public RefreshToken find(byte[] digest) {
+        return refreshTokenRepository.findByCurrentHash(digest)
+                .or(() -> refreshTokenRepository.findByUsedHash(digest))
+                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
     }
 
     @Transactional
     public String renew(RefreshToken stored) {
-        if (isExpired(stored)) {
-            throw new RefreshTokenException(RefreshTokenProblem.EXPIRED);
-        }
-        String token = generate();
-        rotate(stored, token);
-        return token;
+        String refreshToken = generate();
+        rotate(stored, refreshToken);
+        return refreshToken;
     }
 
-    public boolean isReused(RefreshToken stored, String token) {
-        return !Arrays.equals(stored.getCurrentHash(), hash(token));
+    public boolean isReused(RefreshToken stored, byte[] digest) {
+        return !Arrays.equals(stored.getCurrentHash(), digest);
     }
 
     private String generate() {
         return opaqueToken.generate();
     }
 
-    private void persist(Session session, String token) {
-        refreshTokenRepository.issue(session.getId(), hash(token));
+    private void persist(Session session, String refreshToken) {
+        refreshTokenRepository.issue(session.getId(), digest(refreshToken));
     }
 
-    private byte[] hash(String token) {
-        return opaqueToken.hash(token);
-    }
-
-    private RefreshToken findByHash(byte[] hash) {
-        return refreshTokenRepository.findByCurrentHash(hash)
-                .or(() -> refreshTokenRepository.findByUsedHash(hash))
-                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
-    }
-
-    private void rotate(RefreshToken stored, String token) {
-        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), hash(token));
-    }
-
-    private static boolean isExpired(RefreshToken stored) {
-        return !stored.getExpiresAt().isAfter(Instant.now());
+    private void rotate(RefreshToken stored, String refreshToken) {
+        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), digest(refreshToken));
     }
 }

@@ -1,10 +1,9 @@
+vsr:
+  request:
+    max-body-size: 16KB
+  version:
+    header: ${VERSION_HEADER}
+    supported: ${VERSION_SUPPORTED}
+    default: ${VERSION_DEFAULT}
 server:
   forward-headers-strategy: none
-
-spring:
-  mvc:
-    apiversion:
-      use:
-        header: ${API_VERSION_HEADER}
-      supported: ${API_VERSION_SUPPORTED}
-      default: ${API_VERSION_DEFAULT}

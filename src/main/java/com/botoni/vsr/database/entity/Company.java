@@ -2,6 +2,7 @@ package com.botoni.vsr.database.entity;
 
 import com.botoni.vsr.database.enums.PersonType;
 import com.botoni.vsr.vo.Cnpj;
+import com.botoni.vsr.vo.Name;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
@@ -23,7 +24,7 @@ public class Company extends Person {
     @Column(name = "nome_fantasia", nullable = false)
     private String tradeName;
 
-    public Company(String legalName, String tradeName, Cnpj cnpj) {
+    public Company(Name legalName, String tradeName, Cnpj cnpj) {
         super(PersonType.COMPANY, legalName);
         this.tradeName = trim(tradeName);
         this.cnpj = cnpj;

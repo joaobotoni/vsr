@@ -3,6 +3,7 @@ package com.botoni.vsr.configuration;
 import com.botoni.vsr.filter.AuthenticationFilter;
 import com.botoni.vsr.filter.ExceptionFilter;
 import com.botoni.vsr.filter.RateLimitFilter;
+import com.botoni.vsr.filter.RequestBodySizeLimitFilter;
 import jakarta.servlet.Filter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +24,11 @@ public class FilterConfig {
 
     @Bean
     public FilterRegistrationBean<AuthenticationFilter> authenticationFilterRegistration(AuthenticationFilter filter) {
+        return disabled(filter);
+    }
+
+    @Bean
+    public FilterRegistrationBean<RequestBodySizeLimitFilter> bodySizeFilterRegistration(RequestBodySizeLimitFilter filter) {
         return disabled(filter);
     }
 

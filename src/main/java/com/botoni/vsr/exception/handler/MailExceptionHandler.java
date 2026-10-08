@@ -1,6 +1,6 @@
 package com.botoni.vsr.exception.handler;
 
-import com.botoni.vsr.exception.custom.DetailsException;
+import com.botoni.vsr.exception.custom.MailException;
 import com.botoni.vsr.exception.lib.problem.Problems;
 
 import org.springframework.core.Ordered;
@@ -11,10 +11,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
-public class DetailsExceptionHandler {
+public class MailExceptionHandler {
 
-    @ExceptionHandler(DetailsException.class)
-    ProblemDetail handleDetails(DetailsException exception) {
+    @ExceptionHandler(MailException.class)
+    ProblemDetail handleMail(MailException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

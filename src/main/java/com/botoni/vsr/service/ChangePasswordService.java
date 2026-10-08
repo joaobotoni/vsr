@@ -1,35 +1,35 @@
 package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.LocalCredential;
-import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.PasswordHash;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ChangePasswordService {
 
     private final LocalCredentialService localCredentialService;
-    private final SessionService sessionService;
+    private final AccountService accountService;
 
-    @Transactional
-    public void change(User user, Integer session, Password currentPassword, Password newPassword) {
+    public void change(UUID user, Integer session, Password currentPassword, Password newPassword) {
         LocalCredential credential = verify(user, currentPassword);
-        update(credential, newPassword);
-        revokeOthers(user, session);
+        PasswordHash hash = rehash(credential, newPassword);
+        replace(user, session, credential, hash);
     }
 
-    private LocalCredential verify(User user, Password password) {
+    private LocalCredential verify(UUID user, Password password) {
         return localCredentialService.verify(user, password);
     }
 
-    private void update(LocalCredential credential, Password password) {
-        localCredentialService.update(credential, password);
+    private PasswordHash rehash(LocalCredential credential, Password password) {
+        return localCredentialService.rehash(credential, password);
     }
 
-    private void revokeOthers(User user, Integer session) {
-        sessionService.revokeOthers(user, session);
+    private void replace(UUID user, Integer session, LocalCredential credential, PasswordHash hash) {
+        accountService.replace(user, session, credential, hash);
     }
 }

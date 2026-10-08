@@ -1,4 +1,4 @@
-package com.botoni.vsr.security;
+package com.botoni.vsr.token;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.botoni.vsr.exception.custom.JwtException;
@@ -25,10 +25,28 @@ class JwtTokenTest {
     @Controle
     @DisplayName("token emitido é verificado com usuário e sessão")
     void issuedTokenRoundTrips() {
-        JwtToken.Claims claims = Tokens.jwt().verify(Tokens.valid());
+        Claims claims = Tokens.jwt().verify(Tokens.valid());
 
-        assertThat(claims.subject()).isEqualTo(Users.EMAIL);
+        assertThat(claims.subject()).isEqualTo(Users.UUID);
         assertThat(claims.session()).isEqualTo(Tokens.SESSION);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("o token não carrega o e-mail do usuário")
+    void tokenDoesNotCarryEmail() {
+        String payload = new String(Base64.getUrlDecoder().decode(Tokens.valid().split("\\.")[1]), StandardCharsets.UTF_8);
+
+        assertThat(payload).doesNotContain(Users.EMAIL);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("token com subject que não é UUID é rejeitado")
+    void nonUuidSubjectIsRejected() {
+        assertThatThrownBy(() -> Tokens.jwt().verify(Tokens.withEmailSubject()))
+                .isInstanceOf(JwtException.class)
+                .extracting("problem").isEqualTo(JwtProblem.INVALID_SUBJECT);
     }
 
     @Test
@@ -37,7 +55,7 @@ class JwtTokenTest {
     void tamperedPayloadIsRejected() {
         String[] parts = Tokens.valid().split("\\.");
         String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8)
-                .replace(Users.EMAIL, "admin@vsr.com");
+                .replace(Users.UUID.toString(), "00000000-0000-0000-0000-000000000001");
         String tampered = parts[0] + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8)) + "." + parts[2];
 
         assertThatThrownBy(() -> Tokens.jwt().verify(tampered)).isInstanceOf(JWTVerificationException.class);

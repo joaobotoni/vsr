@@ -2,9 +2,11 @@ package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.Device;
 import com.botoni.vsr.database.entity.Session;
+import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.dto.request.DeviceRequest;
+import com.botoni.vsr.dto.response.AuthenticationResponse;
 import com.botoni.vsr.dto.response.TokenResponse;
-import com.botoni.vsr.security.Principal;
+import com.botoni.vsr.mapper.AuthenticationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,17 +21,19 @@ public class AccessService {
     private final SessionService sessionService;
     private final RefreshTokenService refreshTokenService;
     private final TokenService tokenService;
+    private final AuthenticationMapper authenticationMapper;
 
     @Transactional
-    public TokenResponse grant(Principal principal, DeviceRequest request, InetAddress ip) {
-        Device device = registerDevice(principal, request);
+    public AuthenticationResponse grant(User user, DeviceRequest request, InetAddress ip) {
+        Device device = registerDevice(user, request);
         Session session = open(device, ip);
         String refreshToken = issueRefreshToken(session);
-        return issue(principal, session, refreshToken);
+        TokenResponse token = issue(user, session, refreshToken);
+        return respond(user, token);
     }
 
-    private Device registerDevice(Principal principal, DeviceRequest request) {
-        return deviceService.register(principal.user(), request);
+    private Device registerDevice(User user, DeviceRequest request) {
+        return deviceService.register(user, request);
     }
 
     private Session open(Device device, InetAddress ip) {
@@ -40,7 +44,11 @@ public class AccessService {
         return refreshTokenService.issue(session);
     }
 
-    private TokenResponse issue(Principal principal, Session session, String refreshToken) {
-        return tokenService.issue(principal, session.getId(), refreshToken);
+    private TokenResponse issue(User user, Session session, String refreshToken) {
+        return tokenService.issue(user, session.getId(), refreshToken);
+    }
+
+    private AuthenticationResponse respond(User user, TokenResponse token) {
+        return authenticationMapper.toResponse(user, token);
     }
 }

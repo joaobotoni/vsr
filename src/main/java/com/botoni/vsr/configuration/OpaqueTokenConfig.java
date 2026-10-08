@@ -1,7 +1,7 @@
 package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.properties.RefreshTokenProperties;
-import com.botoni.vsr.security.OpaqueToken;
+import com.botoni.vsr.token.OpaqueToken;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

@@ -4,6 +4,7 @@ import com.botoni.vsr.database.enums.DevicePlatform;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.vo.Cpf;
 import com.botoni.vsr.vo.Email;
+import com.botoni.vsr.vo.Name;
 import com.botoni.vsr.vo.Password;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -21,24 +22,21 @@ class RegisterRequestTest {
 
     @Test
     @Controle
-    @DisplayName("espaços nas pontas do nome são removidos antes da validação")
-    void surroundingSpacesAreTrimmed() {
-        RegisterRequest request = request("  Ana Maria ");
-
-        assertThat(request.name()).isEqualTo("Ana Maria");
-        assertThat(validator.validate(request)).isEmpty();
+    @DisplayName("cadastro com todos os dados é válido")
+    void completeRequestIsValid() {
+        assertThat(validator.validate(request(Name.of("Ana Maria")))).isEmpty();
     }
 
     @Test
     @Controle
-    @DisplayName("nome só com espaços é recusado na validação")
-    void blankNameIsRejected() {
-        assertThat(validator.validate(request("   ")))
+    @DisplayName("nome ausente é recusado na validação")
+    void missingNameIsRejected() {
+        assertThat(validator.validate(request(null)))
                 .extracting(violation -> violation.getPropertyPath().toString())
                 .containsExactly("name");
     }
 
-    private static RegisterRequest request(String name) {
+    private static RegisterRequest request(Name name) {
         DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14");
         return new RegisterRequest(name, Cpf.of("52998224725"), Email.of("ana@vsr.com"), Password.of("senha segura 123"), device);
     }

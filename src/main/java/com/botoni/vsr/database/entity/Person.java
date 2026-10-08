@@ -1,6 +1,7 @@
 package com.botoni.vsr.database.entity;
 
 import com.botoni.vsr.database.enums.PersonType;
+import com.botoni.vsr.vo.Name;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -31,10 +32,10 @@ public abstract class Person {
     private PersonType type;
 
     @Column(name = "nome", nullable = false)
-    private String name;
+    private Name name;
 
-    protected Person(PersonType type, String name) {
+    protected Person(PersonType type, Name name) {
         this.type = type;
-        this.name = name.trim();
+        this.name = name;
     }
 }

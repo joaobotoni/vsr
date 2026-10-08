@@ -21,7 +21,7 @@ class LoginAttemptServiceTest {
     private static final int CAPACITY = 3;
     private static final Email ANA = Email.of("ana@vsr.com");
 
-    private final RateLimit accountRateLimit = RateLimit.forAccount(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final RateLimit accountRateLimit = RateLimit.any(new Limit(CAPACITY, 1, Duration.ofHours(1)));
     private final LoginAttemptService loginAttemptService = new LoginAttemptService(accountRateLimit);
 
     @AfterEach

@@ -13,15 +13,25 @@ import com.botoni.vsr.vo.PasswordHash;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,39 +44,60 @@ class ChangePasswordServiceTest {
 
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final SessionService sessionService = mock(SessionService.class);
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
-    private final ChangePasswordService changePasswordService = new ChangePasswordService(
-            new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder), sessionService);
+    private final PasswordEncoder encoder = spy(new BCryptPasswordEncoder(4));
+    private final LocalCredentialService localCredentialService =
+            new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder);
+    private final AccountService accountService = new AccountService(mock(IndividualService.class),
+            mock(UserService.class), localCredentialService, sessionService, mock(AccessService.class));
+    private final ChangePasswordService changePasswordService =
+            new ChangePasswordService(localCredentialService, accountService);
 
     private final User user = Users.ana();
-    private LocalCredential credential;
+    private String stored;
 
     @BeforeEach
     void storedCredential() {
-        credential = LocalCredential.builder().id(user.getId()).user(user)
-                .passwordHash(PasswordHash.of(encoder.encode(CURRENT.value()))).build();
-        when(repository.findById(user.getId())).thenReturn(Optional.of(credential));
+        stored = encoder.encode(CURRENT.value());
+        LocalCredential credential = LocalCredential.builder().id(user.getId()).user(user)
+                .passwordHash(PasswordHash.of(stored)).build();
+        when(repository.findByUserUuid(user.getUuid())).thenReturn(Optional.of(credential));
     }
 
     @Test
     @Controle
-    @DisplayName("troca a senha e revoga as outras sessões, mantendo a atual")
+    @DisplayName("troca a senha pela procedure e revoga as outras sessões, mantendo a atual")
     void changesPasswordAndRevokesOtherSessions() {
-        changePasswordService.change(user, SESSION, CURRENT, NEW);
+        changePasswordService.change(user.getUuid(), SESSION, CURRENT, NEW);
 
-        assertThat(storedPasswordIs(NEW)).isTrue();
-        verify(sessionService).revokeOthers(user, SESSION);
+        ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
+        verify(repository).change(eq(user.getId()), eq(stored), hash.capture());
+        assertThat(encoder.matches(NEW.value(), hash.getValue())).isTrue();
+        verify(sessionService).revokeOthers(user.getUuid(), SESSION);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("todo o cálculo de senha acontece antes de qualquer gravação")
+    void hashingHappensBeforeWrites() {
+        changePasswordService.change(user.getUuid(), SESSION, CURRENT, NEW);
+
+        InOrder order = inOrder(encoder, repository, sessionService);
+        order.verify(encoder).matches(eq(CURRENT.value()), anyString());
+        order.verify(encoder).matches(eq(NEW.value()), anyString());
+        order.verify(encoder).encode(NEW.value());
+        order.verify(repository).change(anyInt(), anyString(), anyString());
+        order.verify(sessionService).revokeOthers(user.getUuid(), SESSION);
     }
 
     @Test
     @Controle
     @DisplayName("senha atual errada não altera nada")
     void wrongCurrentPasswordChangesNothing() {
-        assertThatThrownBy(() -> changePasswordService.change(user, SESSION, NEW, NEW))
+        assertThatThrownBy(() -> changePasswordService.change(user.getUuid(), SESSION, NEW, NEW))
                 .isInstanceOf(CredentialException.class)
                 .extracting("problem").isEqualTo(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
 
-        assertThat(storedPasswordIs(CURRENT)).isTrue();
+        verify(repository, never()).change(anyInt(), anyString(), anyString());
         verify(sessionService, never()).revokeOthers(any(), any());
     }
 
@@ -74,13 +105,24 @@ class ChangePasswordServiceTest {
     @Controle
     @DisplayName("nova senha igual à atual é recusada e as sessões não são revogadas")
     void sameNewPasswordIsRejected() {
-        assertThatThrownBy(() -> changePasswordService.change(user, SESSION, CURRENT, CURRENT))
+        assertThatThrownBy(() -> changePasswordService.change(user.getUuid(), SESSION, CURRENT, CURRENT))
                 .isInstanceOf(CredentialException.class)
                 .extracting("problem").isEqualTo(CredentialProblem.SAME_PASSWORD);
+
+        verify(repository, never()).change(anyInt(), anyString(), anyString());
         verify(sessionService, never()).revokeOthers(any(), any());
     }
 
-    private boolean storedPasswordIs(Password password) {
-        return encoder.matches(password.value(), credential.getPasswordHash().value());
+    @Test
+    @Controle
+    @DisplayName("troca concorrente (hash já alterado por outra requisição) falha e não revoga sessões")
+    void concurrentChangeFails() {
+        doThrow(new DataIntegrityViolationException("rn_senha_alterada"))
+                .when(repository).change(anyInt(), anyString(), anyString());
+
+        assertThatThrownBy(() -> changePasswordService.change(user.getUuid(), SESSION, CURRENT, NEW))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        verify(sessionService, never()).revokeOthers(any(), any());
     }
 }

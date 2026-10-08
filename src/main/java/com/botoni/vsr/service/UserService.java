@@ -3,7 +3,6 @@ package com.botoni.vsr.service;
 import com.botoni.vsr.database.entity.Individual;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.database.repository.UserRepository;
-import com.botoni.vsr.dto.response.UserResponse;
 import com.botoni.vsr.exception.custom.UserException;
 import com.botoni.vsr.exception.enums.problem.UserProblem;
 import com.botoni.vsr.mapper.UserMapper;
@@ -11,6 +10,8 @@ import com.botoni.vsr.vo.Email;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +27,9 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponse profile(User user) {
-        User found = find(user);
-        return respond(found);
+    public User findWithPerson(UUID user) {
+        return userRepository.findWithPersonByUuid(user)
+                .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
     }
 
     private User create(Individual person, Email email) {
@@ -37,14 +38,5 @@ public class UserService {
 
     private User persist(User user) {
         return userRepository.save(user);
-    }
-
-    private User find(User user) {
-        return userRepository.findWithPersonById(user.getId())
-                .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
-    }
-
-    private UserResponse respond(User user) {
-        return userMapper.toResponse(user);
     }
 }

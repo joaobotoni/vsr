@@ -2,7 +2,7 @@
 
 API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
 
-O módulo de **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha) está implementado na API. O restante do domínio já está modelado no banco de dados (migrations `V1` a `V6`) e será exposto pela API nas próximas etapas.
+O módulo de **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha) está implementado na API. O restante do domínio já está modelado no banco de dados (migrations `V1` a `V7`) e será exposto pela API nas próximas etapas.
 
 ---
 
@@ -38,7 +38,7 @@ O módulo de **identidade e acesso** (cadastro, login, sessões por dispositivo,
 |---|---|
 | Linguagem | Java 17 |
 | Framework | Spring Boot 4.1 (Web MVC, Security, Data JPA, Validation, Mail) |
-| Persistência | PostgreSQL 13+, Hibernate 7, Flyway |
+| Persistência | PostgreSQL 17 com pg_cron, Hibernate 7, Flyway |
 | Autenticação | JWT HS256 (`com.auth0:java-jwt`) e refresh token opaco com hash HMAC-SHA-256 |
 | Senhas | Argon2id (Spring Security + BouncyCastle) |
 | Mapeamento | MapStruct 1.6 e Lombok |
@@ -49,7 +49,7 @@ O módulo de **identidade e acesso** (cadastro, login, sessões por dispositivo,
 
 ## Arquitetura
 
-O projeto é organizado **por camada**, nunca por funcionalidade. Cada pacote contém uma única natureza de classe.
+O projeto é organizado **por camada**, nunca por funcionalidade. Cada pacote contém uma única natureza de classe. As exceções são componentes de infraestrutura autocontidos: `exception/lib` e `ratelimit`, que reúne tudo do limite de requisições (algoritmo, configuração, rotas e resultado).
 
 ```
 com.botoni.vsr
@@ -63,37 +63,42 @@ com.botoni.vsr
 ├── dto
 │   ├── request       Corpos de requisição
 │   └── response      Corpos de resposta
-├── email             Contratos de envio de e-mail
 ├── exception
 │   ├── custom        Exceções de domínio
 │   ├── enums         Catálogo de problemas (*Problem) e de constraints do banco
 │   ├── handler       Um @RestControllerAdvice por exceção
 │   └── lib           Infraestrutura de ProblemDetail e resolução de constraints
-├── filter            Filtros servlet (exceção, rate limit, autenticação)
-├── lib               Classes puras (Modulo11, TokenBucket)
+├── filter            Filtros servlet (exceção, rate limit, tamanho do corpo, autenticação)
+├── lib               Algoritmos puros (Modulo11; ClientNetwork: IP de origem e rede para o rate limit)
 ├── mapper            Mappers MapStruct
+├── principal         Identidade autenticada (Principal)
 ├── properties        @ConfigurationProperties
-├── ratelimit         Políticas, rotas e chave de rede do rate limit
-├── security          JWT, token opaco (HMAC) e Principal
+├── ratelimit         Componente autocontido de rate limit (RateLimit, RateLimitPolicy, Rules, Route, Limit, TokenBucket, Bucket, Quota)
 ├── service           Serviços de entidade, de caso de uso e de infraestrutura
-└── vo                Value objects (Email, Password, PasswordHash, Cpf, Cnpj)
+├── token             JWT, token opaco (HMAC) e Claims
+└── vo                Value objects (Email, Password, PasswordHash, Cpf, Cnpj, Name, Mail)
 ```
 
 ### Serviços
 
 | Tipo | Serviços | Responsabilidade |
 |---|---|---|
-| Entidade | `IndividualService`, `UserService`, `LocalCredentialService`, `DeviceService`, `SessionService`, `RefreshTokenService` | Mexem apenas no próprio repositório e guardam as regras da própria entidade |
-| Caso de uso | `RegisterService`, `LoginService`, `AccessService`, `RefreshService`, `ChangePasswordService` | Apenas orquestram outros serviços |
-| Infraestrutura | `TokenService`, `LoginAttemptService`, `EmailService` | Isolam JWT, limite de tentativas por conta e envio de e-mail |
+| Entidade | `IndividualService`, `UserService`, `LocalCredentialService`, `DeviceService`, `SessionService`, `RefreshTokenService` | Mexem apenas no próprio repositório e guardam as regras da própria entidade. Recebem entidades e value objects, não DTOs (exceção: `DeviceRequest`) |
+| Caso de uso | `RegisterService`, `LoginService`, `RefreshService`, `LogoutService`, `ChangePasswordService`, `ProfileService` | Ponto de entrada de cada fluxo; apenas orquestram outros serviços |
+| Composição | `AccessService`, `AccountService` | Etapas compartilhadas entre casos de uso. O `AccessService` concede o acesso (dispositivo, sessão, tokens) e é o único que monta a resposta de autenticação. O `AccountService` concentra as gravações da conta que precisam ser atômicas: abrir a conta e substituir a senha |
+| Infraestrutura | `TokenService`, `LoginAttemptService`, `EmailService` | Isolam JWT, limite de falhas por conta e envio de e-mail. O `TokenService` é o único que emite e verifica o access token e o único que monta o par de tokens (`TokenResponse`) |
+
+Cada regra tem um único dono: a validade e o dono da sessão são decididos só pelo `SessionService`; a contagem de falhas de login, só pelo `LoginAttemptService`; a detecção de reuso de refresh token, só pelo `RefreshTokenService`.
 
 ### Convenções
 
-- O método público de um serviço lista os passos do caso de uso; cada passo é um método privado com uma única intenção, na ordem em que é chamado.
-- Dependências externas (repositório, mapper, JWT, envio de e-mail) só são chamadas em métodos privados.
-- Nomes: `create` monta sem persistir, `persist` grava, `find` busca e lança exceção quando não encontra, `is…`/`has…` retorna booleano. Uma classe nunca tem dois métodos com o mesmo nome.
-- **Fail fast**: todo `if` fica no topo da função e o corpo só lança ou retorna. Quando a checagem depende de um valor buscado, o valor passa por uma função que começa pelos `if` e o devolve, como `active(find(user, session))` e `matched(find(user), password)`. Efeitos colaterais condicionais viram um passo próprio (`if (!condição) return;`), como `revokeIfReused`.
-- **Value objects** concentram a validação. Uma senha nunca trafega como `String`: DTOs e serviços recebem `Password`, e o valor só é extraído na borda com APIs externas.
+- O método público de um serviço lista os passos do caso de uso; cada passo é um método privado com uma única intenção, na ordem em que é chamado. Métodos públicos vêm primeiro; auxiliares `static` ficam no fim.
+- Dependências externas (repositório, mapper, JWT, envio de e-mail) são chamadas em métodos privados. **Exceção:** um método público de um único passo chama a dependência direto, sem um privado só de repasse.
+- Nomes: `create` monta sem persistir, `persist` grava, `find` busca e lança exceção quando não encontra, `is…`/`has…` retorna booleano. Uma classe nunca tem dois métodos com o mesmo nome. Fábricas: `of` cria a partir das partes e `from` converte de outro tipo.
+- Nomes de variáveis e parâmetros: o UUID do usuário é `user`, o id da sessão é `session`, a entidade `RefreshToken` é `stored`, o refresh token em texto é `refreshToken` e o HMAC dele é `digest`. Quando aparecem juntos, `(user, session)` vêm primeiro.
+- **Fail fast**: todo `if` fica no topo da função e o corpo só lança ou retorna. Quando a checagem depende de um valor buscado, o valor passa por uma função que começa pelos `if` e o devolve: `active(findOwned(user, session))`, `matched(find(user), password)`, `unmatched(credential, password)`, `present(mail)`. Uma recusa ou um efeito colateral condicional vira um passo próprio, nomeado `…If…`: `terminateIfReused`, `rejectIfExceeded`.
+- **Transações** só envolvem gravações e leituras que precisam ficar juntas, e nunca o cálculo do Argon2 (que leva dezenas de milissegundos). Cadastro e troca de senha calculam o hash fora de transação e só então chamam o `AccountService`, que é `@Transactional`. Um teste de guarda falha se a anotação aparecer onde há Argon2 ou sumir onde há gravação.
+- **Value objects** concentram a validação. Uma senha nunca trafega como `String`: DTOs e serviços recebem `Password`, e o valor só é extraído na borda com APIs externas. Nomes de pessoa usam `Name`.
 - Escritas que vão além do CRUD são **procedures no banco**, chamadas com `@Procedure`.
 - Violações de regra no banco usam o padrão `rn_<nome>` e são traduzidas pelo `ConstraintExceptionHandler`, pelo enum `RuleConstraint`, para o status HTTP de cada regra.
 
@@ -102,8 +107,9 @@ com.botoni.vsr
 Toda requisição passa, nesta ordem, por:
 
 1. `ExceptionFilter`: converte exceções lançadas nos filtros em `ProblemDetail`.
-2. `RateLimitFilter`: aplica o limite da rota por rede do cliente e devolve os cabeçalhos `X-RateLimit-*`.
-3. `AuthenticationFilter`: valida o JWT, carrega o usuário e confirma que a sessão está ativa. É ignorado nas rotas públicas.
+2. `RateLimitFilter`: valida o IP de origem (`ClientNetwork`), aplica o limite da rota por rede do cliente e devolve os cabeçalhos `X-RateLimit-*`.
+3. `RequestBodySizeLimitFilter`: recusa pelo `Content-Length` corpos acima de 16 KB (`413`) e corpos sem `Content-Length` (`411`), antes de qualquer leitura.
+4. `AuthenticationFilter`: valida o JWT e confirma, numa única consulta, que a sessão do token está ativa e pertence ao usuário do token. O `Principal` guarda só o UUID do usuário e o id da sessão. É ignorado nas rotas públicas.
 
 ---
 
@@ -121,17 +127,19 @@ O banco é dividido em schemas por contexto:
 | `imoveis` | Imóvel e seus proprietários |
 | `catalogo` | Tipos de ambiente e de item, padrões do sistema ou personalizados |
 | `vistorias` | Vistoria, pessoas vinculadas, ambiente, item e evidência |
+| `rotinas` | Procedures de manutenção executadas por jobs agendados no `pg_cron` |
 
 As migrations ficam em `src/main/resources/db/migration`:
 
 | Migration | Conteúdo |
 |---|---|
-| `V1__schema.sql` | Schemas |
+| `V1__schema.sql` | Extensão `pg_cron` e schemas |
 | `V2__functions.sql` | Funções de validação e de `updated_at` |
 | `V3__ddl.sql` | Tipos, tabelas, constraints e índices |
-| `V4__procedures.sql` | Procedures de dispositivo, sessão e refresh token |
+| `V4__procedures.sql` | Procedures de dispositivo, sessão, refresh token, troca de senha e limpeza |
 | `V5__triggers.sql` | Triggers de `updated_at` |
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
+| `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 
 ### Procedures
 
@@ -144,7 +152,8 @@ As migrations ficam em `src/main/resources/db/migration`:
 | `revogar_sessoes_usuario` | Revoga as sessões ativas de um usuário, exceto uma |
 | `emitir_refresh_token` | Grava o hash do primeiro refresh token, com a validade da sessão |
 | `renovar_refresh_token` | Troca o hash atual pelo novo, só se o atual ainda for o apresentado (`rn_refresh_token_renovado`), e guarda o antigo no histórico |
-| `limpar_sessoes_expiradas` | Apaga sessões vencidas, junto com seus refresh tokens e histórico. **Ainda não é agendada.** |
+| `trocar_senha` | Grava o novo hash da senha só se o hash atual ainda for o lido pela aplicação (`rn_senha_alterada`), evitando que uma troca concorrente sobrescreva a outra |
+| `rotinas.limpar_sessoes_expiradas` | Apaga sessões vencidas, junto com seus refresh tokens e histórico. Roda todo dia às 03:00 (horário do `pg_cron`, UTC por padrão) pelo job `limpar-sessoes-expiradas` |
 
 ---
 
@@ -152,7 +161,7 @@ As migrations ficam em `src/main/resources/db/migration`:
 
 ### Cadastro
 
-- O cadastro cria, em uma única transação, a **pessoa física**, o **usuário** e a **credencial local**, registra o dispositivo e abre a primeira sessão.
+- O cadastro calcula o hash da senha **antes** de abrir a transação. Depois, em uma única transação (`AccountService.open`), cria a **pessoa física**, o **usuário** e a **credencial local**, registra o dispositivo, abre a primeira sessão e emite os tokens. Se qualquer etapa falhar, nada fica gravado.
 - E-mail e CPF são **únicos** no sistema. Cada pessoa física possui no máximo um usuário.
 - A resposta já contém os tokens de acesso: o usuário sai do cadastro autenticado. Ainda não há confirmação de e-mail.
 - Somente pessoas físicas podem ser usuários. Empresas se relacionam com usuários por meio de vínculos.
@@ -163,10 +172,11 @@ As migrations ficam em `src/main/resources/db/migration`:
 - O login exige e-mail, senha e os dados do dispositivo.
 - E-mail inexistente e senha incorreta produzem **a mesma resposta** (`E-mail ou senha incorretos.`).
 - Antes de conferir a senha, a API verifica o **limite de falhas da conta**. Cada senha errada desconta uma tentativa do e-mail, de qualquer IP; logins corretos não descontam.
+- A conferência da senha (Argon2id) roda **fora de transação**. A credencial é buscada numa consulta curta, e a conexão é devolvida antes do hash.
 - O dispositivo é identificado pelo par **(usuário, identificador UUID)**. Se já existir, seus dados (plataforma, fabricante, modelo, versão do sistema) são atualizados.
 - Cada dispositivo tem **no máximo uma sessão ativa**: um novo login revoga as sessões anteriores daquele dispositivo.
 - Uma sessão dura **30 dias** a partir do login (`security.session.ttl`), sem renovação, e registra o IP de origem.
-- Toda requisição autenticada confirma que a sessão **não foi revogada nem expirou**. Uma sessão revogada invalida imediatamente o access token correspondente. O último acesso é gravado no máximo a cada 5 minutos.
+- Toda requisição autenticada confirma que a sessão **não foi revogada nem expirou** e que **pertence ao usuário do token**. Uma sessão revogada invalida imediatamente o access token correspondente. O último acesso é gravado no máximo a cada 5 minutos.
 
 ```mermaid
 sequenceDiagram
@@ -176,18 +186,22 @@ sequenceDiagram
 
     App->>API: POST /auth/login (e-mail, senha, dispositivo)
     API->>API: confere o limite de falhas da conta
-    API->>Banco: valida credencial (Argon2id)
+    API->>Banco: busca a credencial
+    API->>API: confere a senha (Argon2id, sem conexão presa)
+    API->>Banco: busca o usuário com a pessoa
+    Note over API,Banco: transação
     API->>Banco: registrar_dispositivo
-    API->>Banco: revogar_sessoes_dispositivo
-    API->>Banco: cria sessão (30 dias)
+    API->>Banco: revogar_sessoes_dispositivo + cria sessão (30 dias)
     API->>Banco: emitir_refresh_token
-    API-->>App: accessToken + refreshToken
+    API-->>App: usuário + accessToken + refreshToken
 
     App->>API: GET /users/me (Bearer accessToken)
-    API->>Banco: registrar_acesso_sessao
+    API->>Banco: busca a sessão do token com o dono + registrar_acesso_sessao
     API-->>App: dados do usuário
 
     App->>API: POST /auth/refresh (refreshToken)
+    API->>Banco: busca pelo HMAC (atual ou já usado)
+    API->>Banco: retoma a sessão (ativa?) + registrar_acesso_sessao
     API->>Banco: renovar_refresh_token
     API-->>App: novo accessToken + novo refreshToken
 ```
@@ -197,7 +211,7 @@ sequenceDiagram
 | | Access token | Refresh token |
 |---|---|---|
 | Formato | JWT HS256 | 32 bytes aleatórios em Base64 URL |
-| Conteúdo | `sub` (e-mail), `sid` (sessão), `iss`, `iat`, `exp` | Opaco |
+| Conteúdo | `sub` (UUID público do usuário), `sid` (sessão), `iss`, `iat`, `exp` | Opaco |
 | Validade | `JWT_EXPIRATION_TIME` | A mesma da sessão |
 | Armazenamento | Não é armazenado | Somente o HMAC-SHA-256 com `REFRESH_TOKEN_SECRET_KEY` |
 | Uso | Cabeçalho `Authorization: Bearer` | Corpo de `POST /auth/refresh` |
@@ -205,15 +219,16 @@ sequenceDiagram
 Regras do refresh token:
 
 - **Rotação obrigatória**: cada renovação invalida o token usado e emite outro. O hash do token substituído vai para `usuarios.refresh_token_usado`.
-- **Detecção de reuso**: apresentar **qualquer** token já substituído, de qualquer geração e mesmo vencido, indica vazamento. A sessão inteira é revogada.
+- O HMAC do token apresentado é calculado **uma vez** e reaproveitado na busca e na detecção de reuso.
+- **Detecção de reuso**: apresentar **qualquer** token já substituído, de qualquer geração e mesmo vencido, indica vazamento. A sessão inteira é revogada direto pelo id, sem nova consulta.
 - **Concorrência**: se duas renovações com o mesmo token chegarem ao mesmo tempo, apenas uma vence. A outra recebe `409` (`rn_refresh_token_renovado`).
-- A renovação exige que a sessão continue ativa e que o token não tenha vencido.
+- A renovação exige que a **sessão** continue ativa. A validade é decidida só pela sessão: o refresh token recebe a mesma data de expiração da sessão na emissão.
 - Recusas de sessão e de refresh token respondem o mesmo `401` genérico (`SecurityProblem.INVALID_SESSION`). O motivo real vai apenas para o log.
 
 ### Logout e troca de senha
 
 - O **logout** revoga a sessão do token apresentado.
-- A **troca de senha** exige a senha atual e recusa uma nova senha igual à atual. Em caso de sucesso, grava o novo hash, registra a data da alteração e **revoga todas as outras sessões** do usuário, mantendo a sessão atual.
+- A **troca de senha** exige a senha atual e recusa uma nova senha igual à atual. As conferências e o novo hash (três operações Argon2) são calculados **fora de transação**. Depois, numa transação curta (`AccountService.replace`), a procedure `trocar_senha` grava o novo hash e as **outras sessões do usuário são revogadas**, mantendo a sessão atual. Se outra troca de senha da mesma conta tiver acontecido no meio, a requisição recebe `409` (`rn_senha_alterada`) e nada é alterado.
 
 ### Validação de dados
 
@@ -225,7 +240,7 @@ As regras abaixo são aplicadas pelos value objects e DTOs na entrada da API e, 
 | E-mail | Espaços nas pontas removidos e convertido para minúsculas; até 254 caracteres; parte local até 64 caracteres em `[a-z0-9._%+-]`; domínio em `[a-z0-9.-]` com extensão de 2 ou mais letras |
 | CPF | Máscara (`.`, `-`, `/`, espaços) removida; 11 dígitos; dígitos não podem ser todos iguais; dígitos verificadores pelo módulo 11 |
 | CNPJ | Formato alfanumérico: 12 caracteres `[0-9A-Z]` seguidos de 2 dígitos verificadores pelo módulo 11 |
-| Nome | Espaços nas pontas removidos; obrigatório; até 200 caracteres |
+| Nome | VO `Name`: espaços nas pontas removidos; obrigatório; até 200 caracteres (acentos contam como um) |
 | Dispositivo | Identificador UUID; plataforma `android` ou `ios`; fabricante, modelo e versão do sistema com espaços nas pontas removidos; fabricante e modelo até 64 caracteres; versão do sistema até 16 caracteres em `[0-9A-Za-z._- ]` |
 
 No banco, textos livres não podem ter espaços nas extremidades e respeitam limites de tamanho por coluna.
@@ -241,7 +256,7 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 | `POST /auth/login` | `RATE_LIMIT_LOGIN_*` |
 | `POST /auth/register` | `RATE_LIMIT_REGISTER_*` |
 | `POST /auth/refresh` | `RATE_LIMIT_REFRESH_*` |
-| `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` |
+| `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` (limita a **troca** de senha; o nome é histórico, não há reset) |
 | `POST /evidencias` | `RATE_LIMIT_UPLOAD_*` (rota reservada) |
 | Demais rotas | `RATE_LIMIT_API_*` |
 
@@ -250,6 +265,8 @@ Toda resposta traz `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-R
 **Por conta** (`LoginAttemptService`). Conta apenas **senhas erradas** por e-mail, de qualquer IP (`RATE_LIMIT_ACCOUNT_*`). Ao exceder, o login responde `429` sem conferir a senha. Esse limite não envia os cabeçalhos `X-RateLimit-*`.
 
 Os contadores ficam em memória: valem para uma única instância e são zerados quando a aplicação reinicia.
+
+As rotas com limite próprio são declaradas num só lugar (`ratelimit.Rules`). Cada limite (`ratelimit.Limit`) se valida na subida: capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia (`LimitProblem`).
 
 ### Regras do domínio de vistorias
 
@@ -305,13 +322,26 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 | Exposição de ids internos | API expõe o UUID público do usuário, não o id sequencial |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; detalhe só no log |
 | Anexos de e-mail | Restritos ao diretório `MAIL_ATTACHMENTS_DIR`; assuntos com quebra de linha são recusados |
+| Enumeração de CPF e e-mail no cadastro | Mesma recusa genérica para os dois (`RegisterProblem.UNAVAILABLE`, 409) |
+| Corpo de requisição gigante | Recusado pelo `Content-Length` antes de ser lido: acima de 16 KB (`vsr.request.max-body-size`) responde `413`; sem `Content-Length` (chunked) responde `411` |
+| Dados pessoais no access token | O `sub` do JWT é o UUID público, não o e-mail |
+| Token apontando para a sessão de outro usuário | A sessão é buscada pelo id **e** pelo UUID do token; se não pertencer ao usuário, a resposta é o `401` genérico |
+| Troca de senha simultânea | Bloqueada no banco (`rn_senha_alterada`): só grava se o hash ainda for o lido |
+| Conexões do banco esgotadas por hash de senha | O Argon2 roda fora de transação e o `open-in-view` está desligado, então nenhum hash prende conexão do pool |
 
 **Pendências conhecidas**
 
-- Não há confirmação de e-mail no cadastro, e o cadastro revela se o e-mail ou o CPF já existe.
-- Não há bloqueio persistente de conta; o limite de falhas fica em memória.
+- Não há confirmação de e-mail no cadastro, e o `409` ainda revela que o CPF ou o e-mail já existe (sem dizer qual).
+- O limite de falhas por conta fica em memória.
 - A aplicação deve ser servida diretamente com **HTTPS** (não há proxy à frente).
-- O agendamento de `limpar_sessoes_expiradas` e o limite de tamanho do corpo das requisições ainda não existem.
+
+**Riscos aceitos**
+
+| Risco | Consequência | Por que foi aceito |
+|---|---|---|
+| Não há bloqueio de conta | Uma conta comprometida ou abusiva só pode ser contida revogando as sessões; o dono da senha consegue entrar de novo | Revogar sessões e trocar a senha cobre os casos atuais |
+| Não há modelo de autorização | `getAuthorities()` é vazio; cada endpoint futuro precisa filtrar pelo dono vindo do `Principal`, nunca por um id recebido na requisição, e expor só UUID | Os endpoints de imóvel e vistoria ainda não existem |
+| Resposta perdida na renovação | Se a resposta do `/auth/refresh` se perde na rede e o app reenvia o token antigo, isso conta como reuso e a sessão é revogada; o usuário precisa fazer login de novo | Preferido a abrir uma janela de tolerância para o token anterior |
 
 ---
 
@@ -319,7 +349,7 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 
 ### Versionamento
 
-Todas as rotas ficam sob o prefixo `/api/{versao}`. A versão é negociada pelo cabeçalho definido em `API_VERSION_HEADER`; sem o cabeçalho, vale `API_VERSION_DEFAULT`. A versão atual é `1`.
+Todas as rotas ficam sob o prefixo `/api/{versao}`. A versão é negociada pelo cabeçalho definido em `VERSION_HEADER`; sem o cabeçalho, vale `VERSION_DEFAULT`. A versão atual é `1`.
 
 ### Endpoints
 
@@ -428,11 +458,13 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 | Status | Situação |
 |---|---|
-| `400` | Corpo inválido, dado reprovado por um value object ou endereço remoto que não é IP |
+| `400` | Corpo inválido, dado reprovado por um value object ou endereço remoto que não é IP (`RequestProblem.INVALID_ADDRESS`) |
 | `401` | Credenciais inválidas, token ausente, inválido ou expirado, sessão ou refresh token recusados |
 | `403` | Acesso negado |
 | `404` | Recurso inexistente |
-| `409` | Violação de unicidade ou renovação concorrente de refresh token |
+| `409` | Cadastro com CPF ou e-mail já existente (`RegisterProblem.UNAVAILABLE`, a mesma resposta para os dois), outra violação de unicidade, renovação concorrente de refresh token ou troca de senha concorrente |
+| `411` | Corpo enviado sem `Content-Length` |
+| `413` | Corpo acima de 16 KB |
 | `422` | Violação de check ou de chave estrangeira no banco, senha atual incorreta ou nova senha igual à atual |
 | `429` | Limite de requisições ou de falhas de login da conta excedido |
 | `500` | Erro inesperado, com mensagem genérica |
@@ -448,9 +480,9 @@ A aplicação é configurada **por variáveis de ambiente**, referenciadas pelos
 | Variável | Descrição | Exemplo |
 |---|---|---|
 | `APP_NAME` | Nome da aplicação | `vsr` |
-| `API_VERSION_HEADER` | Cabeçalho de versão da API | `X-API-Version` |
-| `API_VERSION_SUPPORTED` | Versões aceitas | `1` |
-| `API_VERSION_DEFAULT` | Versão usada sem o cabeçalho | `1` |
+| `VERSION_HEADER` | Cabeçalho de versão da API | `X-API-Version` |
+| `VERSION_SUPPORTED` | Versões aceitas | `1` |
+| `VERSION_DEFAULT` | Versão usada sem o cabeçalho | `1` |
 
 **Banco de dados**
 
@@ -463,9 +495,7 @@ A aplicação é configurada **por variáveis de ambiente**, referenciadas pelos
 | `DB_POOL_MAX_SIZE` / `DB_POOL_MIN_IDLE` | Tamanho do pool | `10` / `2` |
 | `DB_POOL_CONNECTION_TIMEOUT` / `DB_POOL_IDLE_TIMEOUT` / `DB_POOL_MAX_LIFETIME` | Tempos em milissegundos | `30000` / `600000` / `1800000` |
 | `JPA_DIALECT` | Dialeto do Hibernate | `org.hibernate.dialect.PostgreSQLDialect` |
-| `JPA_DDL_AUTO` | Estratégia de DDL; o schema é do Flyway | `validate` |
 | `JPA_BATCH_SIZE` | Tamanho de lote JDBC | `50` |
-| `JPA_SHOW_SQL` | Imprime o SQL no log (opcional, padrão `false`) | `false` |
 
 **Segurança**
 
@@ -483,7 +513,7 @@ A aplicação é configurada **por variáveis de ambiente**, referenciadas pelos
 | `MAIL_HOST` / `MAIL_PORT` | Servidor SMTP (STARTTLS obrigatório) |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciais SMTP |
 | `MAIL_FROM` | Remetente padrão |
-| `MAIL_ATTACHMENTS_DIR` | Único diretório de onde anexos podem ser enviados (opcional, padrão `attachments`) |
+| `MAIL_ATTACHMENTS_DIR` | Único diretório de onde anexos podem ser enviados |
 
 **Limite de requisições**
 
@@ -495,11 +525,24 @@ Para cada grupo `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT`, `PASSWORD_RESE
 | `RATE_LIMIT_<GRUPO>_REFILL_RATE` | Fichas repostas a cada intervalo | `5` |
 | `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` | Intervalo de reposição | `1m` |
 
+Os três valores precisam ser maiores que zero, senão a aplicação não inicia.
+
+**Valores fixos (não são variáveis de ambiente)**
+
+| Propriedade | Arquivo | Valor | Motivo |
+|---|---|---|---|
+| `spring.jpa.hibernate.ddl-auto` | `database.yaml` | `validate` | O schema pertence ao Flyway |
+| `spring.jpa.show-sql` | `database.yaml` | `false` | |
+| `spring.jpa.open-in-view` | `database.yaml` | `false` | A conexão fica presa só durante as transações |
+| `security.session.ttl` | `security.yaml` | `30d` | Validade da sessão e do refresh token |
+| `vsr.request.max-body-size` | `web.yaml` | `16KB` | Limite do corpo das requisições |
+| `server.forward-headers-strategy` | `web.yaml` | `none` | O IP do cliente é sempre o da conexão |
+
 ---
 
 ## Execução
 
-**Pré-requisitos:** JDK 17 e PostgreSQL 13 ou superior (o schema usa `gen_random_uuid()` nativo).
+**Pré-requisitos:** JDK 17 e PostgreSQL 17 com a extensão `pg_cron` disponível. O `pg_cron` exige, no `postgresql.conf`, `shared_preload_libraries = 'pg_cron'` e `cron.database_name` apontando para o banco da aplicação (reinicie o Postgres depois). O usuário do Flyway precisa de permissão para criar a extensão.
 
 ```bash
 # compilar
@@ -512,9 +555,11 @@ Para cada grupo `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT`, `PASSWORD_RESE
 java -jar target/vsr-0.0.1-SNAPSHOT.jar
 ```
 
-Na primeira execução, o Flyway aplica as migrations `V1` a `V6` de `src/main/resources/db/migration`. Depois que um ambiente executou as migrations, os arquivos existentes não podem mais ser alterados; mudanças novas entram como `V7__...`.
+Na primeira execução, o Flyway aplica as migrations `V1` a `V7` de `src/main/resources/db/migration`. Depois que um ambiente executou as migrations, os arquivos existentes não podem mais ser alterados; mudanças novas entram como `V8__...`.
 
-A aplicação não confia em cabeçalhos de proxy (`X-Forwarded-*`). Se for colocada atrás de um proxy reverso, ajuste `server.forward-headers-strategy` e `server.tomcat.remoteip.internal-proxies` em `web.yaml`.
+O `spring.jpa.open-in-view` está desligado em `database.yaml`: a conexão do banco só fica presa durante as transações, e não durante toda a requisição. Por isso, nenhum dado carregado preguiçosamente pode ser lido fora da transação em que foi buscado; quando um fluxo precisa de uma associação depois, a consulta já a traz (`join fetch`, como em `findWithPerson`).
+
+A aplicação não confia em cabeçalhos de proxy (`X-Forwarded-*`). Se for colocada atrás de um proxy reverso, ajuste `server.forward-headers-strategy` e `server.tomcat.remoteip.internal-proxies` em `web.yaml`. O `ClientNetwork` continua recusando, sem consulta DNS, qualquer endereço de origem que não seja um IP literal.
 
 ---
 
@@ -538,11 +583,19 @@ Os logs vão para a saída padrão do processo, no formato padrão do Spring Boo
 ./mvnw test
 ```
 
-Os testes ficam em `src/test/java`, espelhando os pacotes de produção, e não precisam de banco de dados.
+Os testes ficam em `src/test/java`, espelhando os pacotes de produção, e não precisam de banco de dados. São 218 testes, e todo serviço, value object e componente de rate limit tem o seu.
 
 | Recurso | Função |
 |---|---|
-| `@WebSecurityTest` | Sobe a cadeia de segurança real (configuração, filtros, JWT, rate limit) com MockMvc e serviços mockados |
+| `@WebSecurityTest` | Sobe a cadeia de segurança real (configuração, filtros, JWT, rate limit, limite de corpo) com MockMvc e serviços mockados |
 | `@Controle` | Marca testes que confirmam uma proteção (`-Dgroups=controle`) |
 | `@Brecha` | Marca testes que reproduzem uma falha conhecida e ainda aberta (`-Dgroups=brecha`); quando a falha for corrigida, o teste passa a falhar e deve virar `@Controle` |
 | `Users`, `Tokens`, `Requests`, `Ips` | Fixtures de usuário, tokens válidos e inválidos, requisições prontas e IPs exclusivos por requisição |
+
+Além do comportamento, os testes conferem:
+
+- a **ordem** das etapas: o Argon2 acontece antes de qualquer transação ou gravação, e o dispositivo antes da sessão e dos tokens;
+- **quantas consultas** cada fluxo faz: o refresh busca a sessão uma vez, e o reuso revoga sem consultar;
+- **onde há transação**: um teste de guarda falha se `@Transactional` aparecer onde há Argon2 ou sumir onde há gravação.
+
+**Limitação:** os repositórios são simulados. Procedures, `rn_*`, consultas com `join fetch`, transações do `AccountService` e o `open-in-view` desligado ainda não são verificados contra um PostgreSQL real. Um teste de integração com Testcontainers (PostgreSQL 17 com `pg_cron`) cobriria isso.

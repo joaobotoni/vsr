@@ -1,5 +1,6 @@
 package com.botoni.vsr.exception.handler;
 
+import com.botoni.vsr.exception.custom.RequestException;
 import com.botoni.vsr.exception.enums.problem.RequestProblem;
 import com.botoni.vsr.exception.lib.problem.Problems;
 
@@ -15,6 +16,11 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 public class RequestExceptionHandler {
+
+    @ExceptionHandler(RequestException.class)
+    ProblemDetail handleRequest(RequestException exception) {
+        return Problems.of(exception, exception.problem()).build();
+    }
 
     @ExceptionHandler(NoResourceFoundException.class)
     ProblemDetail handleNoResourceFound() {

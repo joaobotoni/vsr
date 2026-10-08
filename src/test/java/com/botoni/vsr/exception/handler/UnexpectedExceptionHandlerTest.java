@@ -1,10 +1,9 @@
 package com.botoni.vsr.exception.handler;
 
-import com.botoni.vsr.service.UserService;
+import com.botoni.vsr.service.ProfileService;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Requests;
 import com.botoni.vsr.support.Tokens;
-import com.botoni.vsr.support.Users;
 import com.botoni.vsr.support.WebSecurityTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,15 +34,11 @@ class UnexpectedExceptionHandlerTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
-    private UserService userService;
+    private ProfileService profileService;
 
     @BeforeEach
     void failingService() {
-        when(userDetailsService.loadUserByUsername(Users.EMAIL)).thenReturn(Users.principal());
-        when(userService.profile(any())).thenThrow(new IllegalStateException(INTERNAL));
+        when(profileService.profile(any())).thenThrow(new IllegalStateException(INTERNAL));
     }
 
     @Test

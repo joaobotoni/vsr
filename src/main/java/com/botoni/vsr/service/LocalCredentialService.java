@@ -13,7 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,36 +23,39 @@ public class LocalCredentialService {
     private final LocalCredentialMapper localCredentialMapper;
     private final PasswordEncoder passwordEncoder;
 
-    @Transactional
-    public LocalCredential save(User user, Password password) {
-        LocalCredential credential = create(user, password);
-        return persist(credential);
-    }
-
-    @Transactional(readOnly = true)
-    public LocalCredential verify(User user, Password password) {
-        return matched(find(user), password);
+    public PasswordHash hash(Password password) {
+        return PasswordHash.of(passwordEncoder.encode(password.value()));
     }
 
     @Transactional
-    public void update(LocalCredential credential, Password password) {
-        if (matches(credential, password)) {
-            throw new CredentialException(CredentialProblem.SAME_PASSWORD);
-        }
-        change(credential, password);
+    public void save(User user, PasswordHash hash) {
+        LocalCredential credential = create(user, hash);
         persist(credential);
     }
 
-    private LocalCredential create(User user, Password password) {
-        return localCredentialMapper.toEntity(user, hash(password));
+    public LocalCredential verify(UUID user, Password password) {
+        return matched(find(user), password);
     }
 
-    private LocalCredential persist(LocalCredential credential) {
-        return localCredentialRepository.save(credential);
+    public PasswordHash rehash(LocalCredential credential, Password password) {
+        return hash(unmatched(credential, password));
     }
 
-    private LocalCredential find(User user) {
-        return localCredentialRepository.findById(user.getId())
+    @Transactional
+    public void replace(LocalCredential credential, PasswordHash hash) {
+        localCredentialRepository.change(credential.getId(), credential.getPasswordHash().value(), hash.value());
+    }
+
+    private LocalCredential create(User user, PasswordHash hash) {
+        return localCredentialMapper.toEntity(user, hash);
+    }
+
+    private void persist(LocalCredential credential) {
+        localCredentialRepository.save(credential);
+    }
+
+    private LocalCredential find(UUID user) {
+        return localCredentialRepository.findByUserUuid(user)
                 .orElseThrow(() -> new CredentialException(CredentialProblem.NOT_FOUND));
     }
 
@@ -63,16 +66,14 @@ public class LocalCredentialService {
         return credential;
     }
 
-    private void change(LocalCredential credential, Password password) {
-        credential.setPasswordHash(hash(password));
-        credential.setPasswordUpdatedAt(Instant.now());
+    private Password unmatched(LocalCredential credential, Password password) {
+        if (matches(credential, password)) {
+            throw new CredentialException(CredentialProblem.SAME_PASSWORD);
+        }
+        return password;
     }
 
     private boolean matches(LocalCredential credential, Password password) {
         return passwordEncoder.matches(password.value(), credential.getPasswordHash().value());
-    }
-
-    private PasswordHash hash(Password password) {
-        return PasswordHash.of(passwordEncoder.encode(password.value()));
     }
 }

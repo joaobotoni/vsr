@@ -1,7 +1,7 @@
 package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.database.repository.LocalCredentialRepository;
-import com.botoni.vsr.security.Principal;
+import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.vo.Email;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

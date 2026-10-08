@@ -1,7 +1,7 @@
 package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.properties.JwtProperties;
-import com.botoni.vsr.security.JwtToken;
+import com.botoni.vsr.token.JwtToken;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

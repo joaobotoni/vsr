@@ -1,58 +1,51 @@
 package com.botoni.vsr.service;
 
-import com.botoni.vsr.database.entity.Individual;
-import com.botoni.vsr.database.entity.LocalCredential;
-import com.botoni.vsr.database.entity.User;
+import com.botoni.vsr.database.enums.DevicePlatform;
 import com.botoni.vsr.dto.request.DeviceRequest;
 import com.botoni.vsr.dto.request.RegisterRequest;
-import com.botoni.vsr.mapper.AuthenticationMapper;
-import com.botoni.vsr.database.enums.DevicePlatform;
-import com.botoni.vsr.support.Brecha;
-import com.botoni.vsr.support.Users;
+import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.vo.Cpf;
 import com.botoni.vsr.vo.Email;
+import com.botoni.vsr.vo.Name;
 import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.PasswordHash;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.net.InetAddress;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("Cadastro")
 class RegisterServiceTest {
 
-    private final AccessService accessService = mock(AccessService.class);
-    private final IndividualService individualService = mock(IndividualService.class);
-    private final UserService userService = mock(UserService.class);
+    private static final PasswordHash HASH = PasswordHash.of("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA");
+
     private final LocalCredentialService localCredentialService = mock(LocalCredentialService.class);
-    private final RegisterService registerService = new RegisterService(
-            accessService, individualService, userService, localCredentialService, mock(AuthenticationMapper.class));
+    private final AccountService accountService = mock(AccountService.class);
+    private final RegisterService registerService = new RegisterService(localCredentialService, accountService);
 
     @Test
-    @Brecha
-    @DisplayName("cadastro emite tokens na hora, sem confirmar a posse do e-mail ou do CPF")
-    void registerGrantsAccessWithoutVerification() {
+    @Controle
+    @DisplayName("o hash da senha é calculado antes de abrir a conta, e a conta recebe o hash pronto")
+    void passwordIsHashedBeforeOpeningAccount() {
         RegisterRequest request = request();
-        Individual person = new Individual(request.name(), request.cpf());
-        User user = Users.ana();
-        when(individualService.save(request.name(), request.cpf())).thenReturn(person);
-        when(userService.save(person, request.email())).thenReturn(user);
-        when(localCredentialService.save(eq(user), any()))
-                .thenReturn(LocalCredential.builder().id(user.getId()).user(user).build());
+        InetAddress ip = InetAddress.getLoopbackAddress();
+        when(localCredentialService.hash(request.password())).thenReturn(HASH);
 
-        registerService.register(request, InetAddress.getLoopbackAddress());
+        registerService.register(request, ip);
 
-        verify(accessService).grant(any(), eq(request.device()), any());
+        InOrder order = inOrder(localCredentialService, accountService);
+        order.verify(localCredentialService).hash(request.password());
+        order.verify(accountService).open(request, HASH, ip);
     }
 
     private static RegisterRequest request() {
         DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14");
-        return new RegisterRequest("Ana", Cpf.of("52998224725"), Email.of("email.de.terceiro@vsr.com"), Password.of("senha segura 123"), device);
+        return new RegisterRequest(Name.of("Ana"), Cpf.of("52998224725"), Email.of("email.de.terceiro@vsr.com"), Password.of("senha segura 123"), device);
     }
 }

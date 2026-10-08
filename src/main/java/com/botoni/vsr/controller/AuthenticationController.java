@@ -5,11 +5,12 @@ import com.botoni.vsr.dto.request.RefreshRequest;
 import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.AuthenticationResponse;
 import com.botoni.vsr.dto.response.TokenResponse;
-import com.botoni.vsr.security.Principal;
+import com.botoni.vsr.lib.ClientNetwork;
+import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.service.LoginService;
+import com.botoni.vsr.service.LogoutService;
 import com.botoni.vsr.service.RefreshService;
 import com.botoni.vsr.service.RegisterService;
-import com.botoni.vsr.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,23 +21,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping(path = "/auth", version = "1")
 @RequiredArgsConstructor
 public class AuthenticationController {
 
-    private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
-
     private final RegisterService registerService;
     private final LoginService loginService;
-    private final SessionService sessionService;
     private final RefreshService refreshService;
+    private final LogoutService logoutService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(@RequestBody @Valid RegisterRequest request, HttpServletRequest http) {
@@ -55,30 +51,11 @@ public class AuthenticationController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal Principal principal) {
-        sessionService.revoke(principal.user(), principal.session());
+        logoutService.logout(principal.user(), principal.session());
         return ResponseEntity.noContent().build();
     }
 
     private static InetAddress ip(HttpServletRequest http) {
-        return literal(http.getRemoteAddr());
-    }
-
-    private static InetAddress literal(String address) {
-        if (!isLiteral(address)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        }
-        return parse(address);
-    }
-
-    private static boolean isLiteral(String address) {
-        return address != null && (IPV4.matcher(address).matches() || address.contains(":"));
-    }
-
-    private static InetAddress parse(String address) {
-        try {
-            return InetAddress.getByName(address);
-        } catch (UnknownHostException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        }
+        return ClientNetwork.address(http.getRemoteAddr());
     }
 }

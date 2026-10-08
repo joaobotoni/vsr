@@ -2,9 +2,9 @@ package com.botoni.vsr.controller;
 
 import com.botoni.vsr.dto.request.ChangePasswordRequest;
 import com.botoni.vsr.dto.response.UserResponse;
-import com.botoni.vsr.security.Principal;
+import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.service.ChangePasswordService;
-import com.botoni.vsr.service.UserService;
+import com.botoni.vsr.service.ProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
+    private final ProfileService profileService;
     private final ChangePasswordService changePasswordService;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal Principal principal) {
-        return ResponseEntity.ok(userService.profile(principal.user()));
+        return ResponseEntity.ok(profileService.profile(principal.user()));
     }
 
     @PatchMapping("/me/password")

@@ -1,10 +1,9 @@
 package com.botoni.vsr.service;
 
-import com.botoni.vsr.email.Details;
-import com.botoni.vsr.email.Sender;
 import com.botoni.vsr.exception.custom.SenderException;
 import com.botoni.vsr.exception.enums.problem.SenderProblem;
 import com.botoni.vsr.properties.EmailProperties;
+import com.botoni.vsr.vo.Mail;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
@@ -23,7 +22,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 @Service
-public class EmailService implements Sender {
+public class EmailService {
 
     private static final String CHARSET = StandardCharsets.UTF_8.name();
 
@@ -39,36 +38,39 @@ public class EmailService implements Sender {
         this.mailSender = mailSender;
     }
 
-    @Override
-    public void send(Details details) {
-        if (details == null) {
-            throw new SenderException(SenderProblem.MISSING_DETAILS);
-        }
-        SimpleMailMessage message = text(details);
+    public void send(Mail mail) {
+        SimpleMailMessage message = text(present(mail));
         deliverText(message);
     }
 
-    @Override
-    public void send(Details details, Path... attachments) {
-        if (details == null) {
-            throw new SenderException(SenderProblem.MISSING_DETAILS);
+    public void attach(Mail mail, Path... attachments) {
+        MimeMessagePreparator message = mime(present(mail), allowed(attachments));
+        deliverMime(message);
+    }
+
+    private static Mail present(Mail mail) {
+        if (mail == null) {
+            throw new SenderException(SenderProblem.MISSING_MAIL);
         }
+        return mail;
+    }
+
+    private Path[] allowed(Path... attachments) {
         if (!hasAttachments(attachments)) {
             throw new SenderException(SenderProblem.MISSING_ATTACHMENTS);
         }
         if (!areInsideDirectory(attachments)) {
             throw new SenderException(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
         }
-        MimeMessagePreparator message = mime(details, attachments);
-        deliverMime(message);
+        return attachments;
     }
 
-    private SimpleMailMessage text(Details details) {
+    private SimpleMailMessage text(Mail mail) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(sender);
-        message.setTo(to(details));
-        message.setSubject(details.subject());
-        message.setText(details.body());
+        message.setTo(to(mail));
+        message.setSubject(mail.subject());
+        message.setText(mail.body());
         return message;
     }
 
@@ -76,15 +78,15 @@ public class EmailService implements Sender {
         mailSender.send(message);
     }
 
-    private MimeMessagePreparator mime(Details details, Path... attachments) {
-        return message -> fill(message, details, attachments);
+    private MimeMessagePreparator mime(Mail mail, Path... attachments) {
+        return message -> fill(message, mail, attachments);
     }
 
-    private void fill(MimeMessage message, Details details, Path... attachments) throws MessagingException, IOException {
+    private void fill(MimeMessage message, Mail mail, Path... attachments) throws MessagingException, IOException {
         message.setFrom(new InternetAddress(sender));
-        message.setRecipient(Message.RecipientType.TO, new InternetAddress(to(details)));
-        message.setSubject(details.subject(), CHARSET);
-        message.setContent(parts(details.body(), attachments));
+        message.setRecipient(Message.RecipientType.TO, new InternetAddress(to(mail)));
+        message.setSubject(mail.subject(), CHARSET);
+        message.setContent(parts(mail.body(), attachments));
     }
 
     private void deliverMime(MimeMessagePreparator message) {
@@ -112,8 +114,8 @@ public class EmailService implements Sender {
         return part;
     }
 
-    private static String to(Details details) {
-        return details.to().value();
+    private static String to(Mail mail) {
+        return mail.to().value();
     }
 
     private static boolean hasAttachments(Path... attachments) {

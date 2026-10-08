@@ -17,7 +17,8 @@ public enum JwtProblem implements Problem {
     INVALID_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "A chave JWT deve estar codificada em Base64."),
     WEAK_SECRET(HttpStatus.INTERNAL_SERVER_ERROR, "A chave JWT precisa ter pelo menos 256 bits (32 bytes)."),
     MISSING_ISSUER(HttpStatus.INTERNAL_SERVER_ERROR, "O issuer do JWT não foi configurado."),
-    MISSING_TOKEN(HttpStatus.UNAUTHORIZED, "O token de acesso não foi informado.");
+    MISSING_TOKEN(HttpStatus.UNAUTHORIZED, "O token de acesso não foi informado."),
+    INVALID_SUBJECT(HttpStatus.UNAUTHORIZED, "O token de acesso é inválido.");
 
     private final HttpStatus status;
     private final String message;

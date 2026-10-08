@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.InetAddress;
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -31,27 +32,32 @@ public class SessionService {
     }
 
     @Transactional
-    public void access(User user, Integer session) {
-        Session active = findActive(user, session);
+    public void access(UUID user, Integer session) {
+        Session active = active(findOwned(user, session));
         registerAccess(active);
     }
 
     @Transactional
-    public void revoke(User user, Integer session) {
-        Session found = find(user, session);
-        revokeSession(found);
+    public User resume(Integer session) {
+        Session active = active(find(session));
+        registerAccess(active);
+        return owner(active);
     }
 
     @Transactional
-    public void revokeOthers(User user, Integer keptSession) {
-        Session kept = findActive(user, keptSession);
-        revokeExcept(user, kept);
+    public void revoke(UUID user, Integer session) {
+        revokeSession(findOwned(user, session));
     }
 
-    @Transactional(readOnly = true)
-    public User findOwner(Integer session) {
-        Session found = findWithUser(session);
-        return owner(found);
+    @Transactional
+    public void terminate(Integer session) {
+        sessionRepository.revoke(session);
+    }
+
+    @Transactional
+    public void revokeOthers(UUID user, Integer session) {
+        Session kept = active(findOwned(user, session));
+        revokeExcept(kept);
     }
 
     private void revokeDevice(Device device) {
@@ -62,20 +68,25 @@ public class SessionService {
         return sessionMapper.toEntity(device, ip, expiration());
     }
 
+    private Instant expiration() {
+        return Instant.now().plus(sessionProperties.ttl());
+    }
+
     private Session persist(Session session) {
         return sessionRepository.save(session);
     }
 
-    private Session findActive(User user, Integer session) {
-        return active(find(user, session));
+    private Session findOwned(UUID user, Integer session) {
+        return sessionRepository.findWithUserByIdAndUuid(session, user)
+                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
     private void registerAccess(Session session) {
         sessionRepository.access(session.getId());
     }
 
-    private Session find(User user, Integer session) {
-        return sessionRepository.findByIdAndDeviceUser(session, user)
+    private Session find(Integer session) {
+        return sessionRepository.findWithUserById(session)
                 .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
@@ -83,17 +94,8 @@ public class SessionService {
         sessionRepository.revoke(session.getId());
     }
 
-    private void revokeExcept(User user, Session kept) {
-        sessionRepository.revokeUser(user.getId(), kept.getId());
-    }
-
-    private Session findWithUser(Integer session) {
-        return sessionRepository.findWithUserById(session)
-                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
-    }
-
-    private Instant expiration() {
-        return Instant.now().plus(sessionProperties.ttl());
+    private void revokeExcept(Session kept) {
+        sessionRepository.revokeUser(owner(kept).getId(), kept.getId());
     }
 
     private static Session active(Session session) {

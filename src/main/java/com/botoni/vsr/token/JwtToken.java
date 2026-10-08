@@ -1,4 +1,4 @@
-package com.botoni.vsr.security;
+package com.botoni.vsr.token;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
@@ -9,11 +9,9 @@ import com.botoni.vsr.exception.enums.problem.JwtProblem;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import org.springframework.security.core.userdetails.UserDetails;
+import java.util.UUID;
 
 public final class JwtToken {
-
-    public record Claims(String subject, Integer session) {}
 
     private static final String SESSION_CLAIM = "sid";
     private static final long LEEWAY = 30;
@@ -31,14 +29,14 @@ public final class JwtToken {
         this.verifier = verifier(algorithm, issuer);
     }
 
-    public String issue(UserDetails principal, Integer session) {
-        if (principal == null) {
+    public String issue(UUID user, Integer session) {
+        if (user == null) {
             throw new JwtException(JwtProblem.MISSING_USER);
         }
         if (session == null) {
             throw new JwtException(JwtProblem.MISSING_SESSION);
         }
-        return create(principal, session);
+        return create(user, session);
     }
 
     public Claims verify(String token) {
@@ -50,11 +48,11 @@ public final class JwtToken {
         return expirationTime.toSeconds();
     }
 
-    private String create(UserDetails principal, Integer session) {
+    private String create(UUID user, Integer session) {
         Instant now = Instant.now();
         return JWT.create()
                 .withIssuer(issuer)
-                .withSubject(principal.getUsername())
+                .withSubject(user.toString())
                 .withClaim(SESSION_CLAIM, session)
                 .withIssuedAt(now)
                 .withExpiresAt(now.plus(expirationTime))
@@ -68,8 +66,19 @@ public final class JwtToken {
         return verifier.verify(token);
     }
 
-    private static String subject(DecodedJWT jwt) {
-        return jwt.getSubject();
+    private static UUID subject(DecodedJWT jwt) {
+        return uuid(jwt.getSubject());
+    }
+
+    private static UUID uuid(String subject) {
+        if (subject == null) {
+            throw new JwtException(JwtProblem.INVALID_SUBJECT);
+        }
+        try {
+            return UUID.fromString(subject);
+        } catch (IllegalArgumentException exception) {
+            throw new JwtException(JwtProblem.INVALID_SUBJECT);
+        }
     }
 
     private static Integer session(DecodedJWT jwt) {

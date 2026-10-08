@@ -1,7 +1,5 @@
 package com.botoni.vsr.ratelimit;
 
-import com.botoni.vsr.lib.TokenBucket.RateLimitResult;
-import com.botoni.vsr.lib.TokenBucket;
 import jakarta.servlet.http.HttpServletRequest;
 
 public final class RateLimit implements AutoCloseable {
@@ -13,35 +11,31 @@ public final class RateLimit implements AutoCloseable {
     private RateLimit(Route route, Limit limit) {
         this.route = route;
         this.limit = limit;
-        this.bucket = new TokenBucket(limit.capacity(), limit.refillRate(), limit.refillInterval());
+        this.bucket = new TokenBucket(limit);
     }
 
-    static RateLimit forRoute(Route route, Limit limit) {
+    static RateLimit of(Route route, Limit limit) {
         return new RateLimit(route, limit);
     }
 
-    static RateLimit fallback(Limit limit) {
+    public static RateLimit any(Limit limit) {
         return new RateLimit(Route.any(), limit);
     }
 
-    public static RateLimit forAccount(Limit limit) {
-        return new RateLimit(Route.any(), limit);
+    public Quota consume(String key) {
+        return bucket.consume(key);
     }
 
-    boolean matches(HttpServletRequest request) {
-        return route.matches(request);
-    }
-
-    public RateLimitResult consume(String key) {
-        return bucket.allow(key);
-    }
-
-    public RateLimitResult check(String key) {
-        return bucket.peek(key);
+    public Quota check(String key) {
+        return bucket.check(key);
     }
 
     public Limit limit() {
         return limit;
+    }
+
+    boolean matches(HttpServletRequest request) {
+        return route.matches(request);
     }
 
     @Override

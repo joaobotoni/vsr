@@ -3,12 +3,13 @@ package com.botoni.vsr.filter;
 import com.botoni.vsr.exception.custom.SessionException;
 import com.botoni.vsr.exception.enums.problem.SessionProblem;
 import com.botoni.vsr.service.SessionService;
+import com.botoni.vsr.service.LogoutService;
+import com.botoni.vsr.service.ProfileService;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Requests;
 import com.botoni.vsr.support.Tokens;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.support.WebSecurityTest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.stream.Stream;
@@ -42,21 +41,29 @@ class AuthenticationFilterTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
     private SessionService sessionService;
 
-    @BeforeEach
-    void knownUser() {
-        when(userDetailsService.loadUserByUsername(Users.EMAIL)).thenReturn(Users.principal());
-    }
+    @Autowired
+    private ProfileService profileService;
+
+    @Autowired
+    private LogoutService logoutService;
 
     @Test
     @Controle
     @DisplayName("token válido de sessão ativa é aceito")
     void validTokenIsAccepted() throws Exception {
         mockMvc.perform(Requests.me(Tokens.valid())).andExpect(status().isOk());
+    }
+
+    @Test
+    @Controle
+    @DisplayName("a requisição autenticada carrega só o UUID do usuário, sem buscar a conta")
+    void principalCarriesOnlyUuid() throws Exception {
+        mockMvc.perform(Requests.me(Tokens.valid())).andExpect(status().isOk());
+
+        verify(sessionService).access(Users.UUID, Tokens.SESSION);
+        verify(profileService).profile(Users.UUID);
     }
 
     @Test
@@ -93,11 +100,9 @@ class AuthenticationFilterTest {
 
     @Test
     @Controle
-    @DisplayName("token de usuário que não existe mais responde 401")
-    void deletedUserIsRejected() throws Exception {
-        when(userDetailsService.loadUserByUsername(Users.EMAIL)).thenThrow(new UsernameNotFoundException("removido"));
-
-        mockMvc.perform(Requests.me(Tokens.valid())).andExpect(status().isUnauthorized());
+    @DisplayName("token no formato antigo, com e-mail no subject, responde 401")
+    void emailSubjectIsRejected() throws Exception {
+        mockMvc.perform(Requests.me(Tokens.withEmailSubject())).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -114,7 +119,7 @@ class AuthenticationFilterTest {
     void logoutRevokesTokenSession() throws Exception {
         mockMvc.perform(Requests.logout(Tokens.valid())).andExpect(status().isNoContent());
 
-        verify(sessionService).revoke(any(), eq(Tokens.SESSION));
+        verify(logoutService).logout(Users.UUID, Tokens.SESSION);
     }
 
     @Controle

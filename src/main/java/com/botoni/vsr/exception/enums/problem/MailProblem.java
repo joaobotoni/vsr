@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public enum DetailsProblem implements Problem {
+public enum MailProblem implements Problem {
 
     MISSING_SENDER(HttpStatus.INTERNAL_SERVER_ERROR, "O remetente do e-mail é obrigatório."),
     MISSING_RECIPIENT(HttpStatus.INTERNAL_SERVER_ERROR, "O destinatário do e-mail é obrigatório."),

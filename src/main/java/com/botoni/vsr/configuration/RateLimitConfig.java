@@ -16,6 +16,6 @@ public class RateLimitConfig {
 
     @Bean
     public RateLimit accountRateLimit(RateLimitProperties properties) {
-        return RateLimit.forAccount(properties.account());
+        return RateLimit.any(properties.account());
     }
 }

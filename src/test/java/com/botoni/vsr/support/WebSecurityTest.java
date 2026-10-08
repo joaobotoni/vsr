@@ -8,7 +8,8 @@ import com.botoni.vsr.service.LoginService;
 import com.botoni.vsr.service.RefreshService;
 import com.botoni.vsr.service.RegisterService;
 import com.botoni.vsr.service.SessionService;
-import com.botoni.vsr.service.UserService;
+import com.botoni.vsr.service.LogoutService;
+import com.botoni.vsr.service.ProfileService;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -36,7 +37,8 @@ import java.lang.annotation.Target;
         LoginService.class,
         SessionService.class,
         RefreshService.class,
-        UserService.class,
+        ProfileService.class,
+        LogoutService.class,
         ChangePasswordService.class,
         UserDetailsService.class,
         TokenMapper.class

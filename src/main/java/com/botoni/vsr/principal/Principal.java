@@ -1,7 +1,6 @@
-package com.botoni.vsr.security;
+package com.botoni.vsr.principal;
 
 import com.botoni.vsr.database.entity.LocalCredential;
-import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.vo.PasswordHash;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -11,10 +10,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 public final class Principal implements UserDetails, CredentialsContainer {
 
-    private final User user;
+    private final UUID user;
 
     @Nullable
     private PasswordHash passwordHash;
@@ -22,25 +22,21 @@ public final class Principal implements UserDetails, CredentialsContainer {
     @Nullable
     private final Integer session;
 
-    private Principal(User user, @Nullable PasswordHash passwordHash, @Nullable Integer session) {
+    private Principal(UUID user, @Nullable PasswordHash passwordHash, @Nullable Integer session) {
         this.user = user;
         this.passwordHash = passwordHash;
         this.session = session;
     }
 
     public static Principal from(LocalCredential credential) {
-        return new Principal(credential.getUser(), credential.getPasswordHash(), null);
+        return new Principal(credential.getUser().getUuid(), credential.getPasswordHash(), null);
     }
 
-    public static Principal from(User user) {
-        return new Principal(user, null, null);
-    }
-
-    public Principal withSession(Integer session) {
+    public static Principal of(UUID user, Integer session) {
         return new Principal(user, null, session);
     }
 
-    public User user() {
+    public UUID user() {
         return user;
     }
 
@@ -50,7 +46,7 @@ public final class Principal implements UserDetails, CredentialsContainer {
 
     @Override
     public @NonNull String getUsername() {
-        return user.getEmail().value();
+        return user.toString();
     }
 
     @Override

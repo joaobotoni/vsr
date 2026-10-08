@@ -15,8 +15,9 @@ spring:
   jpa:
     database-platform: ${JPA_DIALECT}
     show-sql: false
+    open-in-view: false
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO}
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true

@@ -6,7 +6,6 @@ import com.botoni.vsr.dto.request.RefreshRequest;
 import com.botoni.vsr.dto.response.TokenResponse;
 import com.botoni.vsr.exception.custom.RefreshTokenException;
 import com.botoni.vsr.exception.enums.problem.RefreshTokenProblem;
-import com.botoni.vsr.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,49 +18,50 @@ public class RefreshService {
     private final TokenService tokenService;
 
     public TokenResponse refresh(RefreshRequest request) {
-        RefreshToken stored = find(request);
-        revokeIfReused(stored, request);
-        return exchange(stored, request);
+        byte[] digest = digest(request);
+        RefreshToken stored = find(digest);
+        terminateIfReused(stored, digest);
+        return exchange(stored, digest);
     }
 
-    private RefreshToken find(RefreshRequest request) {
-        return refreshTokenService.find(request.refreshToken());
+    private byte[] digest(RefreshRequest request) {
+        return refreshTokenService.digest(request.refreshToken());
     }
 
-    private void revokeIfReused(RefreshToken stored, RefreshRequest request) {
-        if (!isReused(stored, request)) {
+    private RefreshToken find(byte[] digest) {
+        return refreshTokenService.find(digest);
+    }
+
+    private void terminateIfReused(RefreshToken stored, byte[] digest) {
+        if (!isReused(stored, digest)) {
             return;
         }
-        revoke(stored);
+        terminate(stored);
     }
 
-    private TokenResponse exchange(RefreshToken stored, RefreshRequest request) {
-        if (isReused(stored, request)) {
+    private TokenResponse exchange(RefreshToken stored, byte[] digest) {
+        if (isReused(stored, digest)) {
             throw new RefreshTokenException(RefreshTokenProblem.REUSED);
         }
-        return rotate(stored, findOwner(stored));
+        return rotate(stored);
     }
 
-    private boolean isReused(RefreshToken stored, RefreshRequest request) {
-        return refreshTokenService.isReused(stored, request.refreshToken());
+    private boolean isReused(RefreshToken stored, byte[] digest) {
+        return refreshTokenService.isReused(stored, digest);
     }
 
-    private void revoke(RefreshToken stored) {
-        sessionService.revoke(findOwner(stored), session(stored));
+    private void terminate(RefreshToken stored) {
+        sessionService.terminate(session(stored));
     }
 
-    private User findOwner(RefreshToken stored) {
-        return sessionService.findOwner(session(stored));
-    }
-
-    private TokenResponse rotate(RefreshToken stored, User user) {
-        access(user, stored);
+    private TokenResponse rotate(RefreshToken stored) {
+        User user = resume(stored);
         String refreshToken = renew(stored);
         return issue(user, stored, refreshToken);
     }
 
-    private void access(User user, RefreshToken stored) {
-        sessionService.access(user, session(stored));
+    private User resume(RefreshToken stored) {
+        return sessionService.resume(session(stored));
     }
 
     private String renew(RefreshToken stored) {
@@ -69,7 +69,7 @@ public class RefreshService {
     }
 
     private TokenResponse issue(User user, RefreshToken stored, String refreshToken) {
-        return tokenService.issue(Principal.from(user), session(stored), refreshToken);
+        return tokenService.issue(user, session(stored), refreshToken);
     }
 
     private static Integer session(RefreshToken stored) {

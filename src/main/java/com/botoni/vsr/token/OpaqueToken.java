@@ -1,4 +1,4 @@
-package com.botoni.vsr.security;
+package com.botoni.vsr.token;
 
 import com.botoni.vsr.exception.custom.OpaqueTokenException;
 import com.botoni.vsr.exception.enums.problem.OpaqueTokenProblem;

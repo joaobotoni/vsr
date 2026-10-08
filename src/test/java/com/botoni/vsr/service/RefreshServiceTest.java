@@ -11,7 +11,7 @@ import com.botoni.vsr.exception.custom.RefreshTokenException;
 import com.botoni.vsr.exception.custom.SessionException;
 import com.botoni.vsr.exception.enums.problem.RefreshTokenProblem;
 import com.botoni.vsr.exception.enums.problem.SessionProblem;
-import com.botoni.vsr.security.OpaqueToken;
+import com.botoni.vsr.token.OpaqueToken;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Tokens;
 import com.botoni.vsr.support.Users;
@@ -31,10 +31,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("Rotação e reuso de refresh token")
@@ -61,7 +61,7 @@ class RefreshServiceTest {
         original = opaqueToken.generate();
         row = row(original);
         stubRepositoryOver(row);
-        when(sessionService.findOwner(SESSION)).thenReturn(owner);
+        when(sessionService.resume(SESSION)).thenReturn(owner);
         when(tokenService.issue(any(), anyInt(), any())).thenAnswer(call -> new TokenResponse("access", call.getArgument(2), 900));
     }
 
@@ -83,19 +83,19 @@ class RefreshServiceTest {
 
     @Test
     @Controle
-    @DisplayName("o dono da sessão é buscado pelo id da sessão")
-    void ownerIsLoadedBySession() {
+    @DisplayName("a sessão é retomada uma vez só, pelo próprio id, sem buscar o dono à parte")
+    void sessionIsResumedOnce() {
         refresh(original);
 
-        verify(sessionService).findOwner(SESSION);
-        verify(sessionService).access(owner, SESSION);
+        verify(sessionService).resume(SESSION);
+        verifyNoMoreInteractions(sessionService);
     }
 
     @Test
     @Controle
     @DisplayName("sessão revogada impede a renovação")
     void revokedSessionBlocksRenewal() {
-        doThrow(new SessionException(SessionProblem.REVOKED)).when(sessionService).access(any(), any());
+        when(sessionService.resume(SESSION)).thenThrow(new SessionException(SessionProblem.REVOKED));
 
         assertThatThrownBy(() -> refresh(original)).isInstanceOf(SessionException.class);
         verify(repository, never()).renew(any(), any(), any());
@@ -110,7 +110,7 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).revoke(owner, SESSION);
+        verify(sessionService).terminate(SESSION);
     }
 
     @Test
@@ -122,7 +122,7 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).revoke(owner, SESSION);
+        verify(sessionService).terminate(SESSION);
     }
 
     @Test
@@ -135,18 +135,18 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).revoke(owner, SESSION);
+        verify(sessionService).terminate(SESSION);
     }
 
     @Test
     @Controle
-    @DisplayName("token atual expirado não é renovado")
-    void expiredTokenIsNotRenewed() {
-        row.setExpiresAt(Instant.now().minusSeconds(1));
+    @DisplayName("sessão expirada impede a renovação: a validade é decidida só pela sessão")
+    void expiredSessionBlocksRenewal() {
+        when(sessionService.resume(SESSION)).thenThrow(new SessionException(SessionProblem.EXPIRED));
 
         assertThatThrownBy(() -> refresh(original))
-                .isInstanceOf(RefreshTokenException.class)
-                .extracting("problem").isEqualTo(RefreshTokenProblem.EXPIRED);
+                .isInstanceOf(SessionException.class)
+                .extracting("problem").isEqualTo(SessionProblem.EXPIRED);
         verify(repository, never()).renew(any(), any(), any());
     }
 

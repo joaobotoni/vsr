@@ -4,6 +4,7 @@ import com.botoni.vsr.database.entity.Individual;
 import com.botoni.vsr.database.repository.IndividualRepository;
 import com.botoni.vsr.mapper.IndividualMapper;
 import com.botoni.vsr.vo.Cpf;
+import com.botoni.vsr.vo.Name;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,12 +17,12 @@ public class IndividualService {
     private final IndividualMapper individualMapper;
 
     @Transactional
-    public Individual save(String name, Cpf cpf) {
+    public Individual save(Name name, Cpf cpf) {
         Individual person = create(name, cpf);
         return persist(person);
     }
 
-    private Individual create(String name, Cpf cpf) {
+    private Individual create(Name name, Cpf cpf) {
         return individualMapper.toEntity(name, cpf);
     }
 
