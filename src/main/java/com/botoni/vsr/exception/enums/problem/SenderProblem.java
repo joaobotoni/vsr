@@ -13,7 +13,9 @@ public enum SenderProblem implements Problem {
 
     MISSING_MAIL(HttpStatus.INTERNAL_SERVER_ERROR, "Os dados do e-mail são obrigatórios."),
     MISSING_ATTACHMENTS(HttpStatus.INTERNAL_SERVER_ERROR, "Informe ao menos um anexo."),
-    ATTACHMENT_OUTSIDE_DIRECTORY(HttpStatus.INTERNAL_SERVER_ERROR, "O anexo deve estar dentro do diretório de anexos configurado.");
+    ATTACHMENT_OUTSIDE_DIRECTORY(HttpStatus.INTERNAL_SERVER_ERROR, "O anexo deve estar dentro do diretório de anexos configurado."),
+    ATTACHMENT_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "O anexo ou o diretório de anexos não existe."),
+    DELIVERY_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "Não foi possível enviar o e-mail. Tente novamente mais tarde.");
 
     private final HttpStatus status;
     private final String message;

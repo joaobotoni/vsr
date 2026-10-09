@@ -41,11 +41,11 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
-        authenticateIfPossible(request);
+        attempt(request);
         chain.doFilter(request, response);
     }
 
-    private void authenticateIfPossible(HttpServletRequest request) {
+    private void attempt(HttpServletRequest request) {
         if (!isAuthenticatable(request)) {
             return;
         }

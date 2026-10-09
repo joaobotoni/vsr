@@ -20,6 +20,6 @@ public class DevicePlatformConverter implements AttributeConverter<DevicePlatfor
         if (value == null) {
             return null;
         }
-        return DevicePlatform.fromValue(value);
+        return DevicePlatform.from(value);
     }
 }

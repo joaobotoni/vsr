@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.InetAddress;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -23,65 +24,69 @@ public class SessionService {
     private final SessionRepository sessionRepository;
     private final SessionMapper sessionMapper;
     private final SessionProperties sessionProperties;
+    private final Clock clock;
 
     @Transactional
     public Session open(Device device, InetAddress ip) {
-        revokeDevice(device);
+        reset(device);
         Session session = create(device, ip);
-        return persist(session);
+        return save(session);
     }
 
     @Transactional
     public void access(UUID user, Integer session) {
-        Session active = active(findOwned(user, session));
-        registerAccess(active);
+        Session found = owned(user, session);
+        active(found);
+        touch(found);
     }
 
     @Transactional
     public User resume(Integer session) {
-        Session active = active(find(session));
-        registerAccess(active);
-        return owner(active);
+        Session found = find(session);
+        active(found);
+        touch(found);
+        return owner(found);
     }
 
     @Transactional
     public void revoke(UUID user, Integer session) {
-        revokeSession(findOwned(user, session));
+        close(owned(user, session));
     }
 
     @Transactional
-    public void terminate(Integer session) {
+    public void invalidate(Integer session) {
         sessionRepository.revoke(session);
     }
 
     @Transactional
-    public void revokeOthers(UUID user, Integer session) {
-        Session kept = active(findOwned(user, session));
-        revokeExcept(kept);
+    public void keep(UUID user, Integer session) {
+        Session kept = owned(user, session);
+        active(kept);
+        dismiss(kept);
     }
 
-    private void revokeDevice(Device device) {
+    private void reset(Device device) {
         sessionRepository.revokeDevice(device.getId());
     }
 
     private Session create(Device device, InetAddress ip) {
-        return sessionMapper.toEntity(device, ip, expiration());
+        return sessionMapper.entity(device, ip, expiration());
     }
 
     private Instant expiration() {
-        return Instant.now().plus(sessionProperties.ttl());
+        return Instant.now(clock).plus(sessionProperties.ttl());
     }
 
-    private Session persist(Session session) {
+    private Session save(Session session) {
         return sessionRepository.save(session);
     }
 
-    private Session findOwned(UUID user, Integer session) {
+    private Session owned(UUID user, Integer session) {
         return sessionRepository.findWithUserByIdAndUuid(session, user)
                 .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
-    private void registerAccess(Session session) {
+    private void touch(Session session) {
         sessionRepository.access(session.getId());
     }
 
@@ -90,33 +95,40 @@ public class SessionService {
                 .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
-    private void revokeSession(Session session) {
+    private static User owner(Session session) {
+        return session.getDevice().getUser();
+    }
+
+    private void close(Session session) {
         sessionRepository.revoke(session.getId());
     }
 
-    private void revokeExcept(Session kept) {
+    private void dismiss(Session kept) {
         sessionRepository.revokeUser(owner(kept).getId(), kept.getId());
     }
 
-    private static Session active(Session session) {
+    private void active(Session session) {
+        revoked(session);
+        expired(session);
+    }
+
+    private void revoked(Session session) {
         if (isRevoked(session)) {
             throw new SessionException(SessionProblem.REVOKED);
         }
+    }
+
+    private void expired(Session session) {
         if (isExpired(session)) {
             throw new SessionException(SessionProblem.EXPIRED);
         }
-        return session;
-    }
-
-    private static User owner(Session session) {
-        return session.getDevice().getUser();
     }
 
     private static boolean isRevoked(Session session) {
         return session.getRevokedAt() != null;
     }
 
-    private static boolean isExpired(Session session) {
-        return !session.getExpiresAt().isAfter(Instant.now());
+    private boolean isExpired(Session session) {
+        return !session.getExpiresAt().isAfter(Instant.now(clock));
     }
 }

@@ -23,35 +23,35 @@ public class LoginService {
     private final AuthenticationManager authenticationManager;
 
     public AuthenticationResponse login(LoginRequest request, InetAddress ip) {
-        checkAttempts(request);
-        Authentication authentication = authenticate(request);
+        check(request);
+        Authentication authentication = verify(request);
         User user = find(authentication);
-        return grant(user, request, ip);
+        return authenticate(user, request, ip);
     }
 
-    private void checkAttempts(LoginRequest request) {
+    private void check(LoginRequest request) {
         loginAttemptService.check(request.email());
     }
 
-    private Authentication authenticate(LoginRequest request) {
+    private Authentication verify(LoginRequest request) {
         try {
             return authenticationManager.authenticate(credentials(request));
         } catch (AuthenticationException exception) {
-            registerFailure(request);
+            fail(request);
             throw exception;
         }
     }
 
-    private void registerFailure(LoginRequest request) {
+    private void fail(LoginRequest request) {
         loginAttemptService.fail(request.email());
     }
 
     private User find(Authentication authentication) {
-        return userService.findWithPerson(principal(authentication).user());
+        return userService.find(principal(authentication).user());
     }
 
-    private AuthenticationResponse grant(User user, LoginRequest request, InetAddress ip) {
-        return accessService.grant(user, request.device(), ip);
+    private AuthenticationResponse authenticate(User user, LoginRequest request, InetAddress ip) {
+        return accessService.authenticate(user, request.device(), ip);
     }
 
     private static Principal principal(Authentication authentication) {

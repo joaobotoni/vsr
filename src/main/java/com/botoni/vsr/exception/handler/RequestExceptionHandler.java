@@ -18,22 +18,22 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class RequestExceptionHandler {
 
     @ExceptionHandler(RequestException.class)
-    ProblemDetail handleRequest(RequestException exception) {
+    ProblemDetail handle(RequestException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    ProblemDetail handleNoResourceFound() {
+    ProblemDetail missing() {
         return Problems.of(RequestProblem.RESOURCE_NOT_FOUND).build();
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    ProblemDetail handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException exception) {
+    ProblemDetail unsupported(HttpRequestMethodNotSupportedException exception) {
         return Problems.of(RequestProblem.METHOD_NOT_SUPPORTED).args(exception.getMethod()).build();
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    ProblemDetail handleResponseStatus(ResponseStatusException exception) {
+    ProblemDetail status(ResponseStatusException exception) {
         return Problems.of(RequestProblem.REQUEST_FAILED).status(exception.getStatusCode()).build();
     }
 }

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class OpaqueTokenExceptionHandler {
 
     @ExceptionHandler(OpaqueTokenException.class)
-    ProblemDetail handleOpaqueToken(OpaqueTokenException exception) {
+    ProblemDetail handle(OpaqueTokenException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

@@ -19,7 +19,7 @@ public enum DevicePlatform {
         this.value = value;
     }
 
-    public static DevicePlatform fromValue(String value) {
+    public static DevicePlatform from(String value) {
         for (DevicePlatform platform : values()) {
             if (platform.value.equals(value)) {
                 return platform;

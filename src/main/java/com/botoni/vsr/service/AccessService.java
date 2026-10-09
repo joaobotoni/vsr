@@ -24,15 +24,15 @@ public class AccessService {
     private final AuthenticationMapper authenticationMapper;
 
     @Transactional
-    public AuthenticationResponse grant(User user, DeviceRequest request, InetAddress ip) {
-        Device device = registerDevice(user, request);
+    public AuthenticationResponse authenticate(User user, DeviceRequest request, InetAddress ip) {
+        Device device = register(user, request);
         Session session = open(device, ip);
-        String refreshToken = issueRefreshToken(session);
-        TokenResponse token = issue(user, session, refreshToken);
-        return respond(user, token);
+        String refreshToken = issue(session);
+        TokenResponse token = sign(user, session, refreshToken);
+        return show(user, token);
     }
 
-    private Device registerDevice(User user, DeviceRequest request) {
+    private Device register(User user, DeviceRequest request) {
         return deviceService.register(user, request);
     }
 
@@ -40,15 +40,15 @@ public class AccessService {
         return sessionService.open(device, ip);
     }
 
-    private String issueRefreshToken(Session session) {
+    private String issue(Session session) {
         return refreshTokenService.issue(session);
     }
 
-    private TokenResponse issue(User user, Session session, String refreshToken) {
+    private TokenResponse sign(User user, Session session, String refreshToken) {
         return tokenService.issue(user, session.getId(), refreshToken);
     }
 
-    private AuthenticationResponse respond(User user, TokenResponse token) {
-        return authenticationMapper.toResponse(user, token);
+    private AuthenticationResponse show(User user, TokenResponse token) {
+        return authenticationMapper.response(user, token);
     }
 }

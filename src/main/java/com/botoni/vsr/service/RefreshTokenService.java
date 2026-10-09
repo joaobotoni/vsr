@@ -22,18 +22,18 @@ public class RefreshTokenService {
     @Transactional
     public String issue(Session session) {
         String refreshToken = generate();
-        persist(session, refreshToken);
+        save(session, refreshToken);
         return refreshToken;
     }
 
-    public byte[] digest(String refreshToken) {
+    public byte[] hash(String refreshToken) {
         return opaqueToken.hash(refreshToken);
     }
 
     @Transactional(readOnly = true)
-    public RefreshToken find(byte[] digest) {
-        return refreshTokenRepository.findByCurrentHash(digest)
-                .or(() -> refreshTokenRepository.findByUsedHash(digest))
+    public RefreshToken find(byte[] hash) {
+        return refreshTokenRepository.findByCurrentHash(hash)
+                .or(() -> refreshTokenRepository.findByUsedHash(hash))
                 .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
     }
 
@@ -44,19 +44,19 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
-    public boolean isReused(RefreshToken stored, byte[] digest) {
-        return !Arrays.equals(stored.getCurrentHash(), digest);
+    public boolean isReused(RefreshToken stored, byte[] hash) {
+        return !Arrays.equals(stored.getCurrentHash(), hash);
     }
 
     private String generate() {
         return opaqueToken.generate();
     }
 
-    private void persist(Session session, String refreshToken) {
-        refreshTokenRepository.issue(session.getId(), digest(refreshToken));
+    private void save(Session session, String refreshToken) {
+        refreshTokenRepository.issue(session.getId(), hash(refreshToken));
     }
 
     private void rotate(RefreshToken stored, String refreshToken) {
-        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), digest(refreshToken));
+        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), hash(refreshToken));
     }
 }

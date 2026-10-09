@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class NameExceptionHandler {
 
     @ExceptionHandler(NameException.class)
-    ProblemDetail handleName(NameException exception) {
+    ProblemDetail handle(NameException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class RefreshTokenExceptionHandler {
 
     @ExceptionHandler(RefreshTokenException.class)
-    ProblemDetail handleRefreshToken(RefreshTokenException exception, HttpServletRequest request) {
+    ProblemDetail handle(RefreshTokenException exception, HttpServletRequest request) {
         log.warn("Refresh token recusado: motivo={} ip={}", exception.problem(), request.getRemoteAddr());
         return Problems.of(SecurityProblem.INVALID_SESSION).build();
     }

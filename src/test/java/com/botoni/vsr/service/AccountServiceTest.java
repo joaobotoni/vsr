@@ -1,7 +1,6 @@
 package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.Individual;
-import com.botoni.vsr.database.entity.LocalCredential;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.database.enums.DevicePlatform;
 import com.botoni.vsr.dto.request.DeviceRequest;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InOrder;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
@@ -28,28 +26,21 @@ import java.util.Arrays;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("Conta")
 class AccountServiceTest {
 
-    private static final int SESSION = 10;
     private static final PasswordHash HASH = PasswordHash.of("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA");
 
     private final IndividualService individualService = mock(IndividualService.class);
     private final UserService userService = mock(UserService.class);
     private final LocalCredentialService localCredentialService = mock(LocalCredentialService.class);
-    private final SessionService sessionService = mock(SessionService.class);
     private final AccessService accessService = mock(AccessService.class);
     private final AccountService accountService = new AccountService(
-            individualService, userService, localCredentialService, sessionService, accessService);
+            individualService, userService, localCredentialService, accessService);
 
     private final User user = Users.ana();
 
@@ -69,40 +60,14 @@ class AccountServiceTest {
         order.verify(individualService).save(request.name(), request.cpf());
         order.verify(userService).save(person, request.email());
         order.verify(localCredentialService).save(user, HASH);
-        order.verify(accessService).grant(user, request.device(), ip);
-    }
-
-    @Test
-    @Controle
-    @DisplayName("substituir a senha grava o hash e depois revoga as outras sessões")
-    void replaceChangesPasswordThenRevokesOthers() {
-        LocalCredential credential = LocalCredential.builder().id(user.getId()).user(user).build();
-
-        accountService.replace(Users.UUID, SESSION, credential, HASH);
-
-        InOrder order = inOrder(localCredentialService, sessionService);
-        order.verify(localCredentialService).replace(credential, HASH);
-        order.verify(sessionService).revokeOthers(Users.UUID, SESSION);
-    }
-
-    @Test
-    @Controle
-    @DisplayName("troca concorrente detectada no banco não revoga sessões")
-    void concurrentReplaceDoesNotRevoke() {
-        LocalCredential credential = LocalCredential.builder().id(user.getId()).user(user).build();
-        doThrow(new DataIntegrityViolationException("rn_senha_alterada"))
-                .when(localCredentialService).replace(credential, HASH);
-
-        assertThatThrownBy(() -> accountService.replace(Users.UUID, SESSION, credential, HASH))
-                .isInstanceOf(DataIntegrityViolationException.class);
-        verify(sessionService, never()).revokeOthers(any(), any());
+        order.verify(accessService).authenticate(user, request.device(), ip);
     }
 
     @Controle
     @ParameterizedTest(name = "{0}.{1} transacional = {2}")
     @CsvSource({
             "AccountService,        open,     true",
-            "AccountService,        replace,  true",
+            "PasswordService,       replace,  true",
             "RegisterService,       register, false",
             "ChangePasswordService, change,   false",
             "LocalCredentialService, verify,  false",

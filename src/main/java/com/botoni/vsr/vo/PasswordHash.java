@@ -34,10 +34,10 @@ public record PasswordHash(@JsonValue String value) {
         if (isLong(value)) {
             throw new PasswordHashException(PasswordHashProblem.TOO_LONG, MAX_LENGTH);
         }
-        if (containsWhitespace(value)) {
+        if (hasWhitespace(value)) {
             throw new PasswordHashException(PasswordHashProblem.CONTAINS_WHITESPACE);
         }
-        if (hasInvalidCharacters(value)) {
+        if (!isPrintable(value)) {
             throw new PasswordHashException(PasswordHashProblem.INVALID_CHARACTERS);
         }
     }
@@ -50,12 +50,12 @@ public record PasswordHash(@JsonValue String value) {
         return value.length() > MAX_LENGTH;
     }
 
-    private static boolean containsWhitespace(String value) {
+    private static boolean hasWhitespace(String value) {
         return WHITESPACE.matcher(value).find();
     }
 
-    private static boolean hasInvalidCharacters(String value) {
-        return !PRINTABLE_ASCII.matcher(value).matches();
+    private static boolean isPrintable(String value) {
+        return PRINTABLE_ASCII.matcher(value).matches();
     }
 
     @Override

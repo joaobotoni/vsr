@@ -11,26 +11,31 @@ import com.botoni.vsr.vo.Mail;
 import jakarta.mail.Part;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.springframework.mail.MailSendException;
+
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessagePreparator;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @DisplayName("Envio de e-mail")
-class EmailServiceTest {
+class MailServiceTest {
 
     private static final Mail MAIL = new Mail(Email.of("ana@vsr.com"), "Relatório", "Segue anexo");
 
@@ -65,10 +70,50 @@ class EmailServiceTest {
 
     @Test
     @Controle
+    @DisplayName("link simbólico que aponta para fora do diretório de anexos é recusado")
+    void symlinkOutsideIsRejected(@TempDir Path root) throws Exception {
+        Path secret = Files.writeString(root.resolve("segredo.txt"), "conteúdo sensível");
+        Path uploads = Files.createDirectories(root.resolve("uploads"));
+        Path link = uploads.resolve("relatorio.txt");
+        try {
+            Files.createSymbolicLink(link, secret);
+        } catch (IOException | UnsupportedOperationException exception) {
+            Assumptions.abort("sistema sem permissão para criar link simbólico");
+        }
+
+        assertThatThrownBy(() -> service(uploads).attach(MAIL, link))
+                .isInstanceOf(SenderException.class)
+                .extracting("problem").isEqualTo(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
+        verify(mailSender, never()).send(any(MimeMessagePreparator.class));
+    }
+
+    @Test
+    @Controle
+    @DisplayName("anexo inexistente é recusado sem enviar nada")
+    void missingAttachmentIsRejected(@TempDir Path root) {
+        assertThatThrownBy(() -> service(root).attach(MAIL, root.resolve("nao-existe.txt")))
+                .isInstanceOf(SenderException.class)
+                .extracting("problem").isEqualTo(SenderProblem.ATTACHMENT_NOT_FOUND);
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("falha do servidor de e-mail vira erro padronizado de envio")
+    void deliveryFailureIsTranslated(@TempDir Path root) {
+        doThrow(new MailSendException("smtp fora do ar")).when(mailSender).send(any(MimeMessagePreparator.class));
+
+        assertThatThrownBy(() -> service(root).send(MAIL))
+                .isInstanceOf(SenderException.class)
+                .extracting("problem").isEqualTo(SenderProblem.DELIVERY_FAILED);
+    }
+
+    @Test
+    @Controle
     @DisplayName("e-mail ausente é recusado no envio simples e no envio com anexo, sem enviar nada")
     void missingMailIsRejected(@TempDir Path root) throws Exception {
         Path report = Files.writeString(root.resolve("relatorio.txt"), "conteúdo");
-        EmailService service = service(root);
+        MailService service = service(root);
 
         assertThatThrownBy(() -> service.send(null))
                 .isInstanceOf(SenderException.class)
@@ -98,8 +143,8 @@ class EmailServiceTest {
                 .extracting("problem").isEqualTo(MailProblem.INVALID_SUBJECT);
     }
 
-    private EmailService service(Path attachments) {
-        return new EmailService(new EmailProperties(Email.of("no-reply@vsr.com"), attachments), mailSender);
+    private MailService service(Path attachments) {
+        return new MailService(new EmailProperties(Email.of("no-reply@vsr.com"), attachments), mailSender);
     }
 
     private MimeMultipart sentMessage() throws Exception {

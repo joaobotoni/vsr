@@ -17,5 +17,5 @@ public interface SessionMapper {
     @Mapping(target = "expiresAt", source = "expiresAt")
     @Mapping(target = "lastAccessAt", ignore = true)
     @Mapping(target = "revokedAt", ignore = true)
-    Session toEntity(Device device, InetAddress ip, Instant expiresAt);
+    Session entity(Device device, InetAddress ip, Instant expiresAt);
 }

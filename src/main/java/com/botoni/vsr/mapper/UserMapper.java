@@ -14,9 +14,9 @@ public interface UserMapper {
     @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "person", source = "person")
     @Mapping(target = "email", source = "email")
-    User toEntity(Individual person, Email email);
+    User entity(Individual person, Email email);
 
     @Mapping(target = "id", source = "uuid")
     @Mapping(target = "name", source = "person.name")
-    UserResponse toResponse(User user);
+    UserResponse response(User user);
 }

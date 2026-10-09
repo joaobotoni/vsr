@@ -18,15 +18,10 @@ public class IndividualService {
 
     @Transactional
     public Individual save(Name name, Cpf cpf) {
-        Individual person = create(name, cpf);
-        return persist(person);
+        return individualRepository.save(create(name, cpf));
     }
 
     private Individual create(Name name, Cpf cpf) {
-        return individualMapper.toEntity(name, cpf);
-    }
-
-    private Individual persist(Individual person) {
-        return individualRepository.save(person);
+        return individualMapper.entity(name, cpf);
     }
 }

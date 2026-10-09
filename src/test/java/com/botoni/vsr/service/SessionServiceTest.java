@@ -17,8 +17,10 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.InOrder;
 
 import java.net.InetAddress;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,7 +44,7 @@ class SessionServiceTest {
 
     private final SessionRepository repository = mock(SessionRepository.class);
     private final SessionService sessionService = new SessionService(
-            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL));
+            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL), Clock.systemUTC());
 
     private final User owner = Users.ana();
     private final Device device = Device.builder().id(3).user(owner).build();
@@ -106,6 +108,21 @@ class SessionServiceTest {
 
     @Test
     @Controle
+    @DisplayName("sessão que expira exatamente agora já é recusada")
+    void sessionExpiringNowIsRejected() {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        SessionService frozen = new SessionService(repository, Mappers.getMapper(SessionMapper.class),
+                new SessionProperties(TTL), Clock.fixed(now, ZoneOffset.UTC));
+        session.setExpiresAt(now);
+
+        assertThatThrownBy(() -> frozen.access(Users.UUID, SESSION))
+                .isInstanceOf(SessionException.class)
+                .extracting("problem").isEqualTo(SessionProblem.EXPIRED);
+        verify(repository, never()).access(anyInt());
+    }
+
+    @Test
+    @Controle
     @DisplayName("sessão de outro usuário é tratada como inexistente")
     void otherUsersSessionIsNotFound() {
         assertThatThrownBy(() -> sessionService.access(UUID.randomUUID(), SESSION))
@@ -136,8 +153,8 @@ class SessionServiceTest {
     @Test
     @Controle
     @DisplayName("revogar as outras sessões mantém a atual e usa o id interno do dono")
-    void revokeOthersKeepsCurrentSession() {
-        sessionService.revokeOthers(Users.UUID, SESSION);
+    void keepRevokesOthers() {
+        sessionService.keep(Users.UUID, SESSION);
 
         verify(repository).revokeUser(owner.getId(), SESSION);
     }
@@ -145,10 +162,10 @@ class SessionServiceTest {
     @Test
     @Controle
     @DisplayName("revogar as outras sessões a partir de uma sessão revogada é recusado")
-    void revokeOthersFromRevokedSessionIsRejected() {
+    void keepFromRevokedSessionIsRejected() {
         session.setRevokedAt(Instant.now());
 
-        assertThatThrownBy(() -> sessionService.revokeOthers(Users.UUID, SESSION))
+        assertThatThrownBy(() -> sessionService.keep(Users.UUID, SESSION))
                 .isInstanceOf(SessionException.class)
                 .extracting("problem").isEqualTo(SessionProblem.REVOKED);
         verify(repository, never()).revokeUser(anyInt(), anyInt());
@@ -189,8 +206,8 @@ class SessionServiceTest {
     @Test
     @Controle
     @DisplayName("encerrar por reuso revoga direto pelo id, sem buscar a sessão")
-    void terminateRevokesWithoutLookup() {
-        sessionService.terminate(SESSION);
+    void invalidateRevokesWithoutLookup() {
+        sessionService.invalidate(SESSION);
 
         verify(repository).revoke(SESSION);
         verify(repository, never()).findWithUserById(any());

@@ -6,6 +6,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.botoni.vsr.exception.custom.JwtException;
 import com.botoni.vsr.exception.enums.problem.JwtProblem;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -21,12 +22,14 @@ public final class JwtToken {
     private final Duration expirationTime;
     private final Algorithm algorithm;
     private final JWTVerifier verifier;
+    private final Clock clock;
 
-    public JwtToken(String secretKey, String issuer, Duration expirationTime) {
+    public JwtToken(String secretKey, String issuer, Duration expirationTime, Clock clock) {
         this.issuer = issuer;
         this.expirationTime = expirationTime;
         this.algorithm = algorithm(secret(secretKey));
         this.verifier = verifier(algorithm, issuer);
+        this.clock = clock;
     }
 
     public String issue(UUID user, Integer session) {
@@ -49,7 +52,7 @@ public final class JwtToken {
     }
 
     private String create(UUID user, Integer session) {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         return JWT.create()
                 .withIssuer(issuer)
                 .withSubject(user.toString())

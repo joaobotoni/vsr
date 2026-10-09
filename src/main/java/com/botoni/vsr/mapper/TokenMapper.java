@@ -6,5 +6,5 @@ import org.mapstruct.Mapper;
 @Mapper(config = MapperConfiguration.class)
 public interface TokenMapper {
 
-    TokenResponse toResponse(String accessToken, String refreshToken, long expiresIn);
+    TokenResponse response(String accessToken, String refreshToken, long expiresIn);
 }

@@ -14,16 +14,16 @@ public record Limit(int capacity, double refillRate, Duration refillInterval) {
         if (refillRate <= 0) {
             throw new LimitException(LimitProblem.INVALID_REFILL_RATE);
         }
-        if (refillInterval == null || isNotPositive(refillInterval)) {
+        if (refillInterval == null || !isPositive(refillInterval)) {
             throw new LimitException(LimitProblem.INVALID_REFILL_INTERVAL);
         }
     }
 
-    public double refillSeconds() {
+    public double seconds() {
         return refillInterval.toMillis() / 1000.0;
     }
 
-    private static boolean isNotPositive(Duration interval) {
-        return interval.isZero() || interval.isNegative();
+    private static boolean isPositive(Duration interval) {
+        return !interval.isZero() && !interval.isNegative();
     }
 }

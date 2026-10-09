@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
 
@@ -69,7 +70,7 @@ class JwtTokenTest {
             "chave vazia                | ' '                      | MISSING_SECRET"
     })
     void insecureSecretIsRejected(String description, String secret, JwtProblem problem) {
-        assertThatThrownBy(() -> new JwtToken(secret, Tokens.ISSUER, Duration.ofMinutes(15)))
+        assertThatThrownBy(() -> new JwtToken(secret, Tokens.ISSUER, Duration.ofMinutes(15), Clock.systemUTC()))
                 .isInstanceOf(JwtException.class)
                 .extracting("problem").isEqualTo(problem);
     }
@@ -78,7 +79,7 @@ class JwtTokenTest {
     @Controle
     @DisplayName("emissor vazio impede a subida")
     void blankIssuerIsRejected() {
-        assertThatThrownBy(() -> new JwtToken(Tokens.SECRET, " ", Duration.ofMinutes(15)))
+        assertThatThrownBy(() -> new JwtToken(Tokens.SECRET, " ", Duration.ofMinutes(15), Clock.systemUTC()))
                 .isInstanceOf(JwtException.class)
                 .extracting("problem").isEqualTo(JwtProblem.MISSING_ISSUER);
     }

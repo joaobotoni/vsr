@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PasswordHashExceptionHandler {
 
     @ExceptionHandler(PasswordHashException.class)
-    ProblemDetail handlePasswordHash(PasswordHashException exception) {
+    ProblemDetail handle(PasswordHashException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

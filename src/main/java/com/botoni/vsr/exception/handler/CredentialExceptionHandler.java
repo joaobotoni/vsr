@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class CredentialExceptionHandler {
 
     @ExceptionHandler(CredentialException.class)
-    ProblemDetail handleCredential(CredentialException exception) {
+    ProblemDetail handle(CredentialException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

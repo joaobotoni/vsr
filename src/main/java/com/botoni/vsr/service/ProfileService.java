@@ -17,14 +17,14 @@ public class ProfileService {
 
     public UserResponse profile(UUID user) {
         User found = find(user);
-        return respond(found);
+        return show(found);
     }
 
     private User find(UUID user) {
-        return userService.findWithPerson(user);
+        return userService.find(user);
     }
 
-    private UserResponse respond(User user) {
-        return userMapper.toResponse(user);
+    private UserResponse show(User user) {
+        return userMapper.response(user);
     }
 }

@@ -17,7 +17,7 @@ public class LoginAttemptService {
     private final RateLimit accountRateLimit;
 
     public void check(Email email) {
-        rejectIfExceeded(quota(email));
+        exceeded(quota(email));
     }
 
     public void fail(Email email) {
@@ -28,13 +28,13 @@ public class LoginAttemptService {
         return accountRateLimit.check(key(email));
     }
 
-    private static void rejectIfExceeded(Quota quota) {
-        if (quota.exceeded()) {
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, quota.retryAfter());
-        }
-    }
-
     private static String key(Email email) {
         return String.format(KEY, email.value());
+    }
+
+    private void exceeded(Quota quota) {
+        if (quota.isExceeded()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, quota.retry());
+        }
     }
 }

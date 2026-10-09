@@ -21,23 +21,23 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class SecurityExceptionHandler {
 
     @ExceptionHandler(JWTVerificationException.class)
-    ProblemDetail handleJWTVerification() {
+    ProblemDetail token() {
         return Problems.of(SecurityProblem.INVALID_TOKEN).build();
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    ProblemDetail handleBadCredentials(HttpServletRequest request) {
+    ProblemDetail credentials(HttpServletRequest request) {
         log.warn("Falha de login: ip={}", request.getRemoteAddr());
         return Problems.of(SecurityProblem.BAD_CREDENTIALS).build();
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    ProblemDetail handleAuthentication() {
+    ProblemDetail unauthenticated() {
         return Problems.of(SecurityProblem.AUTHENTICATION_FAILED).build();
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    ProblemDetail handleAccessDenied() {
+    ProblemDetail denied() {
         return Problems.of(SecurityProblem.ACCESS_DENIED).build();
     }
 }

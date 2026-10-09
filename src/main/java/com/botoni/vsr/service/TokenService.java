@@ -17,7 +17,7 @@ public class TokenService {
 
     public TokenResponse issue(User user, Integer session, String refreshToken) {
         String accessToken = sign(user, session);
-        return respond(accessToken, refreshToken);
+        return show(accessToken, refreshToken);
     }
 
     public Claims verify(String token) {
@@ -28,7 +28,7 @@ public class TokenService {
         return jwtToken.issue(user.getUuid(), session);
     }
 
-    private TokenResponse respond(String accessToken, String refreshToken) {
-        return tokenMapper.toResponse(accessToken, refreshToken, jwtToken.expiration());
+    private TokenResponse show(String accessToken, String refreshToken) {
+        return tokenMapper.response(accessToken, refreshToken, jwtToken.expiration());
     }
 }

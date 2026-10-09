@@ -85,7 +85,7 @@ class LoginServiceTest {
 
         login();
 
-        verify(userService).findWithPerson(Users.UUID);
+        verify(userService).find(Users.UUID);
     }
 
     @Test

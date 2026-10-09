@@ -44,14 +44,14 @@ class UserServiceTest {
     @Controle
     @DisplayName("usuário é encontrado junto com a pessoa")
     void userIsFoundWithPerson() {
-        assertThat(userService.findWithPerson(Users.UUID).getPerson().getName()).isEqualTo(Name.of("Ana"));
+        assertThat(userService.find(Users.UUID).getPerson().getName()).isEqualTo(Name.of("Ana"));
     }
 
     @Test
     @Controle
     @DisplayName("busca com a pessoa por UUID desconhecido é recusada")
     void unknownUserWithPersonIsRejected() {
-        assertThatThrownBy(() -> userService.findWithPerson(UUID.randomUUID()))
+        assertThatThrownBy(() -> userService.find(UUID.randomUUID()))
                 .isInstanceOf(UserException.class)
                 .extracting("problem").isEqualTo(UserProblem.NOT_FOUND);
     }

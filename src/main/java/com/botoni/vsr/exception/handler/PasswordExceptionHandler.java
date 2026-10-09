@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PasswordExceptionHandler {
 
     @ExceptionHandler(PasswordException.class)
-    ProblemDetail handlePassword(PasswordException exception) {
+    ProblemDetail handle(PasswordException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

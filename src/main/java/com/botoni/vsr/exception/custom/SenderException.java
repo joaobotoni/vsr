@@ -11,6 +11,11 @@ public final class SenderException extends IllegalArgumentException {
         this.problem = problem;
     }
 
+    public SenderException(SenderProblem problem, Throwable cause) {
+        super(problem.message(), cause);
+        this.problem = problem;
+    }
+
     public SenderProblem problem() {
         return problem;
     }

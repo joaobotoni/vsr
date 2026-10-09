@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class UnexpectedExceptionHandler {
 
     @ExceptionHandler(Exception.class)
-    ProblemDetail handleUnexpected(Exception exception) {
+    ProblemDetail handle(Exception exception) {
         log.error("Erro inesperado ao processar a requisição", exception);
-        return respond(exception);
+        return show(exception);
     }
 
-    private static ProblemDetail respond(Exception exception) {
+    private static ProblemDetail show(Exception exception) {
         if (exception instanceof ErrorResponse) {
             return Problems.of(UnexpectedProblem.REQUEST_FAILED).status(exception).build();
         }

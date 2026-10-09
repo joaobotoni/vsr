@@ -20,6 +20,6 @@ public class PersonTypeConverter implements AttributeConverter<PersonType, Strin
         if (value == null) {
             return null;
         }
-        return PersonType.fromValue(value);
+        return PersonType.from(value);
     }
 }

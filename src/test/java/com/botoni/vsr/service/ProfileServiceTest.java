@@ -34,7 +34,7 @@ class ProfileServiceTest {
     void profileExposesUuid() {
         User user = User.builder().id(1).uuid(Users.UUID).email(Email.of(Users.EMAIL))
                 .person(new Individual(Name.of("Ana"), Cpf.of("52998224725"))).build();
-        when(userService.findWithPerson(Users.UUID)).thenReturn(user);
+        when(userService.find(Users.UUID)).thenReturn(user);
 
         UserResponse response = profileService.profile(Users.UUID);
 
@@ -46,7 +46,7 @@ class ProfileServiceTest {
     @DisplayName("perfil de usuário inexistente é recusado")
     void unknownProfileIsRejected() {
         UUID unknown = UUID.randomUUID();
-        when(userService.findWithPerson(unknown)).thenThrow(new UserException(UserProblem.NOT_FOUND));
+        when(userService.find(unknown)).thenThrow(new UserException(UserProblem.NOT_FOUND));
 
         assertThatThrownBy(() -> profileService.profile(unknown))
                 .isInstanceOf(UserException.class)

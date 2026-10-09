@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class DeviceExceptionHandler {
 
     @ExceptionHandler(DeviceException.class)
-    ProblemDetail handleDevice(DeviceException exception) {
+    ProblemDetail handle(DeviceException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

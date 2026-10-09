@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -22,6 +24,7 @@ public class LocalCredentialService {
     private final LocalCredentialRepository localCredentialRepository;
     private final LocalCredentialMapper localCredentialMapper;
     private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     public PasswordHash hash(Password password) {
         return PasswordHash.of(passwordEncoder.encode(password.value()));
@@ -29,16 +32,18 @@ public class LocalCredentialService {
 
     @Transactional
     public void save(User user, PasswordHash hash) {
-        LocalCredential credential = create(user, hash);
-        persist(credential);
+        localCredentialRepository.save(create(user, hash));
     }
 
     public LocalCredential verify(UUID user, Password password) {
-        return matched(find(user), password);
+        LocalCredential credential = find(user);
+        matched(credential, password);
+        return credential;
     }
 
-    public PasswordHash rehash(LocalCredential credential, Password password) {
-        return hash(unmatched(credential, password));
+    public PasswordHash renew(LocalCredential credential, Password password) {
+        unmatched(credential, password);
+        return hash(password);
     }
 
     @Transactional
@@ -47,11 +52,7 @@ public class LocalCredentialService {
     }
 
     private LocalCredential create(User user, PasswordHash hash) {
-        return localCredentialMapper.toEntity(user, hash);
-    }
-
-    private void persist(LocalCredential credential) {
-        localCredentialRepository.save(credential);
+        return localCredentialMapper.entity(user, hash, Instant.now(clock));
     }
 
     private LocalCredential find(UUID user) {
@@ -59,21 +60,19 @@ public class LocalCredentialService {
                 .orElseThrow(() -> new CredentialException(CredentialProblem.NOT_FOUND));
     }
 
-    private LocalCredential matched(LocalCredential credential, Password password) {
-        if (!matches(credential, password)) {
+    private void matched(LocalCredential credential, Password password) {
+        if (!isCurrent(credential, password)) {
             throw new CredentialException(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
         }
-        return credential;
     }
 
-    private Password unmatched(LocalCredential credential, Password password) {
-        if (matches(credential, password)) {
+    private void unmatched(LocalCredential credential, Password password) {
+        if (isCurrent(credential, password)) {
             throw new CredentialException(CredentialProblem.SAME_PASSWORD);
         }
-        return password;
     }
 
-    private boolean matches(LocalCredential credential, Password password) {
+    private boolean isCurrent(LocalCredential credential, Password password) {
         return passwordEncoder.matches(password.value(), credential.getPasswordHash().value());
     }
 }

@@ -11,5 +11,5 @@ public interface AuthenticationMapper {
 
     @Mapping(target = "user", source = "user")
     @Mapping(target = "token", source = "token")
-    AuthenticationResponse toResponse(User user, TokenResponse token);
+    AuthenticationResponse response(User user, TokenResponse token);
 }

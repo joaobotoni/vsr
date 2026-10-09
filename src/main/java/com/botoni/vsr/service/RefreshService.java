@@ -18,43 +18,29 @@ public class RefreshService {
     private final TokenService tokenService;
 
     public TokenResponse refresh(RefreshRequest request) {
-        byte[] digest = digest(request);
-        RefreshToken stored = find(digest);
-        terminateIfReused(stored, digest);
-        return exchange(stored, digest);
+        byte[] hash = hash(request);
+        RefreshToken stored = find(hash);
+        invalidate(stored, hash);
+        return rotate(stored, hash);
     }
 
-    private byte[] digest(RefreshRequest request) {
-        return refreshTokenService.digest(request.refreshToken());
+    private byte[] hash(RefreshRequest request) {
+        return refreshTokenService.hash(request.refreshToken());
     }
 
-    private RefreshToken find(byte[] digest) {
-        return refreshTokenService.find(digest);
+    private RefreshToken find(byte[] hash) {
+        return refreshTokenService.find(hash);
     }
 
-    private void terminateIfReused(RefreshToken stored, byte[] digest) {
-        if (!isReused(stored, digest)) {
+    private void invalidate(RefreshToken stored, byte[] hash) {
+        if (!isReused(stored, hash)) {
             return;
         }
-        terminate(stored);
+        sessionService.invalidate(session(stored));
     }
 
-    private TokenResponse exchange(RefreshToken stored, byte[] digest) {
-        if (isReused(stored, digest)) {
-            throw new RefreshTokenException(RefreshTokenProblem.REUSED);
-        }
-        return rotate(stored);
-    }
-
-    private boolean isReused(RefreshToken stored, byte[] digest) {
-        return refreshTokenService.isReused(stored, digest);
-    }
-
-    private void terminate(RefreshToken stored) {
-        sessionService.terminate(session(stored));
-    }
-
-    private TokenResponse rotate(RefreshToken stored) {
+    private TokenResponse rotate(RefreshToken stored, byte[] hash) {
+        reused(stored, hash);
         User user = resume(stored);
         String refreshToken = renew(stored);
         return issue(user, stored, refreshToken);
@@ -74,5 +60,15 @@ public class RefreshService {
 
     private static Integer session(RefreshToken stored) {
         return stored.getId();
+    }
+
+    private void reused(RefreshToken stored, byte[] hash) {
+        if (isReused(stored, hash)) {
+            throw new RefreshTokenException(RefreshTokenProblem.REUSED);
+        }
+    }
+
+    private boolean isReused(RefreshToken stored, byte[] hash) {
+        return refreshTokenService.isReused(stored, hash);
     }
 }

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PersonTypeExceptionHandler {
 
     @ExceptionHandler(PersonTypeException.class)
-    ProblemDetail handlePersonType(PersonTypeException exception) {
+    ProblemDetail handle(PersonTypeException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

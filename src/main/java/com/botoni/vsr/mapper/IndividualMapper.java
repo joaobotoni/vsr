@@ -8,5 +8,5 @@ import org.mapstruct.Mapper;
 @Mapper(config = MapperConfiguration.class)
 public interface IndividualMapper {
 
-    Individual toEntity(Name name, Cpf cpf);
+    Individual entity(Name name, Cpf cpf);
 }

@@ -8,12 +8,12 @@ import org.mapstruct.Mapping;
 
 import java.time.Instant;
 
-@Mapper(config = MapperConfiguration.class, imports = Instant.class)
+@Mapper(config = MapperConfiguration.class)
 public interface LocalCredentialMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", source = "user")
     @Mapping(target = "passwordHash", source = "passwordHash")
-    @Mapping(target = "passwordUpdatedAt", expression = "java(Instant.now())")
-    LocalCredential toEntity(User user, PasswordHash passwordHash);
+    @Mapping(target = "passwordUpdatedAt", source = "updatedAt")
+    LocalCredential entity(User user, PasswordHash passwordHash, Instant updatedAt);
 }

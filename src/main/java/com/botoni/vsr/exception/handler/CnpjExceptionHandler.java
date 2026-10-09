@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class CnpjExceptionHandler {
 
     @ExceptionHandler(CnpjException.class)
-    ProblemDetail handleCnpj(CnpjException exception) {
+    ProblemDetail handle(CnpjException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

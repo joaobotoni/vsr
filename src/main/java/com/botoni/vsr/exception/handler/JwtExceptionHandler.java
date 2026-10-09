@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class JwtExceptionHandler {
 
     @ExceptionHandler(JwtException.class)
-    ProblemDetail handleJwt(JwtException exception) {
+    ProblemDetail handle(JwtException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

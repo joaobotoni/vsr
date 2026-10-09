@@ -12,6 +12,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
@@ -29,6 +30,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String KEY = "ip:%s";
 
     private final RateLimitPolicy policy;
+    private final Clock clock;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -36,7 +38,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         RateLimit rateLimit = policy.resolve(request);
         Quota quota = consume(rateLimit, request);
         headers(response, rateLimit.limit(), quota);
-        retryAfterIfExceeded(response, quota);
+        retry(response, quota);
         proceed(request, response, chain, quota);
     }
 
@@ -44,23 +46,23 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return rateLimit.consume(key(request));
     }
 
-    private static void headers(HttpServletResponse response, Limit limit, Quota quota) {
+    private void headers(HttpServletResponse response, Limit limit, Quota quota) {
         response.setHeader(LIMIT, String.valueOf(limit.capacity()));
         response.setHeader(REMAINING, String.valueOf(remaining(quota)));
-        response.setHeader(RESET, String.valueOf(reset(quota.retryAfter())));
+        response.setHeader(RESET, String.valueOf(reset(quota.retry())));
     }
 
-    private static void retryAfterIfExceeded(HttpServletResponse response, Quota quota) {
-        if (!quota.exceeded()) {
+    private static void retry(HttpServletResponse response, Quota quota) {
+        if (!quota.isExceeded()) {
             return;
         }
-        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(quota.retryAfter()));
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(quota.retry()));
     }
 
     private static void proceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain,
                                 Quota quota) throws ServletException, IOException {
-        if (quota.exceeded()) {
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, quota.retryAfter());
+        if (quota.isExceeded()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, quota.retry());
         }
         chain.doFilter(request, response);
     }
@@ -73,7 +75,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return (long) quota.remaining();
     }
 
-    private static long reset(long retry) {
-        return Instant.now().getEpochSecond() + retry;
+    private long reset(long retry) {
+        return Instant.now(clock).getEpochSecond() + retry;
     }
 }

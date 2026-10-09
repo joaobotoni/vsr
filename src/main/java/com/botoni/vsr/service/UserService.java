@@ -22,21 +22,16 @@ public class UserService {
 
     @Transactional
     public User save(Individual person, Email email) {
-        User user = create(person, email);
-        return persist(user);
+        return userRepository.save(create(person, email));
     }
 
     @Transactional(readOnly = true)
-    public User findWithPerson(UUID user) {
+    public User find(UUID user) {
         return userRepository.findWithPersonByUuid(user)
                 .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
     }
 
     private User create(Individual person, Email email) {
-        return userMapper.toEntity(person, email);
-    }
-
-    private User persist(User user) {
-        return userRepository.save(user);
+        return userMapper.entity(person, email);
     }
 }

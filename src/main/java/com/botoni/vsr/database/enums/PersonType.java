@@ -17,7 +17,7 @@ public enum PersonType {
         this.value = value;
     }
 
-    public static PersonType fromValue(String value) {
+    public static PersonType from(String value) {
         for (PersonType type : values()) {
             if (type.value.equals(value)) {
                 return type;

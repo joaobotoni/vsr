@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class SenderExceptionHandler {
 
     @ExceptionHandler(SenderException.class)
-    ProblemDetail handleSender(SenderException exception) {
+    ProblemDetail handle(SenderException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

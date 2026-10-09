@@ -43,7 +43,7 @@ class AccessServiceTest {
     @Test
     @Controle
     @DisplayName("registra o dispositivo, abre a sessão, emite os tokens e monta a resposta, nessa ordem")
-    void grantBuildsResponse() {
+    void authenticateBuildsResponse() {
         Device device = Device.builder().id(3).user(user).build();
         Session session = Session.builder().id(SESSION).device(device).build();
         TokenResponse token = new TokenResponse("access", "refresh", 900);
@@ -52,7 +52,7 @@ class AccessServiceTest {
         when(refreshTokenService.issue(session)).thenReturn("refresh");
         when(tokenService.issue(user, SESSION, "refresh")).thenReturn(token);
 
-        AuthenticationResponse response = accessService.grant(user, request, ip);
+        AuthenticationResponse response = accessService.authenticate(user, request, ip);
 
         assertThat(response.token()).isEqualTo(token);
         assertThat(response.user().id()).isEqualTo(Users.UUID);

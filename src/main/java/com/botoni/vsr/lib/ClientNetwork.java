@@ -52,10 +52,10 @@ public final class ClientNetwork {
     private static String prefix(InetAddress address) {
         byte[] bytes = address.getAddress();
         Arrays.fill(bytes, IPV6_NETWORK_BYTES, bytes.length, (byte) 0);
-        return String.format(IPV6_NETWORK, fromBytes(bytes).getHostAddress());
+        return String.format(IPV6_NETWORK, inet(bytes).getHostAddress());
     }
 
-    private static InetAddress fromBytes(byte[] bytes) {
+    private static InetAddress inet(byte[] bytes) {
         try {
             return InetAddress.getByAddress(bytes);
         } catch (UnknownHostException exception) {

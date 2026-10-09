@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class SessionExceptionHandler {
 
     @ExceptionHandler(SessionException.class)
-    ProblemDetail handleSession(SessionException exception, HttpServletRequest request) {
+    ProblemDetail handle(SessionException exception, HttpServletRequest request) {
         log.warn("Sessão recusada: motivo={} ip={}", exception.problem(), request.getRemoteAddr());
         return Problems.of(SecurityProblem.INVALID_SESSION).build();
     }

@@ -110,7 +110,7 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).terminate(SESSION);
+        verify(sessionService).invalidate(SESSION);
     }
 
     @Test
@@ -122,7 +122,7 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).terminate(SESSION);
+        verify(sessionService).invalidate(SESSION);
     }
 
     @Test
@@ -135,7 +135,7 @@ class RefreshServiceTest {
         assertThatThrownBy(() -> refresh(original))
                 .isInstanceOf(RefreshTokenException.class)
                 .extracting("problem").isEqualTo(RefreshTokenProblem.REUSED);
-        verify(sessionService).terminate(SESSION);
+        verify(sessionService).invalidate(SESSION);
     }
 
     @Test

@@ -28,17 +28,17 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws IOException, ServletException {
 
-        validateRequestBodyLimits(request);
+        validate(request);
         filterChain.doFilter(request, response);
     }
 
-    private void validateRequestBodyLimits(HttpServletRequest request) {
+    private void validate(HttpServletRequest request) {
         if (isChunked(request)) {
             throw new RequestException(RequestProblem.LENGTH_REQUIRED);
         }
 
-        if (isExceedingSizeLimit(request)) {
-            throw new RequestException(RequestProblem.BODY_TOO_LARGE, maxAllowedSize());
+        if (isOversized(request)) {
+            throw new RequestException(RequestProblem.BODY_TOO_LARGE, max());
         }
     }
 
@@ -47,12 +47,12 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
         return transferEncoding != null && transferEncoding.toLowerCase().contains(CHUNKED);
     }
 
-    private boolean isExceedingSizeLimit(HttpServletRequest request) {
+    private boolean isOversized(HttpServletRequest request) {
         long contentLength = request.getContentLengthLong();
-        return contentLength > maxAllowedSize();
+        return contentLength > max();
     }
 
-    private long maxAllowedSize() {
+    private long max() {
         return properties.maxBodySize().toBytes();
     }
 }

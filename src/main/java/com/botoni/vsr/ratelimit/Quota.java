@@ -1,14 +1,14 @@
 package com.botoni.vsr.ratelimit;
 
-public record Quota(boolean allowed, double remaining, double resetIn) {
+public record Quota(boolean allowed, double remaining, double reset) {
 
     private static final long MIN_RETRY = 1;
 
-    public boolean exceeded() {
+    public boolean isExceeded() {
         return !allowed;
     }
 
-    public long retryAfter() {
-        return Math.max(MIN_RETRY, (long) Math.ceil(resetIn));
+    public long retry() {
+        return Math.max(MIN_RETRY, (long) Math.ceil(reset));
     }
 }

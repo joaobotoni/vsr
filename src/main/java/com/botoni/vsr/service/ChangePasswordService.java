@@ -13,11 +13,11 @@ import java.util.UUID;
 public class ChangePasswordService {
 
     private final LocalCredentialService localCredentialService;
-    private final AccountService accountService;
+    private final PasswordService passwordService;
 
     public void change(UUID user, Integer session, Password currentPassword, Password newPassword) {
         LocalCredential credential = verify(user, currentPassword);
-        PasswordHash hash = rehash(credential, newPassword);
+        PasswordHash hash = renew(credential, newPassword);
         replace(user, session, credential, hash);
     }
 
@@ -25,11 +25,11 @@ public class ChangePasswordService {
         return localCredentialService.verify(user, password);
     }
 
-    private PasswordHash rehash(LocalCredential credential, Password password) {
-        return localCredentialService.rehash(credential, password);
+    private PasswordHash renew(LocalCredential credential, Password password) {
+        return localCredentialService.renew(credential, password);
     }
 
     private void replace(UUID user, Integer session, LocalCredential credential, PasswordHash hash) {
-        accountService.replace(user, session, credential, hash);
+        passwordService.replace(user, session, credential, hash);
     }
 }

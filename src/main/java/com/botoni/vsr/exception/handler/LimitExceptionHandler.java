@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class LimitExceptionHandler {
 
     @ExceptionHandler(LimitException.class)
-    ProblemDetail handleLimit(LimitException exception) {
+    ProblemDetail handle(LimitException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

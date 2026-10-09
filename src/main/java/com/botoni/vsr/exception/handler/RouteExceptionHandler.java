@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class RouteExceptionHandler {
 
     @ExceptionHandler(RouteException.class)
-    ProblemDetail handleRoute(RouteException exception) {
+    ProblemDetail handle(RouteException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

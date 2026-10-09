@@ -36,65 +36,61 @@ public record Email(@JsonValue String value) {
         if (value.isEmpty()) {
             throw new EmailException(EmailProblem.MISSING);
         }
-        if (isLong(value)) {
+        if (isLong(value, MAX_LENGTH)) {
             throw new EmailException(EmailProblem.TOO_LONG, MAX_LENGTH);
         }
-        if (containsWhitespace(value)) {
+        if (hasWhitespace(value)) {
             throw new EmailException(EmailProblem.CONTAINS_WHITESPACE);
         }
-        if (lacksAtSign(value)) {
+        if (!hasAt(value)) {
             throw new EmailException(EmailProblem.MISSING_AT_SIGN);
         }
-        if (hasMultipleAtSigns(value)) {
+        if (hasAts(value)) {
             throw new EmailException(EmailProblem.MULTIPLE_AT_SIGNS);
         }
-        if (isLocalPartLong(value)) {
+        if (isLong(local(value), MAX_LOCAL_PART_LENGTH)) {
             throw new EmailException(EmailProblem.LOCAL_PART_TOO_LONG, MAX_LOCAL_PART_LENGTH);
         }
-        if (hasInvalidLocalPart(value)) {
+        if (!isLocal(value)) {
             throw new EmailException(EmailProblem.INVALID_LOCAL_PART);
         }
-        if (hasInvalidDomain(value)) {
+        if (!isDomain(value)) {
             throw new EmailException(EmailProblem.INVALID_DOMAIN);
         }
-        if (hasInvalidTopLevelDomain(value)) {
+        if (!isSuffix(value)) {
             throw new EmailException(EmailProblem.INVALID_TOP_LEVEL_DOMAIN);
         }
     }
 
-    private static boolean isLong(String value) {
-        return value.length() > MAX_LENGTH;
+    private static boolean isLong(String value, int max) {
+        return value.length() > max;
     }
 
-    private static boolean containsWhitespace(String value) {
+    private static boolean hasWhitespace(String value) {
         return WHITESPACE.matcher(value).find();
     }
 
-    private static boolean lacksAtSign(String value) {
-        return value.indexOf(AT) < 0;
+    private static boolean hasAt(String value) {
+        return value.indexOf(AT) >= 0;
     }
 
-    private static boolean hasMultipleAtSigns(String value) {
+    private static boolean hasAts(String value) {
         return value.indexOf(AT) != value.lastIndexOf(AT);
     }
 
-    private static boolean isLocalPartLong(String value) {
-        return localPart(value).length() > MAX_LOCAL_PART_LENGTH;
+    private static boolean isLocal(String value) {
+        return LOCAL_PART.matcher(local(value)).matches();
     }
 
-    private static boolean hasInvalidLocalPart(String value) {
-        return !LOCAL_PART.matcher(localPart(value)).matches();
+    private static boolean isDomain(String value) {
+        return domain(value).indexOf(DOT) >= 0 && DOMAIN.matcher(host(value)).matches();
     }
 
-    private static boolean hasInvalidDomain(String value) {
-        return domain(value).indexOf(DOT) < 0 || !DOMAIN.matcher(domainName(value)).matches();
+    private static boolean isSuffix(String value) {
+        return TOP_LEVEL_DOMAIN.matcher(suffix(value)).matches();
     }
 
-    private static boolean hasInvalidTopLevelDomain(String value) {
-        return !TOP_LEVEL_DOMAIN.matcher(topLevelDomain(value)).matches();
-    }
-
-    private static String localPart(String value) {
+    private static String local(String value) {
         return value.substring(0, value.indexOf(AT));
     }
 
@@ -102,11 +98,11 @@ public record Email(@JsonValue String value) {
         return value.substring(value.indexOf(AT) + 1);
     }
 
-    private static String domainName(String value) {
+    private static String host(String value) {
         return value.substring(value.indexOf(AT) + 1, value.lastIndexOf(DOT));
     }
 
-    private static String topLevelDomain(String value) {
+    private static String suffix(String value) {
         return value.substring(value.lastIndexOf(DOT) + 1);
     }
 

@@ -25,14 +25,14 @@ public final class OpaqueToken {
     }
 
     public String generate() {
-        return encode(randomBytes());
+        return encode(random());
     }
 
     public byte[] hash(String token) {
         return mac(key).doFinal(token.getBytes(StandardCharsets.UTF_8));
     }
 
-    private byte[] randomBytes() {
+    private byte[] random() {
         byte[] bytes = new byte[TOKEN_BYTES];
         random.nextBytes(bytes);
         return bytes;

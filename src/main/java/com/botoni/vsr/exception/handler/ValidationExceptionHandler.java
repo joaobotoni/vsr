@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class ValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
+    ProblemDetail invalid(MethodArgumentNotValidException exception) {
         return Problems.of(ValidationProblem.INVALID_DATA).errors(exception.getFieldErrors()).build();
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    ProblemDetail handleHttpMessageNotReadable() {
+    ProblemDetail unreadable() {
         return Problems.of(ValidationProblem.UNREADABLE_BODY).build();
     }
 }

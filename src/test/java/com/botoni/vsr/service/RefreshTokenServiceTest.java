@@ -62,9 +62,9 @@ class RefreshTokenServiceTest {
 
     @Test
     @Controle
-    @DisplayName("o digest é o HMAC do token, calculado uma vez para busca e reuso")
-    void digestIsTokenHmac() {
-        assertThat(refreshTokenService.digest(token)).isEqualTo(opaqueToken.hash(token)).hasSize(32);
+    @DisplayName("o hash é o HMAC do token, calculado uma vez para busca e reuso")
+    void hashIsTokenHmac() {
+        assertThat(refreshTokenService.hash(token)).isEqualTo(opaqueToken.hash(token)).hasSize(32);
     }
 
     @Test

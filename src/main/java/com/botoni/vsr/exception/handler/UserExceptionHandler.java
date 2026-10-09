@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class UserExceptionHandler {
 
     @ExceptionHandler(UserException.class)
-    ProblemDetail handleUser(UserException exception) {
+    ProblemDetail handle(UserException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

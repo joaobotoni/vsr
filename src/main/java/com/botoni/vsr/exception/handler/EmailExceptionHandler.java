@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class EmailExceptionHandler {
 
     @ExceptionHandler(EmailException.class)
-    ProblemDetail handleEmail(EmailException exception) {
+    ProblemDetail handle(EmailException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

@@ -38,7 +38,7 @@ public class ConstraintExceptionHandler {
     );
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+    ProblemDetail handle(DataIntegrityViolationException exception) {
         return Problems.of(masked(CONSTRAINTS.find(exception)), ConstraintProblem.DATA_INTEGRITY_VIOLATION).build();
     }
 

@@ -33,33 +33,33 @@ public record Cpf(@JsonValue String value) {
         if (value.isEmpty()) {
             throw new CpfException(CpfProblem.MISSING);
         }
-        if (hasWrongLength(value)) {
+        if (isMalformed(value)) {
             throw new CpfException(CpfProblem.LENGTH, LENGTH);
         }
-        if (hasNonNumericCharacters(value)) {
+        if (!isNumeric(value)) {
             throw new CpfException(CpfProblem.CHARACTERS);
         }
-        if (hasRepeatedDigits(value)) {
+        if (isRepeated(value)) {
             throw new CpfException(CpfProblem.REPEATED_DIGITS);
         }
-        if (hasWrongCheckDigits(value)) {
+        if (isMismatched(value)) {
             throw new CpfException(CpfProblem.CHECK_DIGITS);
         }
     }
 
-    private static boolean hasWrongLength(String value) {
+    private static boolean isMalformed(String value) {
         return value.length() != LENGTH;
     }
 
-    private static boolean hasNonNumericCharacters(String value) {
-        return !NUMERIC.matcher(value).matches();
+    private static boolean isNumeric(String value) {
+        return NUMERIC.matcher(value).matches();
     }
 
-    private static boolean hasRepeatedDigits(String value) {
+    private static boolean isRepeated(String value) {
         return value.chars().allMatch(c -> c == value.charAt(0));
     }
 
-    private static boolean hasWrongCheckDigits(String value) {
+    private static boolean isMismatched(String value) {
         return MODULO_11.isInvalid(value, FIRST_CHECK_DIGIT_INDEX)
                 || MODULO_11.isInvalid(value, SECOND_CHECK_DIGIT_INDEX);
     }

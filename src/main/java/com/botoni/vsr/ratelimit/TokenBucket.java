@@ -22,7 +22,7 @@ class TokenBucket implements AutoCloseable {
     TokenBucket(Limit limit) {
         this.capacity = limit.capacity();
         this.refillRate = limit.refillRate();
-        this.refillInterval = limit.refillSeconds();
+        this.refillInterval = limit.seconds();
         this.ttl = ttl();
         schedule();
     }

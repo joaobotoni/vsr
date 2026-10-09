@@ -36,45 +36,45 @@ public record Cnpj(@JsonValue String value) {
         if (value.isEmpty()) {
             throw new CnpjException(CnpjProblem.MISSING);
         }
-        if (hasWrongLength(value)) {
+        if (isMalformed(value)) {
             throw new CnpjException(CnpjProblem.LENGTH, LENGTH);
         }
-        if (hasNonAlphanumericCharacters(value)) {
+        if (!isAlphanumeric(value)) {
             throw new CnpjException(CnpjProblem.CHARACTERS);
         }
-        if (hasNonNumericCheckDigits(value)) {
+        if (!isNumeric(verifier(value))) {
             throw new CnpjException(CnpjProblem.NON_NUMERIC_CHECK_DIGITS);
         }
-        if (hasRepeatedCharacters(value)) {
+        if (isRepeated(value)) {
             throw new CnpjException(CnpjProblem.REPEATED_CHARACTERS);
         }
-        if (hasWrongCheckDigits(value)) {
+        if (isMismatched(value)) {
             throw new CnpjException(CnpjProblem.CHECK_DIGITS);
         }
     }
 
-    private static boolean hasWrongLength(String value) {
+    private static boolean isMalformed(String value) {
         return value.length() != LENGTH;
     }
 
-    private static boolean hasNonAlphanumericCharacters(String value) {
-        return !ALPHANUMERIC.matcher(value).matches();
+    private static boolean isAlphanumeric(String value) {
+        return ALPHANUMERIC.matcher(value).matches();
     }
 
-    private static boolean hasNonNumericCheckDigits(String value) {
-        return !NUMERIC.matcher(checkDigits(value)).matches();
+    private static boolean isNumeric(String value) {
+        return NUMERIC.matcher(value).matches();
     }
 
-    private static boolean hasRepeatedCharacters(String value) {
+    private static boolean isRepeated(String value) {
         return value.chars().allMatch(c -> c == value.charAt(0));
     }
 
-    private static boolean hasWrongCheckDigits(String value) {
+    private static boolean isMismatched(String value) {
         return MODULO_11.isInvalid(value, FIRST_CHECK_DIGIT_INDEX)
                 || MODULO_11.isInvalid(value, SECOND_CHECK_DIGIT_INDEX);
     }
 
-    private static String checkDigits(String value) {
+    private static String verifier(String value) {
         return value.substring(BASE_LENGTH);
     }
 

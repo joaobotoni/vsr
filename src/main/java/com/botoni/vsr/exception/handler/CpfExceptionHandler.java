@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class CpfExceptionHandler {
 
     @ExceptionHandler(CpfException.class)
-    ProblemDetail handleCpf(CpfException exception) {
+    ProblemDetail handle(CpfException exception) {
         return Problems.of(exception, exception.problem()).build();
     }
 }

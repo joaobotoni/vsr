@@ -5,6 +5,7 @@ import com.auth0.jwt.JWTCreator;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.botoni.vsr.token.JwtToken;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -23,7 +24,7 @@ public final class Tokens {
     }
 
     public static JwtToken jwt() {
-        return new JwtToken(SECRET, ISSUER, LIFETIME);
+        return new JwtToken(SECRET, ISSUER, LIFETIME, Clock.systemUTC());
     }
 
     public static String valid() {

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class RateLimitExceptionHandler {
 
     @ExceptionHandler(RateLimitException.class)
-    ProblemDetail handleRateLimit(RateLimitException exception, HttpServletRequest request) {
+    ProblemDetail handle(RateLimitException exception, HttpServletRequest request) {
         log.warn("Limite de requisições excedido: rota={} ip={}", request.getRequestURI(), request.getRemoteAddr());
         return Problems.of(exception, exception.problem()).build();
     }

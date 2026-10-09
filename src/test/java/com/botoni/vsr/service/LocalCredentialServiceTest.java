@@ -18,6 +18,7 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,7 +43,7 @@ class LocalCredentialServiceTest {
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final PasswordEncoder encoder = new PasswordEncoderConfig().passwordEncoder();
     private final LocalCredentialService localCredentialService = new LocalCredentialService(
-            repository, Mappers.getMapper(LocalCredentialMapper.class), encoder);
+            repository, Mappers.getMapper(LocalCredentialMapper.class), encoder, Clock.systemUTC());
 
     private final User user = Users.ana();
     private LocalCredential credential;
@@ -109,8 +110,8 @@ class LocalCredentialServiceTest {
     @Test
     @Controle
     @DisplayName("o novo hash é calculado sem tocar no banco")
-    void rehashDoesNotTouchDatabase() {
-        PasswordHash hash = localCredentialService.rehash(credential, NEW);
+    void renewDoesNotTouchDatabase() {
+        PasswordHash hash = localCredentialService.renew(credential, NEW);
 
         assertThat(encoder.matches(NEW.value(), hash.value())).isTrue();
         verifyNoInteractions(repository);
@@ -120,7 +121,7 @@ class LocalCredentialServiceTest {
     @Controle
     @DisplayName("nova senha igual à atual é recusada antes de calcular o hash")
     void samePasswordIsRejected() {
-        assertThatThrownBy(() -> localCredentialService.rehash(credential, CURRENT))
+        assertThatThrownBy(() -> localCredentialService.renew(credential, CURRENT))
                 .isInstanceOf(CredentialException.class)
                 .extracting("problem").isEqualTo(CredentialProblem.SAME_PASSWORD);
         verifyNoInteractions(repository);
@@ -131,7 +132,7 @@ class LocalCredentialServiceTest {
     @DisplayName("substituir grava pela procedure só se o hash ainda for o lido")
     void replaceUsesCompareAndSet() {
         String current = credential.getPasswordHash().value();
-        PasswordHash hash = localCredentialService.rehash(credential, NEW);
+        PasswordHash hash = localCredentialService.renew(credential, NEW);
 
         localCredentialService.replace(credential, hash);
 

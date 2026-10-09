@@ -1,5 +1,6 @@
 package com.botoni.vsr.support;
 
+import com.botoni.vsr.configuration.ClockConfig;
 import com.botoni.vsr.configuration.DenialsConfig;
 import com.botoni.vsr.configuration.FilterConfig;
 import com.botoni.vsr.configuration.JwtConfig;
@@ -16,6 +17,6 @@ import org.springframework.context.annotation.Import;
 
 @TestConfiguration
 @EnableConfigurationProperties({JwtProperties.class, RateLimitProperties.class, RequestProperties.class, VersionProperties.class})
-@Import({SecurityConfig.class, DenialsConfig.class, FilterConfig.class, RateLimitConfig.class, JwtConfig.class, TokenService.class})
+@Import({ClockConfig.class, SecurityConfig.class, DenialsConfig.class, FilterConfig.class, RateLimitConfig.class, JwtConfig.class, TokenService.class})
 class WebSecurityTestConfiguration {
 }

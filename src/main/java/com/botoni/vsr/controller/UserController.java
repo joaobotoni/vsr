@@ -29,7 +29,7 @@ public class UserController {
     }
 
     @PatchMapping("/me/password")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Principal principal, @RequestBody @Valid ChangePasswordRequest request) {
+    public ResponseEntity<Void> change(@AuthenticationPrincipal Principal principal, @RequestBody @Valid ChangePasswordRequest request) {
         changePasswordService.change(principal.user(), principal.session(), request.currentPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }

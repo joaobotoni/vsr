@@ -124,6 +124,12 @@ create table usuarios.sessao
 create index ix_sessao_dispositivo on usuarios.sessao (id_dispositivo) where revogada_em is null;
 create index ix_sessao_expira_em on usuarios.sessao (expira_em);
 
+create view usuarios.sessao_ativa as
+select s.*
+from usuarios.sessao s
+where s.revogada_em is null
+  and s.expira_em > now();
+
 create table usuarios.refresh_token
 (
     id_sessao     int         not null,
