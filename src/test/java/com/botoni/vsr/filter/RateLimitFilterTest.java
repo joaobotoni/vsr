@@ -62,7 +62,7 @@ class RateLimitFilterTest {
 
     @Test
     @Controle
-    @DisplayName("rotacionar endereços IPv6 do mesmo /64 atinge o limite")
+    @DisplayName("rotacionar endereços IPv6 do mesmo /56 atinge o limite")
     void ipv6RotationHitsLimit() throws Exception {
         for (int i = 0; i < capacity; i++) {
             loginFrom(Ips.nextV6InSameNetwork()).andExpect(status().isOk());

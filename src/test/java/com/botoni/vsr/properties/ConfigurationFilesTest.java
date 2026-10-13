@@ -3,6 +3,8 @@ package com.botoni.vsr.properties;
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -55,6 +57,14 @@ class ConfigurationFilesTest {
     @DisplayName("web.yaml ignora cabeçalhos encaminhados")
     void forwardedHeadersAreIgnored() {
         assertThat(property("web.yaml", "server.forward-headers-strategy")).isEqualTo("none");
+    }
+
+    @Controle
+    @ParameterizedTest(name = "{0} não liga HTTP/2")
+    @DisplayName("HTTP/2 fica desligado: o limite de corpo depende do Content-Length, que o HTTP/2 dispensa")
+    @ValueSource(strings = {"application.yaml", "web.yaml", "database.yaml", "security.yaml", "rate-limit.yaml", "mail.yaml"})
+    void http2IsDisabled(String file) {
+        assertThat(property(file, "server.http2.enabled")).isIn(null, "false");
     }
 
     @Test

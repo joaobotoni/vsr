@@ -27,11 +27,15 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public User find(UUID user) {
-        return userRepository.findWithPersonByUuid(user)
-                .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
+        return existing(user);
     }
 
     private User create(Individual person, Email email) {
         return userMapper.entity(person, email);
+    }
+
+    private User existing(UUID user) {
+        return userRepository.findWithPersonByUuid(user)
+                .orElseThrow(() -> new UserException(UserProblem.NOT_FOUND));
     }
 }

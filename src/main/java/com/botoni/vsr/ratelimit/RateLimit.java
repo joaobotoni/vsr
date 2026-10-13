@@ -26,8 +26,8 @@ public final class RateLimit implements AutoCloseable {
         return bucket.consume(key);
     }
 
-    public Quota check(String key) {
-        return bucket.check(key);
+    public void refund(String key) {
+        bucket.refund(key);
     }
 
     public Limit limit() {

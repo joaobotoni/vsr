@@ -94,8 +94,33 @@ class ProcedureVerificationTest {
     }
 
     @Test
+    void sessionLimitRevokesOldest() throws Exception {
+        execute("insert into pessoas.pessoa (tipo, nome) overriding system value values ('pf', 'Bia')");
+        execute("insert into pessoas.pessoa_fisica (id_pessoa, cpf) values (2, '11144477735')");
+        int user = Integer.parseInt(text("insert into usuarios.usuario (id_pessoa, email) values (2, 'bia@vsr.com') returning id_usuario::text"));
+        int oldest = open(user, "00000000-0000-0000-0000-0000000000b1");
+        int middle = open(user, "00000000-0000-0000-0000-0000000000b2");
+        int newest = open(user, "00000000-0000-0000-0000-0000000000b3");
+        int other = session("00000000-0000-0000-0000-0000000000b4");
+
+        execute("call usuarios.limitar_sessoes_usuario(" + user + ", 2)");
+
+        assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + oldest)).isEqualTo("false");
+        assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + middle)).isEqualTo("true");
+        assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + newest)).isEqualTo("true");
+        assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + other)).isEqualTo("true");
+    }
+
+    @Test
     void cleanupRuns() throws Exception {
         execute("call rotinas.limpar_sessoes_expiradas()");
+    }
+
+    private static int open(int user, String identifier) throws SQLException {
+        execute("call usuarios.registrar_dispositivo(" + user + ", '" + identifier + "', 'android', 'Samsung', 'S23', '14')");
+        return Integer.parseInt(text("insert into usuarios.sessao (id_dispositivo, endereco_ip, expira_em) "
+                + "select id_dispositivo, '10.0.0.2', now() + interval '30 days' from usuarios.dispositivo "
+                + "where identificador = '" + identifier + "' returning id_sessao::text"));
     }
 
     private static int session(String identifier) throws SQLException {

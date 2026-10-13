@@ -25,7 +25,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
-                                    FilterChain filterChain)
+                                    @NonNull FilterChain filterChain)
             throws IOException, ServletException {
 
         validate(request);

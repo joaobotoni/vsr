@@ -13,7 +13,8 @@ public enum SessionProblem implements Problem {
 
     NOT_FOUND(HttpStatus.UNAUTHORIZED, "A sessão informada não foi encontrada."),
     REVOKED(HttpStatus.UNAUTHORIZED, "A sessão foi encerrada. Faça login novamente."),
-    EXPIRED(HttpStatus.UNAUTHORIZED, "A sessão expirou. Faça login novamente.");
+    EXPIRED(HttpStatus.UNAUTHORIZED, "A sessão expirou. Faça login novamente."),
+    IDLE(HttpStatus.UNAUTHORIZED, "A sessão expirou por inatividade. Faça login novamente.");
 
     private final HttpStatus status;
     private final String message;

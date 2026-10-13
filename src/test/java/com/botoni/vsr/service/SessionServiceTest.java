@@ -41,10 +41,12 @@ class SessionServiceTest {
 
     private static final int SESSION = 10;
     private static final Duration TTL = Duration.ofDays(30);
+    private static final Duration IDLE = Duration.ofDays(7);
+    private static final int MAX = 10;
 
     private final SessionRepository repository = mock(SessionRepository.class);
     private final SessionService sessionService = new SessionService(
-            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL), Clock.systemUTC());
+            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC());
 
     private final User owner = Users.ana();
     private final Device device = Device.builder().id(3).user(owner).build();
@@ -52,7 +54,8 @@ class SessionServiceTest {
 
     @BeforeEach
     void activeSession() {
-        session = Session.builder().id(SESSION).device(device).expiresAt(Instant.now().plus(TTL)).build();
+        session = Session.builder().id(SESSION).device(device).lastAccessAt(Instant.now())
+                .expiresAt(Instant.now().plus(TTL)).build();
         when(repository.findWithUserByIdAndUuid(any(), any())).thenReturn(Optional.empty());
         when(repository.findWithUserByIdAndUuid(SESSION, Users.UUID)).thenReturn(Optional.of(session));
         when(repository.findWithUserById(SESSION)).thenReturn(Optional.of(session));
@@ -60,7 +63,7 @@ class SessionServiceTest {
 
     @Test
     @Controle
-    @DisplayName("abrir sessão revoga as anteriores do dispositivo antes de gravar a nova")
+    @DisplayName("abrir sessão revoga as anteriores do dispositivo, grava a nova e aplica o teto de sessões do usuário")
     void openRevokesDeviceSessionsFirst() {
         when(repository.save(any())).then(returnsFirstArg());
 
@@ -69,6 +72,7 @@ class SessionServiceTest {
         InOrder order = inOrder(repository);
         order.verify(repository).revokeDevice(device.getId());
         order.verify(repository).save(any());
+        order.verify(repository).limitUser(owner.getId(), MAX);
         assertThat(opened.getDevice()).isSameAs(device);
         assertThat(opened.getExpiresAt()).isCloseTo(Instant.now().plus(TTL), within(Duration.ofSeconds(5)));
     }
@@ -112,7 +116,7 @@ class SessionServiceTest {
     void sessionExpiringNowIsRejected() {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         SessionService frozen = new SessionService(repository, Mappers.getMapper(SessionMapper.class),
-                new SessionProperties(TTL), Clock.fixed(now, ZoneOffset.UTC));
+                new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC));
         session.setExpiresAt(now);
 
         assertThatThrownBy(() -> frozen.access(Users.UUID, SESSION))
@@ -152,23 +156,46 @@ class SessionServiceTest {
 
     @Test
     @Controle
-    @DisplayName("revogar as outras sessões mantém a atual e usa o id interno do dono")
-    void keepRevokesOthers() {
-        sessionService.keep(Users.UUID, SESSION);
+    @DisplayName("encerrar revoga todas as sessões do dono, inclusive a atual, e devolve o dispositivo")
+    void endRevokesAllSessions() {
+        assertThat(sessionService.end(Users.UUID, SESSION)).isSameAs(device);
 
-        verify(repository).revokeUser(owner.getId(), SESSION);
+        verify(repository).revokeUser(owner.getId(), null);
     }
 
     @Test
     @Controle
-    @DisplayName("revogar as outras sessões a partir de uma sessão revogada é recusado")
-    void keepFromRevokedSessionIsRejected() {
+    @DisplayName("encerrar a partir de uma sessão revogada é recusado")
+    void endFromRevokedSessionIsRejected() {
         session.setRevokedAt(Instant.now());
 
-        assertThatThrownBy(() -> sessionService.keep(Users.UUID, SESSION))
+        assertThatThrownBy(() -> sessionService.end(Users.UUID, SESSION))
                 .isInstanceOf(SessionException.class)
                 .extracting("problem").isEqualTo(SessionProblem.REVOKED);
-        verify(repository, never()).revokeUser(anyInt(), anyInt());
+        verify(repository, never()).revokeUser(any(), any());
+    }
+
+    @Test
+    @Controle
+    @DisplayName("sessão sem acesso há mais tempo que o limite de inatividade é recusada")
+    void idleSessionIsRejected() {
+        session.setLastAccessAt(Instant.now().minus(IDLE).minusSeconds(1));
+
+        assertThatThrownBy(() -> sessionService.access(Users.UUID, SESSION))
+                .isInstanceOf(SessionException.class)
+                .extracting("problem").isEqualTo(SessionProblem.IDLE);
+        verify(repository, never()).access(anyInt());
+    }
+
+    @Test
+    @Controle
+    @DisplayName("sessão usada pouco antes do limite de inatividade continua aceita")
+    void recentlyUsedSessionIsAccepted() {
+        session.setLastAccessAt(Instant.now().minus(IDLE).plusSeconds(60));
+
+        sessionService.access(Users.UUID, SESSION);
+
+        verify(repository).access(SESSION);
     }
 
     @Test

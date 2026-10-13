@@ -17,8 +17,23 @@ public class UnexpectedExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ProblemDetail handle(Exception exception) {
-        log.error("Erro inesperado ao processar a requisição", exception);
+        warn(exception);
+        error(exception);
         return show(exception);
+    }
+
+    private static void warn(Exception exception) {
+        if (!isClient(exception)) {
+            return;
+        }
+        log.warn("Requisição recusada: {}", exception.getClass().getSimpleName());
+    }
+
+    private static void error(Exception exception) {
+        if (isClient(exception)) {
+            return;
+        }
+        log.error("Erro inesperado ao processar a requisição", exception);
     }
 
     private static ProblemDetail show(Exception exception) {
@@ -26,5 +41,9 @@ public class UnexpectedExceptionHandler {
             return Problems.of(UnexpectedProblem.REQUEST_FAILED).status(exception).build();
         }
         return Problems.of(UnexpectedProblem.UNEXPECTED_ERROR).build();
+    }
+
+    private static boolean isClient(Exception exception) {
+        return exception instanceof ErrorResponse response && response.getStatusCode().is4xxClientError();
     }
 }

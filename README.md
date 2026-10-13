@@ -72,7 +72,7 @@ O `open-in-view` está **desligado**: a conexão com o banco fica presa só dura
 
 ### JWT (java-jwt)
 
-O access token é um JWT assinado com **HMAC-SHA-256**. A chave precisa ter no mínimo 32 bytes, senão a aplicação não inicia. A verificação confere a assinatura, o emissor (`iss`), a presença da sessão (`sid`) e a expiração, com tolerância de 30 segundos para diferenças de relógio. O JWT sozinho não basta: a cada requisição a sessão referenciada também é conferida no banco, por isso revogar uma sessão invalida o token na hora.
+O access token é um JWT assinado com **HMAC-SHA-256**. A chave precisa ter no mínimo 32 bytes, senão a aplicação não inicia. A verificação confere a assinatura, o emissor (`iss`), a presença de `sid`, `exp` e `iat` (token sem qualquer um deles é recusado) e a expiração, com tolerância de 30 segundos para diferenças de relógio. O JWT sozinho não basta: a cada requisição a sessão referenciada também é conferida no banco, por isso revogar uma sessão invalida o token na hora.
 
 ### Refresh token opaco com HMAC
 
@@ -164,12 +164,16 @@ A view `usuarios.sessao_ativa` define num lugar só o que é uma sessão ativa: 
 
 - O login exige e-mail, senha e os dados do dispositivo.
 - E-mail inexistente e senha incorreta produzem **a mesma resposta** (`E-mail ou senha incorretos.`).
-- Antes de conferir a senha, a API verifica o **limite de falhas da conta**. Cada senha errada desconta uma tentativa daquele e-mail, vinda de qualquer IP; logins corretos não descontam.
+- Antes de conferir a senha, a API **gasta uma tentativa** do limite da conta; se a senha estiver certa, a tentativa é devolvida. Como a tentativa é gasta antes, requisições paralelas não furam o limite.
+- O limite é separado por origem: um **dispositivo já usado pela conta** tem limite próprio, e todos os dispositivos desconhecidos dividem o limite da conta. Quem conhece só o e-mail esgota apenas o limite dos desconhecidos; o dono continua entrando pelo próprio aparelho.
+- Falhas de infraestrutura (por exemplo, banco indisponível) devolvem a tentativa.
 - A conferência da senha roda **fora de transação**.
 - O dispositivo é identificado pelo par **(usuário, identificador UUID)**. Se já existir e os dados (plataforma, fabricante, modelo, versão do sistema) mudaram, eles são atualizados.
 - Cada dispositivo tem **no máximo uma sessão ativa**: um novo login revoga as sessões anteriores daquele dispositivo.
+- Cada usuário tem **no máximo 10 sessões ativas** (`security.session.max`): ao abrir a 11ª, a mais antiga é revogada.
 - Uma sessão dura **30 dias** a partir do login, sem renovação, e registra o IP de origem.
-- Toda requisição autenticada confirma que a sessão **não foi revogada nem expirou** e que **pertence ao usuário do token**. O último acesso é gravado no máximo a cada 5 minutos.
+- Uma sessão sem nenhum acesso por **7 dias** expira por inatividade, mesmo dentro dos 30 dias.
+- Toda requisição autenticada e toda renovação confirmam que a sessão **não foi revogada, não expirou nem ficou ociosa** e que **pertence ao usuário do token**. O último acesso é gravado no máximo a cada 5 minutos.
 
 ```mermaid
 sequenceDiagram
@@ -213,17 +217,19 @@ Regras do refresh token:
 
 - **Rotação obrigatória:** cada renovação invalida o token usado e emite outro. O hash do token substituído vai para o histórico.
 - **Detecção de reuso:** apresentar um token já substituído, de qualquer geração e mesmo vencido, indica vazamento. A sessão inteira é revogada.
-- **Concorrência:** se duas renovações com o mesmo token chegarem ao mesmo tempo, só uma vence. A outra recebe `409` (`rn_refresh_token_renovado`).
+- **Concorrência:** se duas renovações com o mesmo token chegarem ao mesmo tempo, só uma vence. A outra é tratada como reuso: a sessão inteira é revogada e a resposta é o `401` genérico.
 - A renovação exige que a **sessão** e o próprio token continuem válidos.
 - Recusas de sessão e de refresh token respondem o mesmo `401` genérico. O motivo real vai só para o log.
 
 ### Logout e troca de senha
 
 - O **logout** revoga a sessão do token apresentado.
-- A **troca de senha** exige a senha atual (`422` se estiver errada) e recusa uma nova senha igual à atual (`422`).
+- A **troca de senha** exige a senha atual (`422` se estiver errada) e recusa uma nova senha igual à atual (`422`). Senhas atuais erradas gastam o mesmo limite por conta (`RATE_LIMIT_ACCOUNT_*`), contado pelo usuário e de qualquer IP; ao exceder, responde `429`.
 - As conferências e o novo hash são calculados **fora de transação**. Depois, numa transação curta:
-  1. a sessão atual é validada e as **outras sessões do usuário são revogadas**;
-  2. o novo hash é gravado.
+  1. a sessão atual é validada e **todas as sessões do usuário são revogadas, inclusive a atual**;
+  2. o novo hash é gravado;
+  3. uma **sessão nova** é aberta no mesmo dispositivo, e a resposta (`200`) traz o novo `accessToken` e `refreshToken`.
+- Assim, quem tiver copiado os tokens da sessão usada na troca também perde o acesso.
 - Se outra troca de senha da mesma conta tiver acontecido no meio, a requisição recebe `409` (`rn_senha_alterada`) e nada é alterado.
 
 ### Validação de dados
@@ -237,7 +243,7 @@ As regras abaixo são aplicadas na entrada da API e, quando aplicável, repetida
 | CPF | Máscara (`.`, `-`, `/`, espaços) removida; 11 dígitos; os dígitos não podem ser todos iguais; dígitos verificadores pelo módulo 11 |
 | CNPJ | Formato alfanumérico: 12 caracteres `[0-9A-Z]` seguidos de 2 dígitos verificadores numéricos pelo módulo 11 |
 | Nome | Espaços nas pontas removidos; obrigatório; até 200 caracteres (acentos contam como um) |
-| Dispositivo | Identificador UUID; plataforma `android` ou `ios`; fabricante e modelo até 64 caracteres; versão do sistema até 16 caracteres em `[0-9A-Za-z._- ]`; espaços nas pontas removidos |
+| Dispositivo | Identificador UUID; plataforma `android` ou `ios`; fabricante e modelo até 64 caracteres, sem caracteres de controle, de formatação invisível nem `<` e `>`; versão do sistema até 16 caracteres em `[0-9A-Za-z._- ]`; espaços nas pontas removidos |
 
 No banco, textos livres não podem ter espaços nas extremidades e respeitam limites de tamanho por coluna.
 
@@ -245,7 +251,7 @@ No banco, textos livres não podem ter espaços nas extremidades e respeitam lim
 
 O limite usa o algoritmo **token bucket** e tem duas camadas.
 
-**Por rede e rota.** A chave é o IP do cliente; endereços IPv6 são agrupados pelo bloco `/64`, para que um único cliente não escape do limite trocando de endereço dentro da própria rede.
+**Por rede e rota.** A chave é o IP do cliente; endereços IPv6 são agrupados pelo bloco `/56`, o tamanho comum entregue por provedores domésticos,, para que um único cliente não escape do limite trocando de endereço dentro da própria rede.
 
 | Rota | Variáveis |
 |---|---|
@@ -258,7 +264,7 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 
 Toda resposta traz `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset`. Ao exceder o limite, a resposta é `429` com o cabeçalho `Retry-After`.
 
-**Por conta.** Conta só as **senhas erradas** de cada e-mail, vindas de qualquer IP (`RATE_LIMIT_ACCOUNT_*`). Ao exceder, o login responde `429` sem conferir a senha.
+**Por conta.** Conta só as **senhas erradas** de cada e-mail, vindas de qualquer IP (`RATE_LIMIT_ACCOUNT_*`), separadas entre o dispositivo já conhecido e os desconhecidos. A tentativa é gasta antes de conferir a senha e devolvida quando ela está certa. Ao exceder, o login responde `429` sem conferir a senha. A troca de senha usa o mesmo limite para a senha atual.
 
 Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
 
@@ -319,7 +325,7 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `POST` | `/api/1/auth/refresh` | Pública | Rotaciona o refresh token e emite um novo access token | `200` |
 | `POST` | `/api/1/auth/logout` | Bearer | Revoga a sessão atual | `204` |
 | `GET` | `/api/1/users/me` | Bearer | Retorna o usuário autenticado | `200` |
-| `PATCH` | `/api/1/users/me/password` | Bearer | Troca a senha e revoga as outras sessões | `204` |
+| `PATCH` | `/api/1/users/me/password` | Bearer | Troca a senha, revoga todas as sessões e devolve os tokens de uma sessão nova | `200` |
 
 **Exemplo de cadastro**
 
@@ -396,7 +402,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 | Ameaça | Proteção |
 |---|---|
-| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/64`, e limite de falhas por conta |
+| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`, e limite de falhas por conta |
 | Descoberta de contas no login | Mesma resposta e mesmo tempo para e-mail inexistente e senha errada |
 | Vazamento do banco | Senhas em Argon2id; refresh tokens em HMAC-SHA-256 com chave fora do banco |
 | Roubo de refresh token | Rotação a cada uso, detecção de reuso de qualquer geração e revogação da sessão |
@@ -405,19 +411,20 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Escritas concorrentes | Renovação de token e troca de senha só gravam se o valor atual ainda for o lido |
 | Exposição de ids internos | A API expõe o UUID público do usuário, nunca o id sequencial; o JWT também não carrega o e-mail |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
+| Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
+| Rebaixamento para HTTP | `Strict-Transport-Security` (1 ano, com subdomínios) em toda resposta, inclusive atrás de proxy que termina o TLS |
+| Conteúdo malicioso em texto livre | Fabricante e modelo do dispositivo recusam HTML e caracteres invisíveis |
 | Corpo de requisição gigante | Recusado pelo `Content-Length` antes da leitura (`413`); corpo em partes recusado (`411`) |
 | Anexos de e-mail | Só do diretório configurado, com caminho resolvido (sem `../` nem link simbólico para fora) |
 | Conexões do banco esgotadas | O Argon2 roda fora de transação e o `open-in-view` está desligado |
 
 **Pendências conhecidas**
 
-- **Reuso concorrente do refresh token:** quando duas renovações simultâneas usam o mesmo token, a segunda recebe `409`, mas a sessão não é revogada. A detecção de reuso cobre só o reuso sequencial.
 - **Proxy reverso:** a aplicação ignora `X-Forwarded-For` (`forward-headers-strategy: none`). Atrás de um load balancer, todos os clientes aparecem com o IP do proxy e dividem o mesmo limite de requisições. Antes de usar um proxy, é preciso configurar a lista de proxies confiáveis.
-- **Corpo sem `Content-Length`:** uma requisição sem esse cabeçalho e sem `chunked` (possível em HTTP/2) não passa pela checagem de tamanho.
 - **Autorização:** não existe modelo de permissões; só autenticação. Cada endpoint futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
-- **Limite por conta:** como conta falhas só pelo e-mail, quem conhece o e-mail de alguém pode bloquear temporariamente o login dessa pessoa.
+- **Limite por conta:** quem conhece o e-mail de alguém ainda pode bloquear temporariamente o login dessa pessoa a partir de um **dispositivo novo**; o dispositivo que ela já usa não é afetado.
 - **Limites em memória:** não são compartilhados entre instâncias nem sobrevivem a um reinício.
 - **Permissões no banco:** a aplicação deve usar uma role diferente da que aplica as migrations, com o mínimo de privilégios.
 
@@ -427,6 +434,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 |---|---|---|
 | Não há bloqueio de conta | Uma conta comprometida só pode ser contida revogando as sessões | Revogar sessões e trocar a senha cobre os casos atuais |
 | Resposta perdida na renovação | Se a resposta do `/auth/refresh` se perde e o app reenvia o token antigo, isso conta como reuso e a sessão é revogada | Preferido a abrir uma janela de tolerância para o token anterior |
+| Corpo sem tamanho declarado | Em HTTP/2 o `Content-Length` é opcional, e um corpo sem ele não passaria pela checagem de tamanho | A aplicação só fala HTTP/1.1, onde todo corpo tem `Content-Length` ou é `chunked` (recusado). Um teste falha se alguém ligar `server.http2.enabled` |
 
 ---
 
@@ -463,6 +471,8 @@ Valores fixos nos arquivos de configuração:
 | `spring.jpa.hibernate.ddl-auto` | `validate` | O schema pertence ao Flyway |
 | `spring.jpa.open-in-view` | `false` | A conexão fica presa só durante as transações |
 | `security.session.ttl` | `30d` | Validade da sessão e do refresh token |
+| `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade |
+| `security.session.max` | `10` | Máximo de sessões ativas por usuário; a mais antiga é revogada |
 | `vsr.request.max-body-size` | `16KB` | Limite do corpo das requisições |
 | `server.forward-headers-strategy` | `none` | O IP do cliente é sempre o da conexão |
 

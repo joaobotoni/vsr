@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("Concessão de acesso")
@@ -61,5 +62,25 @@ class AccessServiceTest {
         order.verify(sessionService).open(device, ip);
         order.verify(refreshTokenService).issue(session);
         order.verify(tokenService).issue(user, SESSION, "refresh");
+    }
+
+    @Test
+    @Controle
+    @DisplayName("rotacionar abre uma sessão nova no mesmo dispositivo e emite tokens dela, sem registrar dispositivo")
+    void rotateOpensNewSessionOnDevice() {
+        Device device = Device.builder().id(3).user(user).build();
+        Session session = Session.builder().id(SESSION).device(device).build();
+        TokenResponse token = new TokenResponse("access", "refresh", 900);
+        when(sessionService.open(device, ip)).thenReturn(session);
+        when(refreshTokenService.issue(session)).thenReturn("refresh");
+        when(tokenService.issue(user, SESSION, "refresh")).thenReturn(token);
+
+        assertThat(accessService.rotate(device, ip)).isEqualTo(token);
+
+        InOrder order = inOrder(sessionService, refreshTokenService, tokenService);
+        order.verify(sessionService).open(device, ip);
+        order.verify(refreshTokenService).issue(session);
+        order.verify(tokenService).issue(user, SESSION, "refresh");
+        verifyNoInteractions(deviceService);
     }
 }

@@ -141,6 +141,29 @@ begin
 end;
 $$;
 
+create procedure usuarios.limitar_sessoes_usuario(
+    p_id_usuario int,
+    p_maximo int
+)
+    language plpgsql
+as
+$$
+begin
+    update usuarios.sessao s
+    set revogada_em = now()
+    where s.id_sessao in (
+        select a.id_sessao
+        from usuarios.sessao_ativa a
+        join usuarios.dispositivo d on d.id_dispositivo = a.id_dispositivo
+        where d.id_usuario = p_id_usuario
+        order by a.id_sessao desc
+        offset p_maximo
+    )
+      and s.revogada_em is null
+      and s.expira_em > now();
+end;
+$$;
+
 create procedure usuarios.emitir_refresh_token(
     p_id_sessao int,
     p_hash bytea

@@ -17,10 +17,12 @@ public record DeviceRequest(
 
         @NotBlank(message = "O fabricante é obrigatório.")
         @Size(max = 64, message = "O fabricante deve conter no máximo {max} caracteres.")
+        @Pattern(regexp = "^[^\\p{Cc}\\p{Cf}<>]*$", message = "O fabricante contém caracteres inválidos.")
         String manufacturer,
 
         @NotBlank(message = "O modelo é obrigatório.")
         @Size(max = 64, message = "O modelo deve conter no máximo {max} caracteres.")
+        @Pattern(regexp = "^[^\\p{Cc}\\p{Cf}<>]*$", message = "O modelo contém caracteres inválidos.")
         String model,
 
         @NotBlank(message = "A versão do sistema é obrigatória.")

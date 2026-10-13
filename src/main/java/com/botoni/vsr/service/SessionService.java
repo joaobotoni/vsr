@@ -29,8 +29,9 @@ public class SessionService {
     @Transactional
     public Session open(Device device, InetAddress ip) {
         reset(device);
-        Session session = create(device, ip);
-        return save(session);
+        Session session = save(create(device, ip));
+        limit(device);
+        return session;
     }
 
     @Transactional
@@ -59,10 +60,11 @@ public class SessionService {
     }
 
     @Transactional
-    public void keep(UUID user, Integer session) {
-        Session kept = owned(user, session);
-        active(kept);
-        dismiss(kept);
+    public Device end(UUID user, Integer session) {
+        Session ended = owned(user, session);
+        active(ended);
+        dismiss(ended);
+        return ended.getDevice();
     }
 
     private void reset(Device device) {
@@ -81,18 +83,12 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
-    private Session owned(UUID user, Integer session) {
-        return sessionRepository.findWithUserByIdAndUuid(session, user)
-                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
+    private void limit(Device device) {
+        sessionRepository.limitUser(device.getUser().getId(), sessionProperties.max());
     }
 
     private void touch(Session session) {
         sessionRepository.access(session.getId());
-    }
-
-    private Session find(Integer session) {
-        return sessionRepository.findWithUserById(session)
-                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
     private static User owner(Session session) {
@@ -103,13 +99,24 @@ public class SessionService {
         sessionRepository.revoke(session.getId());
     }
 
-    private void dismiss(Session kept) {
-        sessionRepository.revokeUser(owner(kept).getId(), kept.getId());
+    private void dismiss(Session ended) {
+        sessionRepository.revokeUser(owner(ended).getId(), null);
+    }
+
+    private Session owned(UUID user, Integer session) {
+        return sessionRepository.findWithUserByIdAndUuid(session, user)
+                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
+    }
+
+    private Session find(Integer session) {
+        return sessionRepository.findWithUserById(session)
+                .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
     }
 
     private void active(Session session) {
         revoked(session);
         expired(session);
+        idle(session);
     }
 
     private void revoked(Session session) {
@@ -124,11 +131,22 @@ public class SessionService {
         }
     }
 
+    private void idle(Session session) {
+        if (isIdle(session)) {
+            throw new SessionException(SessionProblem.IDLE);
+        }
+    }
+
     private static boolean isRevoked(Session session) {
         return session.getRevokedAt() != null;
     }
 
     private boolean isExpired(Session session) {
         return !session.getExpiresAt().isAfter(Instant.now(clock));
+    }
+
+    private boolean isIdle(Session session) {
+        return !session.getLastAccessAt().isAfter(Instant.now(clock)
+                .minus(sessionProperties.idle()));
     }
 }

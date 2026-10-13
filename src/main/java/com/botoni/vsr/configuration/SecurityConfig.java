@@ -14,10 +14,15 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
+
+import java.time.Duration;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final long HSTS_MAX_AGE = Duration.ofDays(365).toSeconds();
 
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/*/auth/login",
@@ -37,6 +42,10 @@ public class SecurityConfig {
     ) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.httpStrictTransportSecurity(hsts -> hsts
+                        .requestMatcher(AnyRequestMatcher.INSTANCE)
+                        .includeSubDomains(true)
+                        .maxAgeInSeconds(HSTS_MAX_AGE)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())

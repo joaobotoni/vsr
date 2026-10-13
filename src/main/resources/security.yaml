@@ -1,6 +1,8 @@
 security:
   session:
     ttl: 30d
+    idle: 7d
+    max: 10
   jwt:
     secret-key: ${JWT_SECRET_KEY}
     expiration-time: ${JWT_EXPIRATION_TIME}

@@ -32,9 +32,8 @@ class TokenBucket implements AutoCloseable {
         return quota(buckets.compute(key, (k, bucket) -> take(refill(bucket, now))), now);
     }
 
-    Quota check(String key) {
-        double now = now();
-        return quota(buckets.compute(key, (k, bucket) -> inspect(refill(bucket, now))), now);
+    void refund(String key) {
+        buckets.computeIfPresent(key, (k, bucket) -> restore(bucket));
     }
 
     @Override
@@ -73,8 +72,8 @@ class TokenBucket implements AutoCloseable {
         return new Bucket(bucket.tokens() - 1, bucket.lastRefill(), true);
     }
 
-    private static Bucket inspect(Bucket bucket) {
-        return new Bucket(bucket.tokens(), bucket.lastRefill(), bucket.tokens() >= 1);
+    private Bucket restore(Bucket bucket) {
+        return new Bucket(Math.min(capacity, bucket.tokens() + 1), bucket.lastRefill(), bucket.allowed());
     }
 
     private Quota quota(Bucket bucket, double now) {

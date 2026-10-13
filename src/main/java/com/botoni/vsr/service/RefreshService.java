@@ -32,13 +32,6 @@ public class RefreshService {
         return refreshTokenService.find(hash);
     }
 
-    private void invalidate(RefreshToken stored, byte[] hash) {
-        if (!isReused(stored, hash)) {
-            return;
-        }
-        sessionService.invalidate(session(stored));
-    }
-
     private TokenResponse rotate(RefreshToken stored, byte[] hash) {
         reused(stored, hash);
         User user = resume(stored);
@@ -50,21 +43,37 @@ public class RefreshService {
         return sessionService.resume(session(stored));
     }
 
-    private String renew(RefreshToken stored) {
-        return refreshTokenService.renew(stored);
+    private static Integer session(RefreshToken stored) {
+        return stored.getId();
+    }
+
+    private void close(RefreshToken stored) {
+        sessionService.invalidate(session(stored));
     }
 
     private TokenResponse issue(User user, RefreshToken stored, String refreshToken) {
         return tokenService.issue(user, session(stored), refreshToken);
     }
 
-    private static Integer session(RefreshToken stored) {
-        return stored.getId();
+    private void invalidate(RefreshToken stored, byte[] hash) {
+        if (!isReused(stored, hash)) {
+            return;
+        }
+        close(stored);
     }
 
     private void reused(RefreshToken stored, byte[] hash) {
         if (isReused(stored, hash)) {
             throw new RefreshTokenException(RefreshTokenProblem.REUSED);
+        }
+    }
+
+    private String renew(RefreshToken stored) {
+        try {
+            return refreshTokenService.renew(stored);
+        } catch (RefreshTokenException exception) {
+            close(stored);
+            throw exception;
         }
     }
 

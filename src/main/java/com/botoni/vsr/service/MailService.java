@@ -77,14 +77,6 @@ public class MailService {
         return mail.to().value();
     }
 
-    private void deliver(MimeMessagePreparator message) {
-        try {
-            mailSender.send(message);
-        } catch (MailException exception) {
-            throw new SenderException(SenderProblem.DELIVERY_FAILED, exception);
-        }
-    }
-
     private static Multipart parts(String body, Path... attachments) throws MessagingException, IOException {
         Multipart multipart = new MimeMultipart();
         multipart.addBodyPart(body(body));
@@ -112,6 +104,14 @@ public class MailService {
         }
     }
 
+    private void deliver(MimeMessagePreparator message) {
+        try {
+            mailSender.send(message);
+        } catch (MailException exception) {
+            throw new SenderException(SenderProblem.DELIVERY_FAILED, exception);
+        }
+    }
+
     private void empty(Path... attachments) {
         if (isEmpty(attachments)) {
             throw new SenderException(SenderProblem.MISSING_ATTACHMENTS);
@@ -120,9 +120,13 @@ public class MailService {
 
     private void unsafe(Path... attachments) {
         for (Path attachment : attachments) {
-            if (isEscaped(attachment)) {
-                throw new SenderException(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
-            }
+            escaped(attachment);
+        }
+    }
+
+    private void escaped(Path attachment) {
+        if (isEscaped(attachment)) {
+            throw new SenderException(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
         }
     }
 

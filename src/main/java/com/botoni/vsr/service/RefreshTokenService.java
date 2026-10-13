@@ -7,6 +7,7 @@ import com.botoni.vsr.exception.custom.RefreshTokenException;
 import com.botoni.vsr.exception.enums.problem.RefreshTokenProblem;
 import com.botoni.vsr.token.OpaqueToken;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,9 +33,7 @@ public class RefreshTokenService {
 
     @Transactional(readOnly = true)
     public RefreshToken find(byte[] hash) {
-        return refreshTokenRepository.findByCurrentHash(hash)
-                .or(() -> refreshTokenRepository.findByUsedHash(hash))
-                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
+        return existing(hash);
     }
 
     @Transactional
@@ -56,7 +55,17 @@ public class RefreshTokenService {
         refreshTokenRepository.issue(session.getId(), hash(refreshToken));
     }
 
+    private RefreshToken existing(byte[] hash) {
+        return refreshTokenRepository.findByCurrentHash(hash)
+                .or(() -> refreshTokenRepository.findByUsedHash(hash))
+                .orElseThrow(() -> new RefreshTokenException(RefreshTokenProblem.NOT_FOUND));
+    }
+
     private void rotate(RefreshToken stored, String refreshToken) {
-        refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), hash(refreshToken));
+        try {
+            refreshTokenRepository.renew(stored.getId(), stored.getCurrentHash(), hash(refreshToken));
+        } catch (DataIntegrityViolationException exception) {
+            throw new RefreshTokenException(RefreshTokenProblem.CONCURRENT, exception);
+        }
     }
 }

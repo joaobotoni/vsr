@@ -13,8 +13,8 @@ public final class ClientNetwork {
 
     private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
     private static final String IPV6_SEPARATOR = ":";
-    private static final int IPV6_NETWORK_BYTES = 8;
-    private static final String IPV6_NETWORK = "%s/64";
+    private static final int IPV6_NETWORK_BYTES = 7;
+    private static final String IPV6_NETWORK = "%s/56";
 
     private ClientNetwork() {
     }

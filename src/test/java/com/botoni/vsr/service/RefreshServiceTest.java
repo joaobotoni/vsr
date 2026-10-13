@@ -11,13 +11,14 @@ import com.botoni.vsr.exception.custom.RefreshTokenException;
 import com.botoni.vsr.exception.custom.SessionException;
 import com.botoni.vsr.exception.enums.problem.RefreshTokenProblem;
 import com.botoni.vsr.exception.enums.problem.SessionProblem;
-import com.botoni.vsr.token.OpaqueToken;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Tokens;
 import com.botoni.vsr.support.Users;
+import com.botoni.vsr.token.OpaqueToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -160,6 +162,19 @@ class RefreshServiceTest {
         return RefreshToken.builder().id(SESSION).session(session).currentHash(opaqueToken.hash(token)).expiresAt(inDays(30)).build();
     }
 
+    @Test
+    @Controle
+    @DisplayName("perder a corrida para outra renovação com o mesmo token revoga a sessão")
+    void concurrentRenewalRevokesSession() {
+        doThrow(new DataIntegrityViolationException("rn_refresh_token_renovado"))
+                .when(repository).renew(anyInt(), any(), any());
+
+        assertThatThrownBy(() -> refresh(original))
+                .isInstanceOf(RefreshTokenException.class)
+                .extracting("problem").isEqualTo(RefreshTokenProblem.CONCURRENT);
+        verify(sessionService).invalidate(SESSION);
+    }
+
     /** Simula as tabelas refresh_token e refresh_token_usado e a procedure renovar_refresh_token. */
     private void stubRepositoryOver(RefreshToken row) {
         when(repository.findByCurrentHash(any())).thenAnswer(call -> matching(call.getArgument(0), row.getCurrentHash()));
@@ -167,7 +182,7 @@ class RefreshServiceTest {
         doAnswer(call -> {
             byte[] current = call.getArgument(1);
             if (!Arrays.equals(current, row.getCurrentHash())) {
-                throw new IllegalStateException("rn_refresh_token_renovado");
+                throw new DataIntegrityViolationException("rn_refresh_token_renovado");
             }
             used.add(current);
             row.setCurrentHash(call.getArgument(2));

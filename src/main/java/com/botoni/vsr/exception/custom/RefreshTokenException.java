@@ -11,6 +11,11 @@ public final class RefreshTokenException extends RuntimeException {
         this.problem = problem;
     }
 
+    public RefreshTokenException(RefreshTokenProblem problem, Throwable cause) {
+        super(problem.message(), cause);
+        this.problem = problem;
+    }
+
     public RefreshTokenProblem problem() {
         return problem;
     }

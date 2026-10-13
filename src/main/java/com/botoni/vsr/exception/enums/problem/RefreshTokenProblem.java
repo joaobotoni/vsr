@@ -12,7 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum RefreshTokenProblem implements Problem {
 
     NOT_FOUND(HttpStatus.UNAUTHORIZED, "O refresh token informado não foi encontrado."),
-    REUSED(HttpStatus.UNAUTHORIZED, "O refresh token já foi utilizado. A sessão foi encerrada.");
+    REUSED(HttpStatus.UNAUTHORIZED, "O refresh token já foi utilizado. A sessão foi encerrada."),
+    CONCURRENT(HttpStatus.UNAUTHORIZED, "O refresh token foi usado em duas renovações simultâneas. A sessão foi encerrada.");
 
     private final HttpStatus status;
     private final String message;

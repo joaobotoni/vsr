@@ -26,6 +26,9 @@ public interface SessionRepository extends JpaRepository<Session, Integer> {
     @Procedure(procedureName = "usuarios.revogar_sessoes_usuario")
     void revokeUser(@Param("p_id_usuario") Integer user, @Param("p_id_sessao_mantida") Integer keptSession);
 
+    @Procedure(procedureName = "usuarios.limitar_sessoes_usuario")
+    void limitUser(@Param("p_id_usuario") Integer user, @Param("p_maximo") Integer max);
+
     @Procedure(procedureName = "usuarios.revogar_sessoes_dispositivo")
     void revokeDevice(@Param("p_id_dispositivo") Integer device);
 }

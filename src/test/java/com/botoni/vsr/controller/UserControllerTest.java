@@ -1,5 +1,6 @@
 package com.botoni.vsr.controller;
 
+import com.botoni.vsr.dto.response.TokenResponse;
 import com.botoni.vsr.service.ChangePasswordService;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Requests;
@@ -19,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,11 +38,17 @@ class UserControllerTest {
 
     @Test
     @Controle
-    @DisplayName("troca de senha válida responde 204 para o usuário e a sessão do token")
-    void changeRespondsNoContent() throws Exception {
-        mockMvc.perform(Requests.changePassword(Tokens.valid())).andExpect(status().isNoContent());
+    @DisplayName("troca de senha válida responde 200 com os tokens da sessão nova")
+    void changeRespondsNewTokens() throws Exception {
+        when(changePasswordService.change(any(), any(), any(), any(), any()))
+                .thenReturn(new TokenResponse("novo-access", "novo-refresh", 900));
 
-        verify(changePasswordService).change(eq(Users.UUID), eq(Tokens.SESSION), any(), any());
+        mockMvc.perform(Requests.changePassword(Tokens.valid()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("novo-access"))
+                .andExpect(jsonPath("$.refreshToken").value("novo-refresh"));
+
+        verify(changePasswordService).change(eq(Users.UUID), eq(Tokens.SESSION), any(), any(), any());
     }
 
     @Test
@@ -49,7 +57,7 @@ class UserControllerTest {
     void concurrentChangeRespondsConflict() throws Exception {
         doThrow(new DataIntegrityViolationException(CONSTRAINT,
                 new ConstraintViolationException(CONSTRAINT, new SQLException(), CONSTRAINT)))
-                .when(changePasswordService).change(any(), any(), any(), any());
+                .when(changePasswordService).change(any(), any(), any(), any(), any());
 
         mockMvc.perform(Requests.changePassword(Tokens.valid()))
                 .andExpect(status().isConflict())

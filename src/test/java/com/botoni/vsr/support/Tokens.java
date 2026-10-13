@@ -48,7 +48,7 @@ public final class Tokens {
     }
 
     public static String withoutSession() {
-        return JWT.create().withIssuer(ISSUER).withSubject(Users.UUID.toString()).withExpiresAt(Instant.now().plus(LIFETIME)).sign(KEY);
+        return JWT.create().withIssuer(ISSUER).withSubject(Users.UUID.toString()).withIssuedAt(Instant.now()).withExpiresAt(Instant.now().plus(LIFETIME)).sign(KEY);
     }
 
     public static String withEmailSubject() {
@@ -60,6 +60,7 @@ public final class Tokens {
                 .withIssuer(ISSUER)
                 .withSubject(Users.UUID.toString())
                 .withClaim("sid", SESSION)
+                .withIssuedAt(Instant.now())
                 .withExpiresAt(Instant.now().plus(LIFETIME));
     }
 }

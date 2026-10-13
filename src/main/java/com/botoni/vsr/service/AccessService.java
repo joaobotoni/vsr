@@ -32,6 +32,13 @@ public class AccessService {
         return show(user, token);
     }
 
+    @Transactional
+    public TokenResponse rotate(Device device, InetAddress ip) {
+        Session session = open(device, ip);
+        String refreshToken = issue(session);
+        return sign(device.getUser(), session, refreshToken);
+    }
+
     private Device register(User user, DeviceRequest request) {
         return deviceService.register(user, request);
     }
