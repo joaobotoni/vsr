@@ -7,28 +7,32 @@ import java.util.List;
 
 public final class RateLimitPolicy implements AutoCloseable {
 
-    private final List<RateLimit> rules;
-    private final RateLimit fallback;
+    private final List<Rule> rules;
+    private final Rule fallback;
 
-    private RateLimitPolicy(List<RateLimit> rules, RateLimit fallback) {
-        this.rules = List.copyOf(rules);
+    private RateLimitPolicy(List<Rule> rules, Rule fallback) {
+        this.rules = rules;
         this.fallback = fallback;
     }
 
     public static RateLimitPolicy from(RateLimitProperties properties) {
-        return new RateLimitPolicy(Rules.from(properties), RateLimit.any(properties.api()));
+        return new RateLimitPolicy(Rules.from(properties), Rule.any(properties.api()));
     }
 
-    public RateLimit resolve(HttpServletRequest request) {
-        return rules.stream()
-                .filter(rule -> rule.matches(request))
-                .findFirst()
-                .orElse(fallback);
+    public Rule resolve(HttpServletRequest request) {
+        for (Rule rule : rules) {
+            if (rule.matches(request)) {
+                return rule;
+            }
+        }
+        return fallback;
     }
 
     @Override
     public void close() {
-        rules.forEach(RateLimit::close);
+        for (Rule rule : rules) {
+            rule.close();
+        }
         fallback.close();
     }
 }

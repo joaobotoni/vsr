@@ -111,7 +111,7 @@ class LocalCredentialServiceTest {
     @Controle
     @DisplayName("o novo hash é calculado sem tocar no banco")
     void renewDoesNotTouchDatabase() {
-        PasswordHash hash = localCredentialService.renew(credential, NEW);
+        PasswordHash hash = localCredentialService.rehash(credential, NEW);
 
         assertThat(encoder.matches(NEW.value(), hash.value())).isTrue();
         verifyNoInteractions(repository);
@@ -121,7 +121,7 @@ class LocalCredentialServiceTest {
     @Controle
     @DisplayName("nova senha igual à atual é recusada antes de calcular o hash")
     void samePasswordIsRejected() {
-        assertThatThrownBy(() -> localCredentialService.renew(credential, CURRENT))
+        assertThatThrownBy(() -> localCredentialService.rehash(credential, CURRENT))
                 .isInstanceOf(CredentialException.class)
                 .extracting("problem").isEqualTo(CredentialProblem.SAME_PASSWORD);
         verifyNoInteractions(repository);
@@ -132,7 +132,7 @@ class LocalCredentialServiceTest {
     @DisplayName("substituir grava pela procedure só se o hash ainda for o lido")
     void replaceUsesCompareAndSet() {
         String current = credential.getPasswordHash().value();
-        PasswordHash hash = localCredentialService.renew(credential, NEW);
+        PasswordHash hash = localCredentialService.rehash(credential, NEW);
 
         localCredentialService.replace(credential, hash);
 

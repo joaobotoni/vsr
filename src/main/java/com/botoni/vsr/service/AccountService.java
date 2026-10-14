@@ -24,8 +24,8 @@ public class AccountService {
     public AuthenticationResponse open(RegisterRequest request, PasswordHash hash, InetAddress ip) {
         Individual person = person(request);
         User user = user(person, request);
-        secure(user, hash);
-        return authenticate(user, request, ip);
+        save(user, hash);
+        return grant(user, request, ip);
     }
 
     private Individual person(RegisterRequest request) {
@@ -36,11 +36,11 @@ public class AccountService {
         return userService.save(person, request.email());
     }
 
-    private void secure(User user, PasswordHash hash) {
+    private void save(User user, PasswordHash hash) {
         localCredentialService.save(user, hash);
     }
 
-    private AuthenticationResponse authenticate(User user, RegisterRequest request, InetAddress ip) {
-        return accessService.authenticate(user, request.device(), ip);
+    private AuthenticationResponse grant(User user, RegisterRequest request, InetAddress ip) {
+        return accessService.grant(user, request.device(), ip);
     }
 }

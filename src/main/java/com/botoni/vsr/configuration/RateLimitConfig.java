@@ -1,7 +1,8 @@
 package com.botoni.vsr.configuration;
 
+import com.botoni.vsr.attempt.IAttempt;
 import com.botoni.vsr.properties.RateLimitProperties;
-import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.ratelimit.AttemptLimiter;
 import com.botoni.vsr.ratelimit.RateLimitPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +16,7 @@ public class RateLimitConfig {
     }
 
     @Bean
-    public RateLimit accountRateLimit(RateLimitProperties properties) {
-        return RateLimit.any(properties.account());
+    public IAttempt attemptLimiter(RateLimitProperties properties) {
+        return AttemptLimiter.from(properties.account());
     }
 }

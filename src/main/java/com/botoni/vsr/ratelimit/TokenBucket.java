@@ -1,116 +1,44 @@
 package com.botoni.vsr.ratelimit;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 
-class TokenBucket implements AutoCloseable {
+final class TokenBucket {
 
-    private static final long MIN_PERIOD = 1000L;
-    private static final String CLEANER_THREAD_NAME = "token-bucket-cleaner";
+    private static final double NANOS_PER_SECOND = 1_000_000_000.0;
 
-    private final int capacity;
-    private final double refillRate;
-    private final double refillInterval;
-    private final double ttl;
-    private final ConcurrentMap<String, Bucket> buckets = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService cleaner = cleaner();
+    private final Limit limit;
+    private final ConcurrentMap<String, Bucket> buckets;
 
-    TokenBucket(Limit limit) {
-        this.capacity = limit.capacity();
-        this.refillRate = limit.refillRate();
-        this.refillInterval = limit.seconds();
-        this.ttl = ttl();
-        schedule();
+    TokenBucket(Limit limit, ConcurrentMap<String, Bucket> buckets) {
+        this.limit = limit;
+        this.buckets = buckets;
     }
 
-    Quota consume(String key) {
-        double now = now();
-        return quota(buckets.compute(key, (k, bucket) -> take(refill(bucket, now))), now);
+    static double now() {
+        return System.nanoTime() / NANOS_PER_SECOND;
+    }
+
+    Verdict consume(String key) {
+        return take(key, now());
+    }
+
+    Verdict take(String key, double now) {
+        return verdict(buckets.compute(key, (k, bucket) -> refill(bucket, now).consume()), now);
     }
 
     void refund(String key) {
-        buckets.computeIfPresent(key, (k, bucket) -> restore(bucket));
-    }
-
-    @Override
-    public void close() {
-        cleaner.shutdownNow();
-        buckets.clear();
-    }
-
-    private static double now() {
-        return System.nanoTime() / 1_000_000_000.0;
+        buckets.computeIfPresent(key, (k, bucket) -> bucket.refund(limit));
     }
 
     private Bucket refill(Bucket bucket, double now) {
-        if (bucket == null) {
-            return new Bucket(capacity, now, false);
-        }
-        return replenish(bucket, refills(bucket, now));
+        return absent(bucket) ? Bucket.full(limit, now) : bucket.refill(limit, now);
     }
 
-    private double refills(Bucket bucket, double now) {
-        return Math.floor((now - bucket.lastRefill()) / refillInterval);
+    private Verdict verdict(Bucket bucket, double now) {
+        return new Verdict(bucket.allowed(), bucket.remaining(), bucket.reset(limit, now));
     }
 
-    private Bucket replenish(Bucket bucket, double refills) {
-        if (refills <= 0) {
-            return bucket;
-        }
-        return new Bucket(Math.min(capacity, bucket.tokens() + refills * refillRate),
-                bucket.lastRefill() + refills * refillInterval, false);
-    }
-
-    private static Bucket take(Bucket bucket) {
-        if (bucket.tokens() < 1) {
-            return new Bucket(bucket.tokens(), bucket.lastRefill(), false);
-        }
-        return new Bucket(bucket.tokens() - 1, bucket.lastRefill(), true);
-    }
-
-    private Bucket restore(Bucket bucket) {
-        return new Bucket(Math.min(capacity, bucket.tokens() + 1), bucket.lastRefill(), bucket.allowed());
-    }
-
-    private Quota quota(Bucket bucket, double now) {
-        return new Quota(bucket.allowed(), Math.floor(bucket.tokens()),
-                bucket.lastRefill() + refillInterval - now);
-    }
-
-    private double ttl() {
-        return Math.ceil(capacity / refillRate) * refillInterval;
-    }
-
-    private void schedule() {
-        cleaner.scheduleAtFixedRate(this::evict, period(), period(), TimeUnit.MILLISECONDS);
-    }
-
-    private long period() {
-        return Math.max(MIN_PERIOD, (long) Math.ceil(ttl * 1000));
-    }
-
-    private void evict() {
-        double now = now();
-        buckets.entrySet().removeIf(entry -> idle(entry.getValue(), now));
-    }
-
-    private boolean idle(Bucket bucket, double now) {
-        return now - bucket.lastRefill() >= ttl;
-    }
-
-    private static ScheduledExecutorService cleaner() {
-        return Executors.newSingleThreadScheduledExecutor(daemon());
-    }
-
-    private static ThreadFactory daemon() {
-        return runnable -> {
-            Thread thread = new Thread(runnable, CLEANER_THREAD_NAME);
-            thread.setDaemon(true);
-            return thread;
-        };
+    private static boolean absent(Bucket bucket) {
+        return bucket == null;
     }
 }

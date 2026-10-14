@@ -15,7 +15,7 @@ public class ProfileService {
     private final UserService userService;
     private final UserMapper userMapper;
 
-    public UserResponse profile(UUID user) {
+    public UserResponse view(UUID user) {
         User found = find(user);
         return show(found);
     }

@@ -10,13 +10,17 @@ final class Rules {
     private Rules() {
     }
 
-    static List<RateLimit> from(RateLimitProperties properties) {
+    static List<Rule> from(RateLimitProperties properties) {
         return List.of(
-                RateLimit.of(Route.of(HttpMethod.POST, "/auth/login"), properties.login()),
-                RateLimit.of(Route.of(HttpMethod.POST, "/auth/register"), properties.register()),
-                RateLimit.of(Route.of(HttpMethod.POST, "/auth/refresh"), properties.refresh()),
-                RateLimit.of(Route.of(HttpMethod.PATCH, "/users/me/password"), properties.password()),
-                RateLimit.of(Route.of(HttpMethod.POST, "/evidencias"), properties.upload())
+                rule(HttpMethod.POST, "/auth/login", properties.login()),
+                rule(HttpMethod.POST, "/auth/register", properties.register()),
+                rule(HttpMethod.POST, "/auth/refresh", properties.refresh()),
+                rule(HttpMethod.PATCH, "/users/me/password", properties.password()),
+                rule(HttpMethod.POST, "/evidencias", properties.upload())
         );
+    }
+
+    private static Rule rule(HttpMethod method, String path, Limit limit) {
+        return Rule.of(Matcher.from(new Route(method, path)), limit);
     }
 }

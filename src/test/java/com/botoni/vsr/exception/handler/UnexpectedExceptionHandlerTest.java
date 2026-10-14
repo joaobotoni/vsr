@@ -38,7 +38,7 @@ class UnexpectedExceptionHandlerTest {
 
     @BeforeEach
     void failingService() {
-        when(profileService.profile(any())).thenThrow(new IllegalStateException(INTERNAL));
+        when(profileService.view(any())).thenThrow(new IllegalStateException(INTERNAL));
     }
 
     @Test

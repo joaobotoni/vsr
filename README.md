@@ -421,7 +421,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 **Pendências conhecidas**
 
 - **Proxy reverso:** a aplicação ignora `X-Forwarded-For` (`forward-headers-strategy: none`). Atrás de um load balancer, todos os clientes aparecem com o IP do proxy e dividem o mesmo limite de requisições. Antes de usar um proxy, é preciso configurar a lista de proxies confiáveis.
-- **Autorização:** não existe modelo de permissões; só autenticação. Cada endpoint futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
+- **Autorização:** não existe modelo de permissões; só autenticação. Cada point futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
 - **Limite por conta:** quem conhece o e-mail de alguém ainda pode bloquear temporariamente o login dessa pessoa a partir de um **dispositivo novo**; o dispositivo que ela já usa não é afetado.

@@ -39,7 +39,7 @@ class DeviceServiceTest {
         Device device = Device.builder().id(3).user(user).identifier(request.identifier()).build();
         when(repository.findByUserAndIdentifier(user, request.identifier())).thenReturn(Optional.of(device));
 
-        assertThat(deviceService.register(user, request)).isSameAs(device);
+        assertThat(deviceService.enroll(user, request)).isSameAs(device);
 
         InOrder order = inOrder(repository);
         order.verify(repository).upsert(user.getId(), request.identifier(), "android", "Samsung", "S23", "14");
@@ -52,7 +52,7 @@ class DeviceServiceTest {
     void missingDeviceAfterUpsertFails() {
         when(repository.findByUserAndIdentifier(user, request.identifier())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> deviceService.register(user, request))
+        assertThatThrownBy(() -> deviceService.enroll(user, request))
                 .isInstanceOf(DeviceException.class)
                 .extracting("problem").isEqualTo(DeviceProblem.NOT_FOUND);
     }

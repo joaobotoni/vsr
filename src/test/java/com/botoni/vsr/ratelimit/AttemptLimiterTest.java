@@ -1,10 +1,8 @@
-package com.botoni.vsr.service;
+package com.botoni.vsr.ratelimit;
 
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
-import com.botoni.vsr.ratelimit.Attempt;
-import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.attempt.Attempt;
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,18 +17,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Tentativas")
-class AttemptServiceTest {
+class AttemptLimiterTest {
 
     private static final int CAPACITY = 3;
     private static final Attempt ATTEMPT = Attempt.of("login:ana@vsr.com", Rejected.class);
     private static final Attempt OTHER = Attempt.of("password:3f1c9a52", Rejected.class);
 
-    private final RateLimit accountRateLimit = RateLimit.any(new Limit(CAPACITY, 1, Duration.ofHours(1)));
-    private final AttemptService attemptService = new AttemptService(accountRateLimit);
+    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
 
     @AfterEach
     void close() {
-        accountRateLimit.close();
+        attemptLimiter.close();
     }
 
     @Test
@@ -44,7 +41,7 @@ class AttemptServiceTest {
         };
         fail(rejected, CAPACITY, Rejected.class);
 
-        assertThatThrownBy(() -> attemptService.attempt(ATTEMPT, rejected))
+        assertThatThrownBy(() -> attemptLimiter.attempt(ATTEMPT, rejected))
                 .isInstanceOf(RateLimitException.class)
                 .extracting("problem").isEqualTo(RateLimitProblem.EXCEEDED);
         assertThat(runs.get()).isEqualTo(CAPACITY);
@@ -61,7 +58,7 @@ class AttemptServiceTest {
             throw new IllegalStateException("outra regra");
         }, CAPACITY * 3, IllegalStateException.class);
 
-        assertThat(attemptService.attempt(ATTEMPT, () -> "ok")).isEqualTo("ok");
+        assertThat(attemptLimiter.attempt(ATTEMPT, () -> "ok")).isEqualTo("ok");
     }
 
     @Test
@@ -69,7 +66,7 @@ class AttemptServiceTest {
     @DisplayName("sucesso devolve a tentativa e repassa o resultado")
     void successRefunds() {
         for (int i = 0; i < CAPACITY * 3; i++) {
-            assertThat(attemptService.attempt(ATTEMPT, () -> "ok")).isEqualTo("ok");
+            assertThat(attemptLimiter.attempt(ATTEMPT, () -> "ok")).isEqualTo("ok");
         }
     }
 
@@ -81,12 +78,12 @@ class AttemptServiceTest {
             throw new Rejected();
         }, CAPACITY, Rejected.class);
 
-        assertThat(attemptService.attempt(OTHER, () -> "ok")).isEqualTo("ok");
+        assertThat(attemptLimiter.attempt(OTHER, () -> "ok")).isEqualTo("ok");
     }
 
     private void fail(Supplier<String> action, int times, Class<? extends Throwable> expected) {
         for (int i = 0; i < times; i++) {
-            assertThatThrownBy(() -> attemptService.attempt(ATTEMPT, action)).isInstanceOf(expected);
+            assertThatThrownBy(() -> attemptLimiter.attempt(ATTEMPT, action)).isInstanceOf(expected);
         }
     }
 

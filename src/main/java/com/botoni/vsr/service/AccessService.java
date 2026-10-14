@@ -24,23 +24,23 @@ public class AccessService {
     private final AuthenticationMapper authenticationMapper;
 
     @Transactional
-    public AuthenticationResponse authenticate(User user, DeviceRequest request, InetAddress ip) {
-        Device device = register(user, request);
+    public AuthenticationResponse grant(User user, DeviceRequest request, InetAddress ip) {
+        Device device = enroll(user, request);
         Session session = open(device, ip);
         String refreshToken = issue(session);
-        TokenResponse token = sign(user, session, refreshToken);
-        return show(user, token);
+        TokenResponse tokens = tokens(user, session, refreshToken);
+        return show(user, tokens);
     }
 
     @Transactional
     public TokenResponse rotate(Device device, InetAddress ip) {
         Session session = open(device, ip);
         String refreshToken = issue(session);
-        return sign(device.getUser(), session, refreshToken);
+        return tokens(device.getUser(), session, refreshToken);
     }
 
-    private Device register(User user, DeviceRequest request) {
-        return deviceService.register(user, request);
+    private Device enroll(User user, DeviceRequest request) {
+        return deviceService.enroll(user, request);
     }
 
     private Session open(Device device, InetAddress ip) {
@@ -51,11 +51,11 @@ public class AccessService {
         return refreshTokenService.issue(session);
     }
 
-    private TokenResponse sign(User user, Session session, String refreshToken) {
+    private TokenResponse tokens(User user, Session session, String refreshToken) {
         return tokenService.issue(user, session.getId(), refreshToken);
     }
 
-    private AuthenticationResponse show(User user, TokenResponse token) {
-        return authenticationMapper.response(user, token);
+    private AuthenticationResponse show(User user, TokenResponse tokens) {
+        return authenticationMapper.response(user, tokens);
     }
 }

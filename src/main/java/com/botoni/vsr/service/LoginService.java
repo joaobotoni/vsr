@@ -21,7 +21,7 @@ public class LoginService {
     public AuthenticationResponse login(LoginRequest request, InetAddress ip) {
         Authentication authentication = verify(request);
         User user = find(authentication);
-        return authenticate(user, request, ip);
+        return grant(user, request, ip);
     }
 
     private Authentication verify(LoginRequest request) {
@@ -36,7 +36,7 @@ public class LoginService {
         return (Principal) authentication.getPrincipal();
     }
 
-    private AuthenticationResponse authenticate(User user, LoginRequest request, InetAddress ip) {
-        return accessService.authenticate(user, request.device(), ip);
+    private AuthenticationResponse grant(User user, LoginRequest request, InetAddress ip) {
+        return accessService.grant(user, request.device(), ip);
     }
 }

@@ -35,7 +35,8 @@ class IdleSessionTest {
 
     private final SessionRepository repository = mock(SessionRepository.class);
     private final SessionService sessionService = new SessionService(
-            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC());
+            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC(),
+            new SessionPolicyService(new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC()));
 
     @Test
     @Controle

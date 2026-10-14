@@ -3,7 +3,7 @@ package com.botoni.vsr.service;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
 import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.ratelimit.AttemptLimiter;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Email;
@@ -38,15 +38,15 @@ class LoginAttemptServiceTest {
     private static final UUID PHONE = UUID.randomUUID();
     private static final UUID STRANGER = UUID.randomUUID();
 
-    private final RateLimit accountRateLimit = RateLimit.any(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
     private final DeviceService deviceService = mock(DeviceService.class);
     private final LoginAttemptService loginAttemptService =
-            new LoginAttemptService(new AttemptService(accountRateLimit), deviceService, authenticationManager);
+            new LoginAttemptService(attemptLimiter, deviceService, authenticationManager);
 
     @AfterEach
     void close() {
-        accountRateLimit.close();
+        attemptLimiter.close();
     }
 
     @Test
@@ -99,7 +99,7 @@ class LoginAttemptServiceTest {
     @Controle
     @DisplayName("falhas vindas de dispositivos desconhecidos não trancam um dispositivo já usado pela conta")
     void knownDeviceHasOwnLimit() {
-        when(deviceService.isKnown(ANA, PHONE)).thenReturn(true);
+        when(deviceService.known(ANA, PHONE)).thenReturn(true);
         fail(STRANGER, CAPACITY);
 
         assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, PHONE)).isInstanceOf(BadCredentialsException.class);

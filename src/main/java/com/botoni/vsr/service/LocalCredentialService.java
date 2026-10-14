@@ -27,7 +27,7 @@ public class LocalCredentialService {
     private final Clock clock;
 
     public PasswordHash hash(Password password) {
-        return PasswordHash.of(passwordEncoder.encode(password.value()));
+        return PasswordHash.of(encode(password));
     }
 
     @Transactional
@@ -41,7 +41,7 @@ public class LocalCredentialService {
         return credential;
     }
 
-    public PasswordHash renew(LocalCredential credential, Password password) {
+    public PasswordHash rehash(LocalCredential credential, Password password) {
         unmatched(credential, password);
         return hash(password);
     }
@@ -49,6 +49,10 @@ public class LocalCredentialService {
     @Transactional
     public void replace(LocalCredential credential, PasswordHash hash) {
         localCredentialRepository.change(credential.getId(), credential.getPasswordHash().value(), hash.value());
+    }
+
+    private String encode(Password password) {
+        return passwordEncoder.encode(password.value());
     }
 
     private LocalCredential create(User user, PasswordHash hash) {
@@ -61,18 +65,18 @@ public class LocalCredentialService {
     }
 
     private void matched(LocalCredential credential, Password password) {
-        if (!isCurrent(credential, password)) {
+        if (!current(credential, password)) {
             throw new CredentialException(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
         }
     }
 
     private void unmatched(LocalCredential credential, Password password) {
-        if (isCurrent(credential, password)) {
+        if (current(credential, password)) {
             throw new CredentialException(CredentialProblem.SAME_PASSWORD);
         }
     }
 
-    private boolean isCurrent(LocalCredential credential, Password password) {
+    private boolean current(LocalCredential credential, Password password) {
         return passwordEncoder.matches(password.value(), credential.getPasswordHash().value());
     }
 }

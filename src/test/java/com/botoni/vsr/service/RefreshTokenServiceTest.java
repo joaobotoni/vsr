@@ -110,7 +110,7 @@ class RefreshTokenServiceTest {
     @Controle
     @DisplayName("o token atual não é reuso; qualquer outro é")
     void reuseIsDetectedByHash() {
-        assertThat(refreshTokenService.isReused(stored, opaqueToken.hash(token))).isFalse();
-        assertThat(refreshTokenService.isReused(stored, opaqueToken.hash(opaqueToken.generate()))).isTrue();
+        assertThat(refreshTokenService.reused(stored, opaqueToken.hash(token))).isFalse();
+        assertThat(refreshTokenService.reused(stored, opaqueToken.hash(opaqueToken.generate()))).isTrue();
     }
 }

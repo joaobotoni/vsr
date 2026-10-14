@@ -20,19 +20,19 @@ public class ChangePasswordService {
 
     public TokenResponse change(UUID user, Integer session, Password currentPassword, Password newPassword, InetAddress ip) {
         LocalCredential credential = verify(user, currentPassword);
-        PasswordHash hash = renew(credential, newPassword);
-        return replace(user, session, credential, hash, ip);
+        PasswordHash hash = rehash(credential, newPassword);
+        return commit(user, session, credential, hash, ip);
     }
 
     private LocalCredential verify(UUID user, Password password) {
         return passwordAttemptService.verify(user, password);
     }
 
-    private PasswordHash renew(LocalCredential credential, Password password) {
-        return localCredentialService.renew(credential, password);
+    private PasswordHash rehash(LocalCredential credential, Password password) {
+        return localCredentialService.rehash(credential, password);
     }
 
-    private TokenResponse replace(UUID user, Integer session, LocalCredential credential, PasswordHash hash, InetAddress ip) {
-        return passwordService.replace(user, session, credential, hash, ip);
+    private TokenResponse commit(UUID user, Integer session, LocalCredential credential, PasswordHash hash, InetAddress ip) {
+        return passwordService.commit(user, session, credential, hash, ip);
     }
 }

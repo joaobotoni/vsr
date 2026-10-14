@@ -46,7 +46,8 @@ class SessionServiceTest {
 
     private final SessionRepository repository = mock(SessionRepository.class);
     private final SessionService sessionService = new SessionService(
-            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC());
+            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC(),
+            new SessionPolicyService(new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC()));
 
     private final User owner = Users.ana();
     private final Device device = Device.builder().id(3).user(owner).build();
@@ -116,7 +117,8 @@ class SessionServiceTest {
     void sessionExpiringNowIsRejected() {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
         SessionService frozen = new SessionService(repository, Mappers.getMapper(SessionMapper.class),
-                new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC));
+                new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC),
+                new SessionPolicyService(new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC)));
         session.setExpiresAt(now);
 
         assertThatThrownBy(() -> frozen.access(Users.UUID, SESSION))
@@ -157,8 +159,8 @@ class SessionServiceTest {
     @Test
     @Controle
     @DisplayName("encerrar revoga todas as sessões do dono, inclusive a atual, e devolve o dispositivo")
-    void endRevokesAllSessions() {
-        assertThat(sessionService.end(Users.UUID, SESSION)).isSameAs(device);
+    void revokeAllRevokesEverySession() {
+        assertThat(sessionService.revokeAll(Users.UUID, SESSION)).isSameAs(device);
 
         verify(repository).revokeUser(owner.getId(), null);
     }
@@ -166,10 +168,10 @@ class SessionServiceTest {
     @Test
     @Controle
     @DisplayName("encerrar a partir de uma sessão revogada é recusado")
-    void endFromRevokedSessionIsRejected() {
+    void revokeAllFromRevokedSessionIsRejected() {
         session.setRevokedAt(Instant.now());
 
-        assertThatThrownBy(() -> sessionService.end(Users.UUID, SESSION))
+        assertThatThrownBy(() -> sessionService.revokeAll(Users.UUID, SESSION))
                 .isInstanceOf(SessionException.class)
                 .extracting("problem").isEqualTo(SessionProblem.REVOKED);
         verify(repository, never()).revokeUser(any(), any());

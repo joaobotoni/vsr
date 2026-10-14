@@ -20,12 +20,12 @@ public class DeviceService {
     private final DeviceRepository deviceRepository;
 
     @Transactional
-    public Device register(User user, DeviceRequest request) {
+    public Device enroll(User user, DeviceRequest request) {
         upsert(user, request);
         return find(user, request.identifier());
     }
 
-    public boolean isKnown(Email email, UUID identifier) {
+    public boolean known(Email email, UUID identifier) {
         return deviceRepository.existsByUserEmailAndIdentifier(email, identifier);
     }
 

@@ -11,6 +11,7 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
+import lombok.RequiredArgsConstructor;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessagePreparator;
@@ -21,35 +22,29 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 
 @Service
+@RequiredArgsConstructor
 public class MailService {
 
     private static final String CHARSET = StandardCharsets.UTF_8.name();
 
-    private final String sender;
-    private final Path directory;
+    private final EmailProperties emailProperties;
     private final JavaMailSender mailSender;
-
-    public MailService(EmailProperties emailProperties, JavaMailSender mailSender) {
-        this.sender = emailProperties.from().value();
-        this.directory = emailProperties.attachments();
-        this.mailSender = mailSender;
-    }
 
     public void send(Mail mail) {
         present(mail);
-        MimeMessagePreparator message = text(mail);
+        MimeMessagePreparator message = plain(mail);
         deliver(message);
     }
 
-    public void attach(Mail mail, Path... attachments) {
+    public void sendAttachments(Mail mail, Path... attachments) {
         present(mail);
-        empty(attachments);
-        unsafe(attachments);
-        MimeMessagePreparator message = mime(mail, attachments);
+        attached(attachments);
+        contained(attachments);
+        MimeMessagePreparator message = multipart(mail, attachments);
         deliver(message);
     }
 
-    private MimeMessagePreparator text(Mail mail) {
+    private MimeMessagePreparator plain(Mail mail) {
         return message -> write(message, mail);
     }
 
@@ -58,7 +53,7 @@ public class MailService {
         message.setText(mail.body(), CHARSET);
     }
 
-    private MimeMessagePreparator mime(Mail mail, Path... attachments) {
+    private MimeMessagePreparator multipart(Mail mail, Path... attachments) {
         return message -> compose(message, mail, attachments);
     }
 
@@ -68,13 +63,21 @@ public class MailService {
     }
 
     private void header(MimeMessage message, Mail mail) throws MessagingException {
-        message.setFrom(new InternetAddress(sender));
+        message.setFrom(new InternetAddress(sender()));
         message.setRecipient(Message.RecipientType.TO, new InternetAddress(to(mail)));
         message.setSubject(mail.subject(), CHARSET);
     }
 
     private static String to(Mail mail) {
         return mail.to().value();
+    }
+
+    private String sender() {
+        return emailProperties.from().value();
+    }
+
+    private Path directory() {
+        return emailProperties.attachments();
     }
 
     private static Multipart parts(String body, Path... attachments) throws MessagingException, IOException {
@@ -99,7 +102,7 @@ public class MailService {
     }
 
     private void present(Mail mail) {
-        if (mail == null) {
+        if (missing(mail)) {
             throw new SenderException(SenderProblem.MISSING_MAIL);
         }
     }
@@ -112,30 +115,34 @@ public class MailService {
         }
     }
 
-    private void empty(Path... attachments) {
-        if (isEmpty(attachments)) {
+    private void attached(Path... attachments) {
+        if (empty(attachments)) {
             throw new SenderException(SenderProblem.MISSING_ATTACHMENTS);
         }
     }
 
-    private void unsafe(Path... attachments) {
+    private void contained(Path... attachments) {
         for (Path attachment : attachments) {
-            escaped(attachment);
+            inside(attachment);
         }
     }
 
-    private void escaped(Path attachment) {
-        if (isEscaped(attachment)) {
+    private void inside(Path attachment) {
+        if (escaped(attachment)) {
             throw new SenderException(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
         }
     }
 
-    private static boolean isEmpty(Path... attachments) {
+    private static boolean missing(Mail mail) {
+        return mail == null;
+    }
+
+    private static boolean empty(Path... attachments) {
         return attachments == null || attachments.length == 0;
     }
 
-    private boolean isEscaped(Path attachment) {
-        return !real(attachment).startsWith(real(directory));
+    private boolean escaped(Path attachment) {
+        return !real(attachment).startsWith(real(directory()));
     }
 
     private static Path real(Path path) {

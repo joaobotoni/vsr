@@ -60,8 +60,15 @@ public record Cpf(@JsonValue String value) {
     }
 
     private static boolean isMismatched(String value) {
-        return MODULO_11.isInvalid(value, FIRST_CHECK_DIGIT_INDEX)
-                || MODULO_11.isInvalid(value, SECOND_CHECK_DIGIT_INDEX);
+        return isFirstCheckDigitInvalid(value) || isSecondCheckDigitInvalid(value);
+    }
+
+    private static boolean isFirstCheckDigitInvalid(String value) {
+        return MODULO_11.isInvalid(value, FIRST_CHECK_DIGIT_INDEX);
+    }
+
+    private static boolean isSecondCheckDigitInvalid(String value) {
+        return MODULO_11.isInvalid(value, SECOND_CHECK_DIGIT_INDEX);
     }
 
     private static String normalize(String value) {

@@ -60,14 +60,14 @@ class AccountServiceTest {
         order.verify(individualService).save(request.name(), request.cpf());
         order.verify(userService).save(person, request.email());
         order.verify(localCredentialService).save(user, HASH);
-        order.verify(accessService).authenticate(user, request.device(), ip);
+        order.verify(accessService).grant(user, request.device(), ip);
     }
 
     @Controle
     @ParameterizedTest(name = "{0}.{1} transacional = {2}")
     @CsvSource({
             "AccountService,        open,     true",
-            "PasswordService,       replace,  true",
+            "PasswordService,       commit,   true",
             "RegisterService,       register, false",
             "ChangePasswordService, change,   false",
             "LocalCredentialService, verify,  false",

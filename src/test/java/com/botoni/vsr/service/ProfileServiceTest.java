@@ -36,7 +36,7 @@ class ProfileServiceTest {
                 .person(new Individual(Name.of("Ana"), Cpf.of("52998224725"))).build();
         when(userService.find(Users.UUID)).thenReturn(user);
 
-        UserResponse response = profileService.profile(Users.UUID);
+        UserResponse response = profileService.view(Users.UUID);
 
         assertThat(response.id()).isEqualTo(Users.UUID);
     }
@@ -48,7 +48,7 @@ class ProfileServiceTest {
         UUID unknown = UUID.randomUUID();
         when(userService.find(unknown)).thenThrow(new UserException(UserProblem.NOT_FOUND));
 
-        assertThatThrownBy(() -> profileService.profile(unknown))
+        assertThatThrownBy(() -> profileService.view(unknown))
                 .isInstanceOf(UserException.class)
                 .extracting("problem").isEqualTo(UserProblem.NOT_FOUND);
     }

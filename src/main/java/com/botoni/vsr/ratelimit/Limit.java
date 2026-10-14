@@ -5,25 +5,39 @@ import com.botoni.vsr.exception.enums.problem.LimitProblem;
 
 import java.time.Duration;
 
-public record Limit(int capacity, double refillRate, Duration refillInterval) {
+public record Limit(int capacity, double rate, Duration period) {
+
+    private static final double MILLIS_PER_SECOND = 1000.0;
 
     public Limit {
-        if (capacity <= 0) {
+        if (invalid(capacity)) {
             throw new LimitException(LimitProblem.INVALID_CAPACITY);
         }
-        if (refillRate <= 0) {
+        if (invalid(rate)) {
             throw new LimitException(LimitProblem.INVALID_REFILL_RATE);
         }
-        if (refillInterval == null || !isPositive(refillInterval)) {
+        if (empty(period)) {
             throw new LimitException(LimitProblem.INVALID_REFILL_INTERVAL);
         }
     }
 
-    public double seconds() {
-        return refillInterval.toMillis() / 1000.0;
+    double interval() {
+        return period.toMillis() / MILLIS_PER_SECOND;
     }
 
-    private static boolean isPositive(Duration interval) {
-        return !interval.isZero() && !interval.isNegative();
+    double ttl() {
+        return refills() * interval();
+    }
+
+    private double refills() {
+        return Math.ceil(capacity / rate);
+    }
+
+    private static boolean invalid(double value) {
+        return value <= 0;
+    }
+
+    private static boolean empty(Duration period) {
+        return period == null || period.isZero() || period.isNegative();
     }
 }

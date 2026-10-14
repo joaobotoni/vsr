@@ -20,17 +20,17 @@ public class PasswordService {
     private final AccessService accessService;
 
     @Transactional
-    public TokenResponse replace(UUID user, Integer session, LocalCredential credential, PasswordHash hash, InetAddress ip) {
-        Device device = end(user, session);
-        change(credential, hash);
+    public TokenResponse commit(UUID user, Integer session, LocalCredential credential, PasswordHash hash, InetAddress ip) {
+        Device device = revokeAll(user, session);
+        replace(credential, hash);
         return rotate(device, ip);
     }
 
-    private Device end(UUID user, Integer session) {
-        return sessionService.end(user, session);
+    private Device revokeAll(UUID user, Integer session) {
+        return sessionService.revokeAll(user, session);
     }
 
-    private void change(LocalCredential credential, PasswordHash hash) {
+    private void replace(LocalCredential credential, PasswordHash hash) {
         localCredentialService.replace(credential, hash);
     }
 

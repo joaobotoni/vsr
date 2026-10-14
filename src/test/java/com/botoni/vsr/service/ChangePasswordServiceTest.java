@@ -9,7 +9,7 @@ import com.botoni.vsr.exception.enums.problem.CredentialProblem;
 import com.botoni.vsr.exception.enums.problem.SessionProblem;
 import com.botoni.vsr.mapper.LocalCredentialMapper;
 import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.ratelimit.AttemptLimiter;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Password;
@@ -50,7 +50,7 @@ class ChangePasswordServiceTest {
     private static final Password CURRENT = Password.of("senha segura 123");
     private static final Password NEW = Password.of("nova senha 4567");
 
-    private final RateLimit accountRateLimit = RateLimit.any(new Limit(100, 100, Duration.ofSeconds(1)));
+    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(100, 100, Duration.ofSeconds(1)));
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final SessionService sessionService = mock(SessionService.class);
     private final AccessService accessService = mock(AccessService.class);
@@ -60,14 +60,14 @@ class ChangePasswordServiceTest {
             new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder, Clock.systemUTC());
     private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService);
     private final ChangePasswordService changePasswordService =
-            new ChangePasswordService(new PasswordAttemptService(new AttemptService(accountRateLimit), localCredentialService), localCredentialService, passwordService);
+            new ChangePasswordService(new PasswordAttemptService(attemptLimiter, localCredentialService), localCredentialService, passwordService);
 
     private final User user = Users.ana();
     private String stored;
 
     @AfterEach
     void close() {
-        accountRateLimit.close();
+        attemptLimiter.close();
     }
 
     @BeforeEach
@@ -87,7 +87,7 @@ class ChangePasswordServiceTest {
         ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
         verify(repository).change(eq(user.getId()), eq(stored), hash.capture());
         assertThat(encoder.matches(NEW.value(), hash.getValue())).isTrue();
-        verify(sessionService).end(user.getUuid(), SESSION);
+        verify(sessionService).revokeAll(user.getUuid(), SESSION);
     }
 
     @Test
@@ -100,7 +100,7 @@ class ChangePasswordServiceTest {
         order.verify(encoder).matches(eq(CURRENT.value()), anyString());
         order.verify(encoder).matches(eq(NEW.value()), anyString());
         order.verify(encoder).encode(NEW.value());
-        order.verify(sessionService).end(user.getUuid(), SESSION);
+        order.verify(sessionService).revokeAll(user.getUuid(), SESSION);
         order.verify(repository).change(anyInt(), anyString(), anyString());
         order.verify(accessService).rotate(any(), eq(ip));
     }
@@ -114,7 +114,7 @@ class ChangePasswordServiceTest {
                 .extracting("problem").isEqualTo(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
 
         verify(repository, never()).change(anyInt(), anyString(), anyString());
-        verify(sessionService, never()).end(any(), any());
+        verify(sessionService, never()).revokeAll(any(), any());
     }
 
     @Test
@@ -126,7 +126,7 @@ class ChangePasswordServiceTest {
                 .extracting("problem").isEqualTo(CredentialProblem.SAME_PASSWORD);
 
         verify(repository, never()).change(anyInt(), anyString(), anyString());
-        verify(sessionService, never()).end(any(), any());
+        verify(sessionService, never()).revokeAll(any(), any());
     }
 
     @Test
@@ -145,7 +145,7 @@ class ChangePasswordServiceTest {
     @DisplayName("sessão atual revogada impede a troca de senha")
     void revokedSessionChangesNothing() {
         doThrow(new SessionException(SessionProblem.REVOKED))
-                .when(sessionService).end(user.getUuid(), SESSION);
+                .when(sessionService).revokeAll(user.getUuid(), SESSION);
 
         assertThatThrownBy(() -> changePasswordService.change(user.getUuid(), SESSION, CURRENT, NEW, ip))
                 .isInstanceOf(SessionException.class);

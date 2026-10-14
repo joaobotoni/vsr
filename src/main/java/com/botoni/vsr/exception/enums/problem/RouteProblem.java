@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum RouteProblem implements Problem {
 
-    MISSING_MATCHER(HttpStatus.INTERNAL_SERVER_ERROR, "A rota precisa de um matcher."),
     MISSING_METHOD(HttpStatus.INTERNAL_SERVER_ERROR, "A rota precisa de um método HTTP."),
     INVALID_PATH(HttpStatus.INTERNAL_SERVER_ERROR, "O caminho da rota deve começar com '/': %s");
 

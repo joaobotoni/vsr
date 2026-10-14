@@ -48,7 +48,7 @@ class MailServiceTest {
         Path uploads = Files.createDirectories(root.resolve("uploads"));
         Path report = Files.writeString(uploads.resolve("relatorio.txt"), "conteúdo");
 
-        service(uploads).attach(MAIL, report);
+        service(uploads).sendAttachments(MAIL, report);
 
         Part attachment = sentMessage().getBodyPart(1);
         assertThat(attachment.getFileName()).isEqualTo("relatorio.txt");
@@ -62,7 +62,7 @@ class MailServiceTest {
         Path uploads = Files.createDirectories(root.resolve("uploads"));
         Path traversal = uploads.resolve("../segredo.txt");
 
-        assertThatThrownBy(() -> service(uploads).attach(MAIL, traversal))
+        assertThatThrownBy(() -> service(uploads).sendAttachments(MAIL, traversal))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
         verify(mailSender, never()).send(any(MimeMessagePreparator.class));
@@ -81,7 +81,7 @@ class MailServiceTest {
             Assumptions.abort("sistema sem permissão para criar link simbólico");
         }
 
-        assertThatThrownBy(() -> service(uploads).attach(MAIL, link))
+        assertThatThrownBy(() -> service(uploads).sendAttachments(MAIL, link))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.ATTACHMENT_OUTSIDE_DIRECTORY);
         verify(mailSender, never()).send(any(MimeMessagePreparator.class));
@@ -91,7 +91,7 @@ class MailServiceTest {
     @Controle
     @DisplayName("anexo inexistente é recusado sem enviar nada")
     void missingAttachmentIsRejected(@TempDir Path root) {
-        assertThatThrownBy(() -> service(root).attach(MAIL, root.resolve("nao-existe.txt")))
+        assertThatThrownBy(() -> service(root).sendAttachments(MAIL, root.resolve("nao-existe.txt")))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.ATTACHMENT_NOT_FOUND);
         verifyNoInteractions(mailSender);
@@ -118,7 +118,7 @@ class MailServiceTest {
         assertThatThrownBy(() -> service.send(null))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.MISSING_MAIL);
-        assertThatThrownBy(() -> service.attach(null, report))
+        assertThatThrownBy(() -> service.sendAttachments(null, report))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.MISSING_MAIL);
         verifyNoInteractions(mailSender);
@@ -128,7 +128,7 @@ class MailServiceTest {
     @Controle
     @DisplayName("envio com anexo sem nenhum arquivo é recusado")
     void attachWithoutFilesIsRejected(@TempDir Path root) {
-        assertThatThrownBy(() -> service(root).attach(MAIL))
+        assertThatThrownBy(() -> service(root).sendAttachments(MAIL))
                 .isInstanceOf(SenderException.class)
                 .extracting("problem").isEqualTo(SenderProblem.MISSING_ATTACHMENTS);
         verifyNoInteractions(mailSender);

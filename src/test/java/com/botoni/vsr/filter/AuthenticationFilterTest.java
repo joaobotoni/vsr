@@ -63,7 +63,7 @@ class AuthenticationFilterTest {
         mockMvc.perform(Requests.me(Tokens.valid())).andExpect(status().isOk());
 
         verify(sessionService).access(Users.UUID, Tokens.SESSION);
-        verify(profileService).profile(Users.UUID);
+        verify(profileService).view(Users.UUID);
     }
 
     @Test

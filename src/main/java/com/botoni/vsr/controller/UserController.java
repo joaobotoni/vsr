@@ -30,7 +30,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal Principal principal) {
-        return ResponseEntity.ok(profileService.profile(principal.user()));
+        return ResponseEntity.ok(profileService.view(principal.user()));
     }
 
     @PatchMapping("/me/password")

@@ -48,17 +48,17 @@ class AccessServiceTest {
         Device device = Device.builder().id(3).user(user).build();
         Session session = Session.builder().id(SESSION).device(device).build();
         TokenResponse token = new TokenResponse("access", "refresh", 900);
-        when(deviceService.register(user, request)).thenReturn(device);
+        when(deviceService.enroll(user, request)).thenReturn(device);
         when(sessionService.open(device, ip)).thenReturn(session);
         when(refreshTokenService.issue(session)).thenReturn("refresh");
         when(tokenService.issue(user, SESSION, "refresh")).thenReturn(token);
 
-        AuthenticationResponse response = accessService.authenticate(user, request, ip);
+        AuthenticationResponse response = accessService.grant(user, request, ip);
 
         assertThat(response.token()).isEqualTo(token);
         assertThat(response.user().id()).isEqualTo(Users.UUID);
         InOrder order = inOrder(deviceService, sessionService, refreshTokenService, tokenService);
-        order.verify(deviceService).register(user, request);
+        order.verify(deviceService).enroll(user, request);
         order.verify(sessionService).open(device, ip);
         order.verify(refreshTokenService).issue(session);
         order.verify(tokenService).issue(user, SESSION, "refresh");

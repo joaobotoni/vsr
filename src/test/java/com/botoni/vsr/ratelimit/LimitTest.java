@@ -20,7 +20,14 @@ class LimitTest {
     @Controle
     @DisplayName("limite válido guarda o intervalo em segundos")
     void validLimitIsAccepted() {
-        assertThat(new Limit(5, 1, Duration.ofMillis(1500)).seconds()).isEqualTo(1.5);
+        assertThat(new Limit(5, 1, Duration.ofMillis(1500)).interval()).isEqualTo(1.5);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("o tempo de vida do bucket é o tempo de recarregá-lo do zero até a capacidade")
+    void ttlIsTimeToRefillCompletely() {
+        assertThat(new Limit(5, 2, Duration.ofSeconds(10)).ttl()).isEqualTo(30);
     }
 
     @Controle

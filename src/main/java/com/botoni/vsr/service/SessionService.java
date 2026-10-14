@@ -21,31 +21,31 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SessionService {
 
+    private static final Integer KEEP_NONE = null;
+
     private final SessionRepository sessionRepository;
     private final SessionMapper sessionMapper;
     private final SessionProperties sessionProperties;
     private final Clock clock;
+    private final SessionPolicyService sessionPolicyService;
 
     @Transactional
     public Session open(Device device, InetAddress ip) {
-        reset(device);
+        clear(device);
         Session session = save(create(device, ip));
-        limit(device);
+        cap(device);
         return session;
     }
 
     @Transactional
     public void access(UUID user, Integer session) {
-        Session found = owned(user, session);
-        active(found);
-        touch(found);
+        use(owned(user, session));
     }
 
     @Transactional
     public User resume(Integer session) {
         Session found = find(session);
-        active(found);
-        touch(found);
+        use(found);
         return owner(found);
     }
 
@@ -60,14 +60,14 @@ public class SessionService {
     }
 
     @Transactional
-    public Device end(UUID user, Integer session) {
+    public Device revokeAll(UUID user, Integer session) {
         Session ended = owned(user, session);
         active(ended);
-        dismiss(ended);
+        dismiss(owner(ended));
         return ended.getDevice();
     }
 
-    private void reset(Device device) {
+    private void clear(Device device) {
         sessionRepository.revokeDevice(device.getId());
     }
 
@@ -83,8 +83,17 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
-    private void limit(Device device) {
+    private void cap(Device device) {
         sessionRepository.limitUser(device.getUser().getId(), sessionProperties.max());
+    }
+
+    private void use(Session session) {
+        active(session);
+        touch(session);
+    }
+
+    private void active(Session session) {
+        sessionPolicyService.active(session);
     }
 
     private void touch(Session session) {
@@ -99,8 +108,8 @@ public class SessionService {
         sessionRepository.revoke(session.getId());
     }
 
-    private void dismiss(Session ended) {
-        sessionRepository.revokeUser(owner(ended).getId(), null);
+    private void dismiss(User user) {
+        sessionRepository.revokeUser(user.getId(), KEEP_NONE);
     }
 
     private Session owned(UUID user, Integer session) {
@@ -111,42 +120,5 @@ public class SessionService {
     private Session find(Integer session) {
         return sessionRepository.findWithUserById(session)
                 .orElseThrow(() -> new SessionException(SessionProblem.NOT_FOUND));
-    }
-
-    private void active(Session session) {
-        revoked(session);
-        expired(session);
-        idle(session);
-    }
-
-    private void revoked(Session session) {
-        if (isRevoked(session)) {
-            throw new SessionException(SessionProblem.REVOKED);
-        }
-    }
-
-    private void expired(Session session) {
-        if (isExpired(session)) {
-            throw new SessionException(SessionProblem.EXPIRED);
-        }
-    }
-
-    private void idle(Session session) {
-        if (isIdle(session)) {
-            throw new SessionException(SessionProblem.IDLE);
-        }
-    }
-
-    private static boolean isRevoked(Session session) {
-        return session.getRevokedAt() != null;
-    }
-
-    private boolean isExpired(Session session) {
-        return !session.getExpiresAt().isAfter(Instant.now(clock));
-    }
-
-    private boolean isIdle(Session session) {
-        return !session.getLastAccessAt().isAfter(Instant.now(clock)
-                .minus(sessionProperties.idle()));
     }
 }

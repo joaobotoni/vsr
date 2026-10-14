@@ -5,7 +5,7 @@ import com.botoni.vsr.dto.request.DeviceRequest;
 import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.RateLimit;
+import com.botoni.vsr.ratelimit.AttemptLimiter;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Email;
@@ -45,17 +45,17 @@ class LoginLockoutTest {
     private static final String WRONG = "senha errada 999";
     private static final UUID PHONE = UUID.randomUUID();
 
-    private final RateLimit accountRateLimit = RateLimit.any(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
     private final DeviceService deviceService = mock(DeviceService.class);
     private final LoginAttemptService loginAttemptService =
-            new LoginAttemptService(new AttemptService(accountRateLimit), deviceService, authenticationManager);
+            new LoginAttemptService(attemptLimiter, deviceService, authenticationManager);
     private final UserService userService = mock(UserService.class);
     private final LoginService loginService = new LoginService(loginAttemptService, userService, mock(AccessService.class));
 
     @AfterEach
     void close() {
-        accountRateLimit.close();
+        attemptLimiter.close();
     }
 
     @Test
@@ -94,7 +94,7 @@ class LoginLockoutTest {
     @Controle
     @DisplayName("quem conhece só o e-mail não tranca a vítima, que entra pelo dispositivo que já usa")
     void attackerCannotLockOutVictimDevice() {
-        when(deviceService.isKnown(Email.of(Users.EMAIL), PHONE)).thenReturn(true);
+        when(deviceService.known(Email.of(Users.EMAIL), PHONE)).thenReturn(true);
         when(authenticationManager.authenticate(any())).thenAnswer(invocation -> {
             UsernamePasswordAuthenticationToken token = invocation.getArgument(0);
             if (!RIGHT.equals(token.getCredentials())) {

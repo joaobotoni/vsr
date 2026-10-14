@@ -1,8 +1,9 @@
 package com.botoni.vsr.service;
 
+import com.botoni.vsr.attempt.Attempt;
+import com.botoni.vsr.attempt.IAttempt;
 import com.botoni.vsr.database.entity.LocalCredential;
 import com.botoni.vsr.exception.custom.CredentialException;
-import com.botoni.vsr.ratelimit.Attempt;
 import com.botoni.vsr.vo.Password;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,15 +16,19 @@ public class PasswordAttemptService {
 
     private static final String KEY = "password:%s";
 
-    private final AttemptService attemptService;
+    private final IAttempt attempts;
     private final LocalCredentialService localCredentialService;
 
     public LocalCredential verify(UUID user, Password password) {
-        return attemptService.attempt(attempt(user), () -> credential(user, password));
+        return attempts.attempt(attempt(user), () -> credential(user, password));
     }
 
     private static Attempt attempt(UUID user) {
-        return Attempt.of(String.format(KEY, user), CredentialException.class);
+        return Attempt.of(key(user), CredentialException.class);
+    }
+
+    private static String key(UUID user) {
+        return String.format(KEY, user);
     }
 
     private LocalCredential credential(UUID user, Password password) {

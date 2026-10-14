@@ -47,7 +47,7 @@ class PasswordServiceTest {
 
     @BeforeEach
     void currentSession() {
-        when(sessionService.end(Users.UUID, SESSION)).thenReturn(device);
+        when(sessionService.revokeAll(Users.UUID, SESSION)).thenReturn(device);
     }
 
     @Test
@@ -57,10 +57,10 @@ class PasswordServiceTest {
         TokenResponse token = new TokenResponse("access", "refresh", 900);
         when(accessService.rotate(device, ip)).thenReturn(token);
 
-        assertThat(passwordService.replace(Users.UUID, SESSION, credential, HASH, ip)).isEqualTo(token);
+        assertThat(passwordService.commit(Users.UUID, SESSION, credential, HASH, ip)).isEqualTo(token);
 
         InOrder order = inOrder(sessionService, localCredentialService, accessService);
-        order.verify(sessionService).end(Users.UUID, SESSION);
+        order.verify(sessionService).revokeAll(Users.UUID, SESSION);
         order.verify(localCredentialService).replace(credential, HASH);
         order.verify(accessService).rotate(device, ip);
     }
@@ -69,9 +69,9 @@ class PasswordServiceTest {
     @Controle
     @DisplayName("sessão atual inativa falha antes de gravar a senha ou abrir sessão")
     void inactiveSessionDoesNotChangePassword() {
-        doThrow(new SessionException(SessionProblem.REVOKED)).when(sessionService).end(Users.UUID, SESSION);
+        doThrow(new SessionException(SessionProblem.REVOKED)).when(sessionService).revokeAll(Users.UUID, SESSION);
 
-        assertThatThrownBy(() -> passwordService.replace(Users.UUID, SESSION, credential, HASH, ip))
+        assertThatThrownBy(() -> passwordService.commit(Users.UUID, SESSION, credential, HASH, ip))
                 .isInstanceOf(SessionException.class);
         verify(localCredentialService, never()).replace(any(), any());
         verify(accessService, never()).rotate(any(), any());
@@ -84,10 +84,10 @@ class PasswordServiceTest {
         doThrow(new DataIntegrityViolationException("rn_senha_alterada"))
                 .when(localCredentialService).replace(credential, HASH);
 
-        assertThatThrownBy(() -> passwordService.replace(Users.UUID, SESSION, credential, HASH, ip))
+        assertThatThrownBy(() -> passwordService.commit(Users.UUID, SESSION, credential, HASH, ip))
                 .isInstanceOf(DataIntegrityViolationException.class);
         verify(accessService, never()).rotate(any(), any());
-        assertThat(PasswordService.class.getMethod("replace", UUID.class, Integer.class, LocalCredential.class,
+        assertThat(PasswordService.class.getMethod("commit", UUID.class, Integer.class, LocalCredential.class,
                 PasswordHash.class, InetAddress.class).isAnnotationPresent(Transactional.class)).isTrue();
     }
 }

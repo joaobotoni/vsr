@@ -20,7 +20,7 @@ public class RefreshService {
     public TokenResponse refresh(RefreshRequest request) {
         byte[] hash = hash(request);
         RefreshToken stored = find(hash);
-        invalidate(stored, hash);
+        revokeReused(stored, hash);
         return rotate(stored, hash);
     }
 
@@ -33,7 +33,7 @@ public class RefreshService {
     }
 
     private TokenResponse rotate(RefreshToken stored, byte[] hash) {
-        reused(stored, hash);
+        fresh(stored, hash);
         User user = resume(stored);
         String refreshToken = renew(stored);
         return issue(user, stored, refreshToken);
@@ -47,7 +47,7 @@ public class RefreshService {
         return stored.getId();
     }
 
-    private void close(RefreshToken stored) {
+    private void invalidate(RefreshToken stored) {
         sessionService.invalidate(session(stored));
     }
 
@@ -55,15 +55,15 @@ public class RefreshService {
         return tokenService.issue(user, session(stored), refreshToken);
     }
 
-    private void invalidate(RefreshToken stored, byte[] hash) {
-        if (!isReused(stored, hash)) {
+    private void revokeReused(RefreshToken stored, byte[] hash) {
+        if (!reused(stored, hash)) {
             return;
         }
-        close(stored);
+        invalidate(stored);
     }
 
-    private void reused(RefreshToken stored, byte[] hash) {
-        if (isReused(stored, hash)) {
+    private void fresh(RefreshToken stored, byte[] hash) {
+        if (reused(stored, hash)) {
             throw new RefreshTokenException(RefreshTokenProblem.REUSED);
         }
     }
@@ -72,12 +72,12 @@ public class RefreshService {
         try {
             return refreshTokenService.renew(stored);
         } catch (RefreshTokenException exception) {
-            close(stored);
+            invalidate(stored);
             throw exception;
         }
     }
 
-    private boolean isReused(RefreshToken stored, byte[] hash) {
-        return refreshTokenService.isReused(stored, hash);
+    private boolean reused(RefreshToken stored, byte[] hash) {
+        return refreshTokenService.reused(stored, hash);
     }
 }

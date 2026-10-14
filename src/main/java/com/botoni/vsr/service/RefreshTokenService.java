@@ -43,7 +43,7 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
-    public boolean isReused(RefreshToken stored, byte[] hash) {
+    public boolean reused(RefreshToken stored, byte[] hash) {
         return !Arrays.equals(stored.getCurrentHash(), hash);
     }
 

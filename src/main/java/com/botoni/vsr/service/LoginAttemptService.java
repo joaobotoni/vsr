@@ -1,6 +1,7 @@
 package com.botoni.vsr.service;
 
-import com.botoni.vsr.ratelimit.Attempt;
+import com.botoni.vsr.attempt.Attempt;
+import com.botoni.vsr.attempt.IAttempt;
 import com.botoni.vsr.vo.Email;
 import com.botoni.vsr.vo.Password;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,12 @@ public class LoginAttemptService {
     private static final String ACCOUNT = "login:%s";
     private static final String DEVICE = "login:%s:%s";
 
-    private final AttemptService attemptService;
+    private final IAttempt attempts;
     private final DeviceService deviceService;
     private final AuthenticationManager authenticationManager;
 
     public Authentication verify(Email email, Password password, UUID device) {
-        return attemptService.attempt(attempt(email, device), () -> authenticate(email, password));
+        return attempts.attempt(attempt(email, device), () -> authenticate(email, password));
     }
 
     private Attempt attempt(Email email, UUID device) {
@@ -40,13 +41,18 @@ public class LoginAttemptService {
     }
 
     private String key(Email email, UUID device) {
-        if (isKnown(email, device)) {
-            return String.format(DEVICE, email.value(), device);
-        }
+        return known(email, device) ? device(email, device) : account(email);
+    }
+
+    private static String device(Email email, UUID device) {
+        return String.format(DEVICE, email.value(), device);
+    }
+
+    private static String account(Email email) {
         return String.format(ACCOUNT, email.value());
     }
 
-    private boolean isKnown(Email email, UUID device) {
-        return deviceService.isKnown(email, device);
+    private boolean known(Email email, UUID device) {
+        return deviceService.known(email, device);
     }
 }
