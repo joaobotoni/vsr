@@ -9,6 +9,7 @@ import com.botoni.vsr.mapper.LocalCredentialMapper;
 import com.botoni.vsr.vo.Password;
 import com.botoni.vsr.vo.PasswordHash;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +52,11 @@ public class LocalCredentialService {
         localCredentialRepository.change(credential.getId(), credential.getPasswordHash().value(), hash.value());
     }
 
+    public void upgrade(UUID user, PasswordHash hash) {
+        LocalCredential credential = find(user);
+        swap(credential, hash);
+    }
+
     private String encode(Password password) {
         return passwordEncoder.encode(password.value());
     }
@@ -73,6 +79,14 @@ public class LocalCredentialService {
     private void unmatched(LocalCredential credential, Password password) {
         if (current(credential, password)) {
             throw new CredentialException(CredentialProblem.SAME_PASSWORD);
+        }
+    }
+
+    private void swap(LocalCredential credential, PasswordHash hash) {
+        try {
+            replace(credential, hash);
+        } catch (DataIntegrityViolationException exception) {
+            // outra troca de senha gravou primeiro; o hash dela é o que vale
         }
     }
 

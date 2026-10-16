@@ -1,6 +1,6 @@
 package com.botoni.vsr.ratelimit;
 
-public record Verdict(boolean allowed, double remaining, double reset) {
+public record Allowance(boolean allowed, double remaining, double reset) {
 
     private static final long MIN_RETRY = 1;
 

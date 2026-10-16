@@ -142,5 +142,6 @@ $$
 select p_email is not null
            and p_email = lower(btrim(p_email))
            and length(p_email) between 6 and 254
-           and p_email ~ '^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$';
+           and length(split_part(p_email, '@', 1)) <= 64
+           and p_email ~ '^[a-z0-9_-]+(\.[a-z0-9_-]+)*@([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$';
 $$;

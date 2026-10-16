@@ -3,7 +3,7 @@ package com.botoni.vsr.controller;
 import com.botoni.vsr.dto.request.ChangePasswordRequest;
 import com.botoni.vsr.dto.response.TokenResponse;
 import com.botoni.vsr.dto.response.UserResponse;
-import com.botoni.vsr.lib.ClientNetwork;
+import com.botoni.vsr.network.ClientNetwork;
 import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.service.ChangePasswordService;
 import com.botoni.vsr.service.ProfileService;
@@ -36,7 +36,7 @@ public class UserController {
     @PatchMapping("/me/password")
     public ResponseEntity<TokenResponse> change(@AuthenticationPrincipal Principal principal, @RequestBody @Valid ChangePasswordRequest request, HttpServletRequest http) {
         return ResponseEntity.ok(changePasswordService.change(principal.user(), principal.session(),
-                request.currentPassword(), request.newPassword(), ip(http)));
+                request.currentPassword(), request.newPassword().password(), ip(http)));
     }
 
     private static InetAddress ip(HttpServletRequest http) {

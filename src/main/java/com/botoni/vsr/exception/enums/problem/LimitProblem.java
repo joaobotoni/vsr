@@ -13,7 +13,8 @@ public enum LimitProblem implements Problem {
 
     INVALID_CAPACITY(HttpStatus.INTERNAL_SERVER_ERROR, "A capacidade do rate limit deve ser maior que zero."),
     INVALID_REFILL_RATE(HttpStatus.INTERNAL_SERVER_ERROR, "A taxa de recarga do rate limit deve ser maior que zero."),
-    INVALID_REFILL_INTERVAL(HttpStatus.INTERNAL_SERVER_ERROR, "O intervalo de recarga do rate limit deve ser maior que zero.");
+    INVALID_REFILL_INTERVAL(HttpStatus.INTERNAL_SERVER_ERROR, "O intervalo de recarga do rate limit deve ser maior que zero."),
+    CEILING_TOO_LOW(HttpStatus.INTERNAL_SERVER_ERROR, "O teto de tentativas da conta (%d) deve ser maior que o limite por conta e rede (%d).");
 
     private final HttpStatus status;
     private final String message;

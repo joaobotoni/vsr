@@ -11,9 +11,11 @@ import java.util.regex.Pattern;
 public record Email(@JsonValue String value) {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s");
-    private static final Pattern LOCAL_PART = Pattern.compile("[a-z0-9._%+-]+");
-    private static final Pattern DOMAIN = Pattern.compile("[a-z0-9.-]+");
-    private static final Pattern TOP_LEVEL_DOMAIN = Pattern.compile("[a-z]{2,}");
+    private static final String ATOM = "[a-z0-9_-]+";
+    private static final String LABEL = "[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?";
+    private static final Pattern LOCAL_PART = Pattern.compile(ATOM + "(\\." + ATOM + ")*");
+    private static final Pattern DOMAIN = Pattern.compile(LABEL + "(\\." + LABEL + ")*");
+    private static final Pattern TOP_LEVEL_DOMAIN = Pattern.compile("[a-z]{2,63}");
     private static final int MAX_LENGTH = 254;
     private static final int MAX_LOCAL_PART_LENGTH = 64;
     private static final char AT = '@';

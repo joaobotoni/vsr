@@ -124,7 +124,7 @@ class AuthenticationFilterTest {
 
     @Controle
     @ParameterizedTest(name = "sessão {0} responde o mesmo 401 genérico, sem revelar o estado")
-    @EnumSource(SessionProblem.class)
+    @EnumSource(value = SessionProblem.class, mode = EnumSource.Mode.EXCLUDE, names = {"INVALID_TTL", "INVALID_IDLE", "IDLE_TOO_LONG"})
     void sessionStateIsHidden(SessionProblem problem) throws Exception {
         doThrow(new SessionException(problem)).when(sessionService).access(any(), eq(Tokens.SESSION));
 

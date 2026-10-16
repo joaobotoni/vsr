@@ -3,7 +3,7 @@ package com.botoni.vsr.dto.request;
 import com.botoni.vsr.vo.Cpf;
 import com.botoni.vsr.vo.Email;
 import com.botoni.vsr.vo.Name;
-import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.NewPassword;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
@@ -18,7 +18,7 @@ public record RegisterRequest(
         Email email,
 
         @NotNull(message = "A senha é obrigatória.")
-        Password password,
+        NewPassword password,
 
         @Valid
         @NotNull(message = "Os dados do dispositivo são obrigatórios.")

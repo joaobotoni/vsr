@@ -41,8 +41,8 @@ class LoginLockoutTest {
 
     private static final int CAPACITY = 3;
     private static final int PARALLEL = 20;
-    private static final String RIGHT = "senha segura 123";
-    private static final String WRONG = "senha errada 999";
+    private static final String RIGHT = "Senha@Segura123";
+    private static final String WRONG = "Senha@Errada999";
     private static final UUID PHONE = UUID.randomUUID();
 
     private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));

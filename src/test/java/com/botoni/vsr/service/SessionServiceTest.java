@@ -46,7 +46,7 @@ class SessionServiceTest {
 
     private final SessionRepository repository = mock(SessionRepository.class);
     private final SessionService sessionService = new SessionService(
-            repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC(),
+            Clock.systemUTC(), repository, Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX),
             new SessionPolicyService(new SessionProperties(TTL, IDLE, MAX), Clock.systemUTC()));
 
     private final User owner = Users.ana();
@@ -116,8 +116,8 @@ class SessionServiceTest {
     @DisplayName("sessão que expira exatamente agora já é recusada")
     void sessionExpiringNowIsRejected() {
         Instant now = Instant.parse("2026-01-01T00:00:00Z");
-        SessionService frozen = new SessionService(repository, Mappers.getMapper(SessionMapper.class),
-                new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC),
+        SessionService frozen = new SessionService(Clock.fixed(now, ZoneOffset.UTC), repository,
+                Mappers.getMapper(SessionMapper.class), new SessionProperties(TTL, IDLE, MAX),
                 new SessionPolicyService(new SessionProperties(TTL, IDLE, MAX), Clock.fixed(now, ZoneOffset.UTC)));
         session.setExpiresAt(now);
 

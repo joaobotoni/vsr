@@ -39,6 +39,21 @@ class SweeperTest {
 
     @Test
     @Controle
+    @DisplayName("a limpeza sob demanda roda no máximo uma vez por segundo, para não varrer o mapa a cada requisição")
+    void reliefIsThrottled() {
+        buckets.put("first", new Bucket(0, START, false));
+        sweeper.relieve(START + TTL);
+        buckets.put("second", new Bucket(0, START, false));
+
+        sweeper.relieve(START + TTL + 0.5);
+        assertThat(buckets).containsKey("second");
+
+        sweeper.relieve(START + TTL + 1);
+        assertThat(buckets).isEmpty();
+    }
+
+    @Test
+    @Controle
     @DisplayName("exatamente no tempo de vida o bucket já é ocioso; um instante antes, não")
     void ttlBoundary() {
         buckets.put("ip:10.0.0.1", new Bucket(0, START, false));

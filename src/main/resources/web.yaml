@@ -6,4 +6,9 @@ vsr:
     supported: ${VERSION_SUPPORTED}
     default: ${VERSION_DEFAULT}
 server:
-  forward-headers-strategy: none
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: ${TRUSTED_PROXIES}
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto

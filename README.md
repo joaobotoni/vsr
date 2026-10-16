@@ -80,7 +80,7 @@ O refresh token **não é um JWT**: são 32 bytes aleatórios (`SecureRandom`) c
 
 ### Argon2id (BouncyCastle)
 
-As senhas são guardadas com **Argon2id**, o algoritmo recomendado pela OWASP, com 19 MiB de memória, 2 iterações, paralelismo 1, salt de 16 bytes e hash de 32 bytes. O BouncyCastle fornece a implementação usada pelo `Argon2PasswordEncoder` do Spring Security.
+As senhas são guardadas com **Argon2id**, o algoritmo recomendado pela OWASP, com 19 MiB de memória, 2 iterações, paralelismo 1, salt de 16 bytes e hash de 32 bytes. O BouncyCastle fornece a implementação usada pelo `Argon2PasswordEncoder` do Spring Security. O banco só aceita hashes `$argon2id$`. Se os parâmetros forem aumentados, o hash de cada usuário é recalculado e gravado no próximo login correto; se uma troca de senha gravar antes, vale a troca.
 
 ### MapStruct e Lombok
 
@@ -125,7 +125,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V1__schema.sql` | Extensão `pg_cron` e schemas |
 | `V2__functions.sql` | Funções de validação e de `updated_at` |
 | `V3__ddl.sql` | Tipos, tabelas, constraints, índices e a view `usuarios.sessao_ativa` |
-| `V4__procedures.sql` | Procedures de erro de regra, dispositivo, sessão, refresh token, troca de senha e limpeza |
+| `V4__procedures.sql` | Procedures de erro de regra, dispositivo, sessão, refresh token, troca de senha e limpeza, e a função `usuarios.dispositivo_conhecido` |
 | `V5__triggers.sql` | Triggers de `updated_at` |
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
@@ -238,11 +238,12 @@ As regras abaixo são aplicadas na entrada da API e, quando aplicável, repetida
 
 | Campo | Regras |
 |---|---|
-| Senha | De 12 a 128 caracteres (acentos e emojis contam como um); qualquer combinação de caracteres, inclusive espaços; nunca é aparada |
-| E-mail | Espaços nas pontas removidos e convertido para minúsculas; até 254 caracteres; parte local até 64 caracteres em `[a-z0-9._%+-]`; domínio em `[a-z0-9.-]` com extensão de 2 ou mais letras |
+| Senha nova (cadastro e `newPassword`) | De 8 caracteres a 72 bytes; ao menos uma letra maiúscula, uma minúscula, um dígito e um caractere especial; sem espaços |
+| Senha existente (login e `currentPassword`) | Só obrigatória e até 72 bytes: uma regra de criação nova nunca tranca quem criou a senha antes dela |
+| E-mail | Espaços nas pontas removidos e convertido para minúsculas; até 254 caracteres; parte local até 64 caracteres em `[a-z0-9._-]`, sem ponto no início, no fim ou seguido (`+` e `%` são recusados); domínio em rótulos de 1 a 63 caracteres `[a-z0-9-]`, sem hífen nas pontas do rótulo, com extensão de 2 a 63 letras. A mesma regra vale no banco (`documento.email_valido`) |
 | CPF | Máscara (`.`, `-`, `/`, espaços) removida; 11 dígitos; os dígitos não podem ser todos iguais; dígitos verificadores pelo módulo 11 |
 | CNPJ | Formato alfanumérico: 12 caracteres `[0-9A-Z]` seguidos de 2 dígitos verificadores numéricos pelo módulo 11 |
-| Nome | Espaços nas pontas removidos; obrigatório; até 200 caracteres (acentos contam como um) |
+| Nome | Só letras, com ou sem acento, e espaços; cada palavra começa com letra e cada letra leva no máximo dois acentos combinados (hífen e apóstrofo são recusados); espaços nas pontas removidos e repetidos reduzidos a um; acentos guardados na forma composta (NFC); até 200 caracteres |
 | Dispositivo | Identificador UUID; plataforma `android` ou `ios`; fabricante e modelo até 64 caracteres, sem caracteres de controle, de formatação invisível nem `<` e `>`; versão do sistema até 16 caracteres em `[0-9A-Za-z._- ]`; espaços nas pontas removidos |
 
 No banco, textos livres não podem ter espaços nas extremidades e respeitam limites de tamanho por coluna.
@@ -259,14 +260,17 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 | `POST /auth/register` | `RATE_LIMIT_REGISTER_*` |
 | `POST /auth/refresh` | `RATE_LIMIT_REFRESH_*` |
 | `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` (limita a **troca** de senha) |
-| `POST /evidencias` | `RATE_LIMIT_UPLOAD_*` (rota reservada) |
 | Demais rotas | `RATE_LIMIT_API_*` |
 
 Toda resposta traz `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset`. Ao exceder o limite, a resposta é `429` com o cabeçalho `Retry-After`.
 
-**Por conta.** Conta só as **senhas erradas** de cada e-mail, vindas de qualquer IP (`RATE_LIMIT_ACCOUNT_*`), separadas entre o dispositivo já conhecido e os desconhecidos. A tentativa é gasta antes de conferir a senha e devolvida quando ela está certa. Ao exceder, o login responde `429` sem conferir a senha. A troca de senha usa o mesmo limite para a senha atual.
+**Por conta.** Conta só as **senhas erradas**; a tentativa é gasta antes de conferir a senha e devolvida quando ela está certa. Ao exceder, responde `429` sem conferir a senha.
 
-Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
+- **Dispositivo já conhecido da conta:** dispositivo da conta com **sessão ativa**. Tem saldo próprio por conta e dispositivo (`RATE_LIMIT_ACCOUNT_*`), fora do teto. Quem só conhece o e-mail não tranca a vítima no aparelho que ela já usa.
+- **Dispositivo desconhecido:** saldo por conta e rede (`RATE_LIMIT_ACCOUNT_*`, com IPv4 inteiro e IPv6 agrupado por `/56`) e um teto da conta que soma todas as redes (`RATE_LIMIT_CEILING_*`). Uma rede sozinha só esgota o próprio saldo; espalhar o ataque esbarra no teto. A rede que já estourou o próprio saldo não gasta o teto.
+- **Troca de senha:** as senhas atuais erradas gastam o mesmo limite `RATE_LIMIT_ACCOUNT_*`, contado por usuário e de qualquer IP, sem teto.
+
+Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Cada regra guarda no máximo 50 mil chaves: cheia, ela libera os saldos ociosos (no máximo uma vez por segundo) e, se ainda não houver espaço, recusa chave nova com `429`; as chaves já contadas seguem funcionando. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
 
 ### Envio de e-mail
 
@@ -402,7 +406,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 | Ameaça | Proteção |
 |---|---|
-| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`, e limite de falhas por conta |
+| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`; falhas de login contadas por conta e rede (ou por dispositivo conhecido), com um teto da conta somando todas as redes |
 | Descoberta de contas no login | Mesma resposta e mesmo tempo para e-mail inexistente e senha errada |
 | Vazamento do banco | Senhas em Argon2id; refresh tokens em HMAC-SHA-256 com chave fora do banco |
 | Roubo de refresh token | Rotação a cada uso, detecção de reuso de qualquer geração e revogação da sessão |
@@ -413,20 +417,20 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
 | Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
 | Rebaixamento para HTTP | `Strict-Transport-Security` (1 ano, com subdomínios) em toda resposta, inclusive atrás de proxy que termina o TLS |
-| Conteúdo malicioso em texto livre | Fabricante e modelo do dispositivo recusam HTML e caracteres invisíveis |
-| Corpo de requisição gigante | Recusado pelo `Content-Length` antes da leitura (`413`); corpo em partes recusado (`411`) |
-| Anexos de e-mail | Só do diretório configurado, com caminho resolvido (sem `../` nem link simbólico para fora) |
+| Conteúdo malicioso em texto livre | Nome aceita só letras, acentos e espaços; fabricante e modelo do dispositivo recusam HTML e caracteres invisíveis |
+| Corpo de requisição gigante | Recusado pelo `Content-Length` antes da leitura (`413`); corpo em partes recusado (`411`); corpo sem tamanho declarado é lido no filtro até um byte além do limite e recusado (`413`) antes de chegar ao Jackson |
+| Anexos de e-mail | Só do diretório configurado, com caminho resolvido (sem `../` nem link simbólico para fora); o arquivo é lido uma vez, pelo caminho já conferido e sem seguir link, então trocá-lo depois da conferência não muda o que é enviado |
 | Conexões do banco esgotadas | O Argon2 roda fora de transação e o `open-in-view` está desligado |
 
 **Pendências conhecidas**
 
-- **Proxy reverso:** a aplicação ignora `X-Forwarded-For` (`forward-headers-strategy: none`). Atrás de um load balancer, todos os clientes aparecem com o IP do proxy e dividem o mesmo limite de requisições. Antes de usar um proxy, é preciso configurar a lista de proxies confiáveis.
 - **Autorização:** não existe modelo de permissões; só autenticação. Cada point futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
-- **Limite por conta:** quem conhece o e-mail de alguém ainda pode bloquear temporariamente o login dessa pessoa a partir de um **dispositivo novo**; o dispositivo que ela já usa não é afetado.
-- **Limites em memória:** não são compartilhados entre instâncias nem sobrevivem a um reinício.
-- **Permissões no banco:** a aplicação deve usar uma role diferente da que aplica as migrations, com o mínimo de privilégios.
+- **Limite por conta:** quem conhece o e-mail de alguém e ataca de várias redes ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente o login dessa pessoa a partir de um **dispositivo novo**; uma rede sozinha só esgota o próprio limite, e o dispositivo que a vítima já usa não é afetado.
+- **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
+- **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`.
 
 **Riscos aceitos**
 
@@ -434,7 +438,6 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 |---|---|---|
 | Não há bloqueio de conta | Uma conta comprometida só pode ser contida revogando as sessões | Revogar sessões e trocar a senha cobre os casos atuais |
 | Resposta perdida na renovação | Se a resposta do `/auth/refresh` se perde e o app reenvia o token antigo, isso conta como reuso e a sessão é revogada | Preferido a abrir uma janela de tolerância para o token anterior |
-| Corpo sem tamanho declarado | Em HTTP/2 o `Content-Length` é opcional, e um corpo sem ele não passaria pela checagem de tamanho | A aplicação só fala HTTP/1.1, onde todo corpo tem `Content-Length` ou é `chunked` (recusado). Um teste falha se alguém ligar `server.http2.enabled` |
 
 ---
 
@@ -457,12 +460,27 @@ A configuração é feita **por variáveis de ambiente**:
 | Grupo | Variáveis |
 |---|---|
 | Aplicação | `APP_NAME`, `VERSION_HEADER`, `VERSION_SUPPORTED`, `VERSION_DEFAULT` |
-| Banco | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DRIVER`, `DB_POOL_NAME`, `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`, `DB_POOL_MAX_LIFETIME`, `JPA_DIALECT`, `JPA_BATCH_SIZE` |
-| Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`) |
+| Banco | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FLYWAY_USERNAME` e `FLYWAY_PASSWORD` (dono das migrations; sem eles, o Flyway usa `DB_USERNAME`), `DB_DRIVER`, `DB_POOL_NAME`, `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`, `DB_POOL_MAX_LIFETIME`, `JPA_DIALECT`, `JPA_BATCH_SIZE` |
+| Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
 | E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
-| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT`, `PASSWORD_RESET` e `UPLOAD` |
+| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (senhas erradas: no login, por conta e rede ou por dispositivo conhecido; na troca de senha, por usuário), `CEILING` (teto de falhas da conta somando as redes; precisa ser maior que `ACCOUNT`, senão a aplicação não inicia) e `PASSWORD_RESET` |
+| Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
 
 Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As chaves podem ser geradas com `openssl rand -base64 32`.
+
+**Valores sugeridos para produção.** No 4G, as operadoras usam CGNAT: milhares de clientes saem pelo mesmo IPv4. Por isso, o limite por IP é só contra flood e fica folgado; quem segura força bruta é o limite por conta (`ACCOUNT`) e o teto (`CEILING`), que não sofrem com o CGNAT.
+
+| Grupo | Capacidade | Recarga | Intervalo | Por quê |
+|---|---|---|---|---|
+| `API` | 300 | 300 | `1m` | Rotas gerais, por IP; folgado para CGNAT |
+| `LOGIN` | 60 | 60 | `1m` | Por IP, só contra flood; a senha é protegida pelo `ACCOUNT` |
+| `REGISTER` | 30 | 30 | `10m` | Por IP; cadastro é raro, mas vários aparelhos podem dividir o IP |
+| `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
+| `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
+| `ACCOUNT` | 5 | 5 | `15m` | Senhas erradas por conta e rede, ou por dispositivo conhecido |
+| `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
+
+Os valores são ponto de partida: acompanhe os `429` no log (`Limite de requisições excedido`) e ajuste o limite por IP se aparecerem clientes legítimos.
 
 Valores fixos nos arquivos de configuração:
 
@@ -471,10 +489,10 @@ Valores fixos nos arquivos de configuração:
 | `spring.jpa.hibernate.ddl-auto` | `validate` | O schema pertence ao Flyway |
 | `spring.jpa.open-in-view` | `false` | A conexão fica presa só durante as transações |
 | `security.session.ttl` | `30d` | Validade da sessão e do refresh token |
-| `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade |
+| `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade; precisa ser maior que zero e menor que `ttl`, senão a aplicação não inicia |
 | `security.session.max` | `10` | Máximo de sessões ativas por usuário; a mais antiga é revogada |
 | `vsr.request.max-body-size` | `16KB` | Limite do corpo das requisições |
-| `server.forward-headers-strategy` | `none` | O IP do cliente é sempre o da conexão |
+| `server.forward-headers-strategy` | `native` | O Tomcat troca o IP da conexão pelo `X-Forwarded-For` só quando ela vem de um proxy em `TRUSTED_PROXIES` |
 
 Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens recusados e limites excedidos são registrados em `WARN` com o IP de origem; erros inesperados, em `ERROR` com o stack trace.
 

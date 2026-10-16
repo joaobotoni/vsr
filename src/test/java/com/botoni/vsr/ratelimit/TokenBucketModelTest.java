@@ -52,11 +52,11 @@ class TokenBucketModelTest {
                 model.refund(key);
                 continue;
             }
-            Verdict verdict = bucket.take(key, now);
+            Allowance allowance = bucket.take(key, now);
 
-            assertThat(verdict).as("operação %d, chave %s, t=%s", i, key, now).isEqualTo(model.consume(key, now));
-            assertThat(verdict.remaining()).isBetween(0.0, (double) capacity - 1);
-            assertThat(verdict.reset()).isGreaterThan(0).isLessThanOrEqualTo(limit.interval());
+            assertThat(allowance).as("operação %d, chave %s, t=%s", i, key, now).isEqualTo(model.consume(key, now));
+            assertThat(allowance.remaining()).isBetween(0.0, (double) capacity - 1);
+            assertThat(allowance.reset()).isGreaterThan(0).isLessThanOrEqualTo(limit.interval());
         }
     }
 
@@ -70,7 +70,7 @@ class TokenBucketModelTest {
             this.limit = limit;
         }
 
-        Verdict consume(String key, double now) {
+        Allowance consume(String key, double now) {
             double interval = limit.interval();
             double[] bucket = state.computeIfAbsent(key, k -> new double[]{limit.capacity(), now});
             double refills = Math.floor((now - bucket[1]) / interval);
@@ -82,7 +82,7 @@ class TokenBucketModelTest {
             if (allowed) {
                 bucket[0] = bucket[0] - 1;
             }
-            return new Verdict(allowed, Math.floor(bucket[0]), interval - (now - bucket[1]));
+            return new Allowance(allowed, Math.floor(bucket[0]), interval - (now - bucket[1]));
         }
 
         void refund(String key) {

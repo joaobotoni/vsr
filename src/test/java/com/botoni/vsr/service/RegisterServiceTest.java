@@ -7,7 +7,7 @@ import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.vo.Cpf;
 import com.botoni.vsr.vo.Email;
 import com.botoni.vsr.vo.Name;
-import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.NewPassword;
 import com.botoni.vsr.vo.PasswordHash;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,17 +35,17 @@ class RegisterServiceTest {
     void passwordIsHashedBeforeOpeningAccount() {
         RegisterRequest request = request();
         InetAddress ip = InetAddress.getLoopbackAddress();
-        when(localCredentialService.hash(request.password())).thenReturn(HASH);
+        when(localCredentialService.hash(request.password().password())).thenReturn(HASH);
 
         registerService.register(request, ip);
 
         InOrder order = inOrder(localCredentialService, accountService);
-        order.verify(localCredentialService).hash(request.password());
+        order.verify(localCredentialService).hash(request.password().password());
         order.verify(accountService).open(request, HASH, ip);
     }
 
     private static RegisterRequest request() {
         DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14");
-        return new RegisterRequest(Name.of("Ana"), Cpf.of("52998224725"), Email.of("email.de.terceiro@vsr.com"), Password.of("senha segura 123"), device);
+        return new RegisterRequest(Name.of("Ana"), Cpf.of("52998224725"), Email.of("email.de.terceiro@vsr.com"), NewPassword.of("Senha@Segura123"), device);
     }
 }

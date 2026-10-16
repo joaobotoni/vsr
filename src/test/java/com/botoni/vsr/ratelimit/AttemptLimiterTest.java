@@ -81,6 +81,39 @@ class AttemptLimiterTest {
         assertThat(attemptLimiter.attempt(OTHER, () -> "ok")).isEqualTo("ok");
     }
 
+    @Test
+    @Controle
+    @DisplayName("sem teto configurado, a chave de teto da tentativa é ignorada e cada chave tem o próprio saldo")
+    void limiterWithoutCeilingIgnoresCeilingKey() {
+        Supplier<String> rejected = () -> {
+            throw new Rejected();
+        };
+        for (int network = 0; network < CAPACITY * 2; network++) {
+            Attempt attempt = Attempt.ceiled("login:ana@vsr.com:network:" + network, "login:ana@vsr.com", Rejected.class);
+            assertThatThrownBy(() -> attemptLimiter.attempt(attempt, rejected)).isInstanceOf(Rejected.class);
+        }
+    }
+
+    @Test
+    @Controle
+    @DisplayName("com teto, estourar o teto recusa a tentativa e devolve a ficha da chave")
+    void ceilingRejectsAndRefundsKey() {
+        try (AttemptLimiter ceiled = AttemptLimiter.celled(new Limit(CAPACITY, 1, Duration.ofHours(1)), new Limit(1, 1, Duration.ofHours(1)))) {
+            Attempt first = Attempt.ceiled("login:ana@vsr.com:network:1", "login:ana@vsr.com", Rejected.class);
+            Attempt second = Attempt.ceiled("login:ana@vsr.com:network:2", "login:ana@vsr.com", Rejected.class);
+            Attempt keyOnly = Attempt.of("login:ana@vsr.com:network:2", Rejected.class);
+            Supplier<String> rejected = () -> {
+                throw new Rejected();
+            };
+
+            assertThatThrownBy(() -> ceiled.attempt(first, rejected)).isInstanceOf(Rejected.class);
+            assertThatThrownBy(() -> ceiled.attempt(second, rejected)).isInstanceOf(RateLimitException.class);
+            for (int i = 0; i < CAPACITY; i++) {
+                assertThatThrownBy(() -> ceiled.attempt(keyOnly, rejected)).isInstanceOf(Rejected.class);
+            }
+        }
+    }
+
     private void fail(Supplier<String> action, int times, Class<? extends Throwable> expected) {
         for (int i = 0; i < times; i++) {
             assertThatThrownBy(() -> attemptLimiter.attempt(ATTEMPT, action)).isInstanceOf(expected);

@@ -1,5 +1,6 @@
 package com.botoni.vsr.dto.request;
 
+import com.botoni.vsr.vo.NewPassword;
 import com.botoni.vsr.vo.Password;
 import jakarta.validation.constraints.NotNull;
 
@@ -8,6 +9,6 @@ public record ChangePasswordRequest(
         Password currentPassword,
 
         @NotNull(message = "A nova senha é obrigatória.")
-        Password newPassword
+        NewPassword newPassword
 ) {
 }

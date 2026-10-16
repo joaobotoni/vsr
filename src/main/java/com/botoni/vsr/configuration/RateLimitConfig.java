@@ -17,6 +17,6 @@ public class RateLimitConfig {
 
     @Bean
     public IAttempt attemptLimiter(RateLimitProperties properties) {
-        return AttemptLimiter.from(properties.account());
+        return AttemptLimiter.celled(properties.account(), properties.ceiling());
     }
 }

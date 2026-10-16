@@ -18,12 +18,12 @@ final class TokenBucket {
         return System.nanoTime() / NANOS_PER_SECOND;
     }
 
-    Verdict consume(String key) {
+    Allowance consume(String key) {
         return take(key, now());
     }
 
-    Verdict take(String key, double now) {
-        return verdict(buckets.compute(key, (k, bucket) -> refill(bucket, now).consume()), now);
+    Allowance take(String key, double now) {
+        return allowance(buckets.compute(key, (k, bucket) -> refill(bucket, now).consume()), now);
     }
 
     void refund(String key) {
@@ -34,11 +34,11 @@ final class TokenBucket {
         return absent(bucket) ? Bucket.full(limit, now) : bucket.refill(limit, now);
     }
 
-    private Verdict verdict(Bucket bucket, double now) {
-        return new Verdict(bucket.allowed(), bucket.remaining(), bucket.reset(limit, now));
+    private Allowance allowance(Bucket bucket, double now) {
+        return new Allowance(bucket.allowed(), bucket.remaining(), bucket.reset(limit, now));
     }
 
-    private static boolean absent(Bucket bucket) {
+    private static boolean absent(Bucket bucket)     {
         return bucket == null;
     }
 }

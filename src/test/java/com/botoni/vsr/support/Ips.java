@@ -19,10 +19,10 @@ public final class Ips {
     }
 
     public static String nextV6() {
-        return "2001:db8:%x::1".formatted(NEXT.getAndIncrement());
+        return "2001:db8:%x:0:0:0:0:1".formatted(NEXT.getAndIncrement());
     }
 
     public static String nextV6InSameNetwork() {
-        return "2001:db8:ffff:ffff::" + Integer.toHexString(NEXT.getAndIncrement());
+        return "2001:db8:ffff:ffff:0:0:0:" + Integer.toHexString(NEXT.getAndIncrement());
     }
 }

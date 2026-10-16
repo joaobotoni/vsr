@@ -17,6 +17,8 @@ import org.springframework.security.authentication.InternalAuthenticationService
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -33,12 +35,16 @@ import static org.mockito.Mockito.when;
 class LoginAttemptServiceTest {
 
     private static final int CAPACITY = 3;
+    private static final int CEILING = 6;
     private static final Email ANA = Email.of("ana@vsr.com");
-    private static final Password PASSWORD = Password.of("senha qualquer 1");
+    private static final Password PASSWORD = Password.of("Senha@Qualquer1");
     private static final UUID PHONE = UUID.randomUUID();
     private static final UUID STRANGER = UUID.randomUUID();
+    private static final InetAddress HOME = ip(203, 0, 113, 7);
+    private static final InetAddress ELSEWHERE = ip(198, 51, 100, 9);
 
-    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final AttemptLimiter attemptLimiter = AttemptLimiter.celled(
+            new Limit(CAPACITY, 1, Duration.ofHours(1)), new Limit(CEILING, 1, Duration.ofHours(1)));
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
     private final DeviceService deviceService = mock(DeviceService.class);
     private final LoginAttemptService loginAttemptService =
@@ -55,7 +61,7 @@ class LoginAttemptServiceTest {
     void wrongPasswordIsRejected() {
         rejectAll();
 
-        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER))
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, HOME))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
@@ -65,7 +71,7 @@ class LoginAttemptServiceTest {
     void failuresExhaustAccount() {
         fail(STRANGER, CAPACITY);
 
-        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER))
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, HOME))
                 .isInstanceOf(RateLimitException.class)
                 .extracting("problem").isEqualTo(RateLimitProblem.EXCEEDED);
         verify(authenticationManager, times(CAPACITY)).authenticate(any());
@@ -79,7 +85,7 @@ class LoginAttemptServiceTest {
         when(authenticationManager.authenticate(any())).thenReturn(authenticated);
 
         for (int i = 0; i < CAPACITY * 3; i++) {
-            assertThat(loginAttemptService.verify(ANA, PASSWORD, STRANGER)).isSameAs(authenticated);
+            assertThat(loginAttemptService.verify(ANA, PASSWORD, STRANGER, HOME)).isSameAs(authenticated);
         }
     }
 
@@ -90,7 +96,7 @@ class LoginAttemptServiceTest {
         when(authenticationManager.authenticate(any())).thenThrow(new InternalAuthenticationServiceException("banco indisponível"));
 
         for (int i = 0; i < CAPACITY * 3; i++) {
-            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER))
+            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, HOME))
                     .isInstanceOf(InternalAuthenticationServiceException.class);
         }
     }
@@ -102,7 +108,7 @@ class LoginAttemptServiceTest {
         when(deviceService.known(ANA, PHONE)).thenReturn(true);
         fail(STRANGER, CAPACITY);
 
-        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, PHONE)).isInstanceOf(BadCredentialsException.class);
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, PHONE, HOME)).isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
@@ -111,7 +117,7 @@ class LoginAttemptServiceTest {
     void rotatingUnknownDevicesSharesLimit() {
         fail(UUID.randomUUID(), CAPACITY);
 
-        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, UUID.randomUUID()))
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, UUID.randomUUID(), HOME))
                 .isInstanceOf(RateLimitException.class);
     }
 
@@ -121,7 +127,7 @@ class LoginAttemptServiceTest {
     void emailVariationsShareLimit() {
         fail(STRANGER, CAPACITY);
 
-        assertThatThrownBy(() -> loginAttemptService.verify(Email.of("  ANA@vsr.com "), PASSWORD, STRANGER))
+        assertThatThrownBy(() -> loginAttemptService.verify(Email.of("  ANA@vsr.com "), PASSWORD, STRANGER, HOME))
                 .isInstanceOf(RateLimitException.class);
     }
 
@@ -131,14 +137,79 @@ class LoginAttemptServiceTest {
     void otherAccountIsNotAffected() {
         fail(STRANGER, CAPACITY);
 
-        assertThatThrownBy(() -> loginAttemptService.verify(Email.of("bia@vsr.com"), PASSWORD, STRANGER))
+        assertThatThrownBy(() -> loginAttemptService.verify(Email.of("bia@vsr.com"), PASSWORD, STRANGER, HOME))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("falhas vindas de uma rede não trancam a conta para quem tenta de outra rede")
+    void otherNetworkIsNotLockedOut() {
+        fail(STRANGER, CAPACITY);
+
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, ELSEWHERE))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("o teto da conta soma as falhas de todas as redes: espalhar o ataque não dá tentativas ilimitadas")
+    void ceilingSumsAllNetworks() {
+        rejectAll();
+        for (int i = 0; i < CEILING; i++) {
+            failFrom(ip(203, 0, 113, 10 + i), 1);
+        }
+
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, ip(203, 0, 113, 99)))
+                .isInstanceOf(RateLimitException.class);
+        verify(authenticationManager, times(CEILING)).authenticate(any());
+    }
+
+    @Test
+    @Controle
+    @DisplayName("rede que já estourou o próprio limite não gasta o teto da conta")
+    void blockedNetworkDoesNotDrainCeiling() {
+        fail(STRANGER, CAPACITY);
+        for (int i = 0; i < 20; i++) {
+            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, HOME))
+                    .isInstanceOf(RateLimitException.class);
+        }
+
+        failFrom(ELSEWHERE, CEILING - CAPACITY);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("com o teto da conta esgotado, o dispositivo que a vítima já usa continua entrando")
+    void knownDeviceIgnoresCeiling() {
+        when(deviceService.known(ANA, PHONE)).thenReturn(true);
+        rejectAll();
+        for (int i = 0; i < CEILING; i++) {
+            failFrom(ip(203, 0, 113, 10 + i), 1);
+        }
+
+        assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, PHONE, ip(203, 0, 113, 99)))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
     private void fail(UUID device, int times) {
         rejectAll();
         for (int i = 0; i < times; i++) {
-            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, device)).isInstanceOf(BadCredentialsException.class);
+            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, device, HOME)).isInstanceOf(BadCredentialsException.class);
+        }
+    }
+
+    private void failFrom(InetAddress ip, int times) {
+        for (int i = 0; i < times; i++) {
+            assertThatThrownBy(() -> loginAttemptService.verify(ANA, PASSWORD, STRANGER, ip)).isInstanceOf(BadCredentialsException.class);
+        }
+    }
+
+    private static InetAddress ip(int a, int b, int c, int d) {
+        try {
+            return InetAddress.getByAddress(new byte[]{(byte) a, (byte) b, (byte) c, (byte) d});
+        } catch (UnknownHostException exception) {
+            throw new IllegalArgumentException(exception);
         }
     }
 

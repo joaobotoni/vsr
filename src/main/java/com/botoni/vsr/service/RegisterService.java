@@ -21,7 +21,7 @@ public class RegisterService {
     }
 
     private PasswordHash hash(RegisterRequest request) {
-        return localCredentialService.hash(request.password());
+        return localCredentialService.hash(request.password().password());
     }
 
     private AuthenticationResponse open(RegisterRequest request, PasswordHash hash, InetAddress ip) {

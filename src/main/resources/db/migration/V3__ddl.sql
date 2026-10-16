@@ -70,7 +70,7 @@ create table usuarios.credencial_local
     updated_at          timestamptz not null default now(),
     constraint pk_credencial_local primary key (id_usuario),
     constraint fk_credencial_local_usuario foreign key (id_usuario) references usuarios.usuario (id_usuario) on delete cascade,
-    constraint ck_credencial_local_hash check (senha_hash ~ '^\$(2[aby]|argon2(i|d|id))\$')
+    constraint ck_credencial_local_hash check (senha_hash ~ '^\$argon2id\$')
 );
 
 create table usuarios.credencial_social

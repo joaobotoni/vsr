@@ -61,6 +61,18 @@ class ProcedureVerificationTest {
     }
 
     @Test
+    void knownDeviceNeedsActiveSession() throws Exception {
+        String known = "select usuarios.dispositivo_conhecido('ana@vsr.com', '00000000-0000-0000-0000-0000000000a1')::text";
+        execute("call usuarios.registrar_dispositivo(1, '00000000-0000-0000-0000-0000000000a1', 'android', 'Samsung', 'S23', '14')");
+        assertThat(text(known)).isEqualTo("false");
+        int active = session("00000000-0000-0000-0000-0000000000a1");
+        assertThat(text(known)).isEqualTo("true");
+        assertThat(text("select usuarios.dispositivo_conhecido('bia@vsr.com', '00000000-0000-0000-0000-0000000000a1')::text")).isEqualTo("false");
+        execute("call usuarios.revogar_sessao(" + active + ")");
+        assertThat(text(known)).isEqualTo("false");
+    }
+
+    @Test
     void refreshTokenRules() throws Exception {
         int session = session("00000000-0000-0000-0000-000000000002");
         execute("call usuarios.emitir_refresh_token(" + session + ", " + HASH_A + ")");
@@ -91,6 +103,16 @@ class ProcedureVerificationTest {
         assertRule("call usuarios.trocar_senha(1, 'hash-errado', '$argon2id$novo')", "rn_senha_alterada");
         execute("call usuarios.trocar_senha(1, '$argon2id$atual', '$argon2id$novo')");
         assertThat(text("select senha_hash from usuarios.credencial_local where id_usuario = 1")).isEqualTo("$argon2id$novo");
+    }
+
+    @Test
+    void passwordHashMustBeArgon2id() {
+        for (String hash : List.of("$2a$10$bcrypt", "$argon2i$v=19$hash", "$argon2d$v=19$hash")) {
+            assertThatThrownBy(() -> execute("update usuarios.credencial_local set senha_hash = '" + hash + "' where id_usuario = 1"))
+                    .isInstanceOf(PSQLException.class)
+                    .satisfies(exception -> assertThat(((PSQLException) exception).getServerErrorMessage().getConstraint())
+                            .isEqualTo("ck_credencial_local_hash"));
+        }
     }
 
     @Test

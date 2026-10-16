@@ -36,9 +36,9 @@ import static org.mockito.Mockito.when;
 @DisplayName("Credencial local")
 class LocalCredentialServiceTest {
 
-    private static final Password CURRENT = Password.of("senha segura 123");
-    private static final Password NEW = Password.of("nova senha 4567");
-    private static final Password WRONG = Password.of("senha errada 123");
+    private static final Password CURRENT = Password.of("Senha@Segura123");
+    private static final Password NEW = Password.of("Nova@Senha4567");
+    private static final Password WRONG = Password.of("Senha@Errada123");
 
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final PasswordEncoder encoder = new PasswordEncoderConfig().passwordEncoder();

@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RateLimitPolicyTest {
 
     private final RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(
-            limit(100), limit(3), limit(4), limit(5), limit(6), limit(7), limit(8)));
+            limit(100), limit(3), limit(4), limit(5), limit(6), limit(9), limit(7)));
 
     @AfterEach
     void close() {

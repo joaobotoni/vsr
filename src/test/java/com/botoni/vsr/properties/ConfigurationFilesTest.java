@@ -28,9 +28,9 @@ class ConfigurationFilesTest {
             "RATE_LIMIT_REGISTER_CAPACITY=5", "RATE_LIMIT_REGISTER_REFILL_RATE=5", "RATE_LIMIT_REGISTER_REFILL_INTERVAL=1m",
             "RATE_LIMIT_REFRESH_CAPACITY=10", "RATE_LIMIT_REFRESH_REFILL_RATE=10", "RATE_LIMIT_REFRESH_REFILL_INTERVAL=1m",
             "RATE_LIMIT_ACCOUNT_CAPACITY=10", "RATE_LIMIT_ACCOUNT_REFILL_RATE=10", "RATE_LIMIT_ACCOUNT_REFILL_INTERVAL=15m",
+            "RATE_LIMIT_CEILING_CAPACITY=50", "RATE_LIMIT_CEILING_REFILL_RATE=50", "RATE_LIMIT_CEILING_REFILL_INTERVAL=1h",
             "RATE_LIMIT_PASSWORD_RESET_CAPACITY=5", "RATE_LIMIT_PASSWORD_RESET_REFILL_RATE=5",
-            "RATE_LIMIT_PASSWORD_RESET_REFILL_INTERVAL=1m",
-            "RATE_LIMIT_UPLOAD_CAPACITY=5", "RATE_LIMIT_UPLOAD_REFILL_RATE=5", "RATE_LIMIT_UPLOAD_REFILL_INTERVAL=1m"
+            "RATE_LIMIT_PASSWORD_RESET_REFILL_INTERVAL=1m"
     };
 
     @Configuration
@@ -54,9 +54,9 @@ class ConfigurationFilesTest {
 
     @Test
     @Controle
-    @DisplayName("web.yaml ignora cabeçalhos encaminhados")
-    void forwardedHeadersAreIgnored() {
-        assertThat(property("web.yaml", "server.forward-headers-strategy")).isEqualTo("none");
+    @DisplayName("web.yaml só aceita X-Forwarded-For pelo RemoteIpValve do Tomcat, restrito aos proxies confiáveis")
+    void forwardedHeadersUseTrustedProxies() {
+        assertThat(property("web.yaml", "server.forward-headers-strategy")).isEqualTo("native");
     }
 
     @Controle

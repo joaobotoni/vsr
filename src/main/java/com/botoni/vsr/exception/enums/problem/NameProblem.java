@@ -12,7 +12,8 @@ import org.springframework.http.HttpStatus;
 public enum NameProblem implements Problem {
 
     MISSING(HttpStatus.BAD_REQUEST, "O nome é obrigatório."),
-    TOO_LONG(HttpStatus.BAD_REQUEST, "O nome deve conter no máximo %d caracteres.");
+    TOO_LONG(HttpStatus.BAD_REQUEST, "O nome deve conter no máximo %d caracteres."),
+    INVALID_CHARACTERS(HttpStatus.BAD_REQUEST, "O nome contém caracteres inválidos.");
 
     private final HttpStatus status;
     private final String message;

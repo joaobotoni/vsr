@@ -15,8 +15,7 @@ final class Rules {
                 rule(HttpMethod.POST, "/auth/login", properties.login()),
                 rule(HttpMethod.POST, "/auth/register", properties.register()),
                 rule(HttpMethod.POST, "/auth/refresh", properties.refresh()),
-                rule(HttpMethod.PATCH, "/users/me/password", properties.password()),
-                rule(HttpMethod.POST, "/evidencias", properties.upload())
+                rule(HttpMethod.PATCH, "/users/me/password", properties.password())
         );
     }
 

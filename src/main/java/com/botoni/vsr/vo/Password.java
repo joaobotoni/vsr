@@ -4,11 +4,16 @@ import com.botoni.vsr.exception.custom.PasswordException;
 import com.botoni.vsr.exception.enums.problem.PasswordProblem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import java.nio.charset.StandardCharsets;
 
+/**
+ * Senha já existente, como chega no login e na senha atual da troca. Só garante que existe e que cabe
+ * no hash; as regras de criação ficam em {@link NewPassword}, para que uma regra nova nunca tranque
+ * quem criou a senha antes dela.
+ */
 public record Password(@JsonValue String value) {
 
-    private static final int MIN_LENGTH = 12;
-    private static final int MAX_LENGTH = 128;
+    private static final int MAX_BYTES = 72;
 
     public Password {
         if (value == null) {
@@ -26,24 +31,13 @@ public record Password(@JsonValue String value) {
         if (value.isBlank()) {
             throw new PasswordException(PasswordProblem.MISSING);
         }
-        if (isShort(value)) {
-            throw new PasswordException(PasswordProblem.TOO_SHORT, MIN_LENGTH);
-        }
         if (isLong(value)) {
-            throw new PasswordException(PasswordProblem.TOO_LONG, MAX_LENGTH);
+            throw new PasswordException(PasswordProblem.TOO_LONG);
         }
-    }
-
-    private static boolean isShort(String value) {
-        return length(value) < MIN_LENGTH;
     }
 
     private static boolean isLong(String value) {
-        return length(value) > MAX_LENGTH;
-    }
-
-    private static int length(String value) {
-        return value.codePointCount(0, value.length());
+        return value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES;
     }
 
     @Override

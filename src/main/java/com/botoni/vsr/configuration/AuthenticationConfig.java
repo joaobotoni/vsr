@@ -2,13 +2,17 @@ package com.botoni.vsr.configuration;
 
 import com.botoni.vsr.database.repository.LocalCredentialRepository;
 import com.botoni.vsr.principal.Principal;
+import com.botoni.vsr.service.LocalCredentialService;
 import com.botoni.vsr.vo.Email;
+import com.botoni.vsr.vo.PasswordHash;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsPasswordService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,14 +27,27 @@ public class AuthenticationConfig {
     }
 
     @Bean
+    public UserDetailsPasswordService userDetailsPasswordService(LocalCredentialService localCredentialService) {
+        return (principal, hash) -> upgrade(localCredentialService, (Principal) principal, hash);
+    }
+
+    @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
         return config.getAuthenticationManager();
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService,
+                                                         UserDetailsPasswordService userDetailsPasswordService,
+                                                         PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
+        provider.setUserDetailsPasswordService(userDetailsPasswordService);
         return provider;
+    }
+
+    private static UserDetails upgrade(LocalCredentialService localCredentialService, Principal principal, String hash) {
+        localCredentialService.upgrade(principal.user(), PasswordHash.of(hash));
+        return principal;
     }
 }

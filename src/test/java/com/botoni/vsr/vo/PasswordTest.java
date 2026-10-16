@@ -5,53 +5,40 @@ import com.botoni.vsr.exception.enums.problem.PasswordProblem;
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("Regras de senha")
+@DisplayName("Senha existente (login e senha atual)")
 class PasswordTest {
 
-    @Test
     @Controle
-    @DisplayName("frase com espaços e só letras minúsculas é aceita, sem ser aparada")
-    void passphraseIsAccepted() {
-        assertThat(Password.of(" minha casa fica perto do rio ").value()).isEqualTo(" minha casa fica perto do rio ");
+    @ParameterizedTest(name = "aceita \"{0}\"")
+    @DisplayName("senha criada sob regras antigas continua entrando: as regras de criação não valem aqui")
+    @ValueSource(strings = {"minha casa fica perto do rio", "senha123", "SOMENTEMAIUSCULA", "a"})
+    void existingPasswordIsAccepted(String value) {
+        assertThat(Password.of(value).value()).isEqualTo(value);
     }
 
     @Test
     @Controle
-    @DisplayName("senha com menos de 12 caracteres é recusada")
-    void shortPasswordIsRejected() {
-        assertThatThrownBy(() -> Password.of("Curta@12345"))
-                .isInstanceOf(PasswordException.class)
-                .extracting("problem").isEqualTo(PasswordProblem.TOO_SHORT);
-    }
-
-    @Test
-    @Controle
-    @DisplayName("aceita até 128 caracteres e recusa a partir de 129")
+    @DisplayName("aceita até 72 bytes e recusa a partir de 73")
     void maximumLengthIsEnforced() {
-        assertThat(Password.of("a".repeat(128)).value()).hasSize(128);
-        assertThatThrownBy(() -> Password.of("a".repeat(129)))
+        assertThat(Password.of("a".repeat(72)).value()).hasSize(72);
+        assertThatThrownBy(() -> Password.of("a".repeat(73)))
                 .isInstanceOf(PasswordException.class)
                 .extracting("problem").isEqualTo(PasswordProblem.TOO_LONG);
     }
 
     @Test
     @Controle
-    @DisplayName("acentos e emojis contam como um caractere cada")
-    void lengthCountsCharactersNotUnits() {
-        assertThatThrownBy(() -> Password.of("🔒".repeat(11)))
-                .extracting("problem").isEqualTo(PasswordProblem.TOO_SHORT);
-        assertThat(Password.of("🔒".repeat(12)).value()).isNotBlank();
-    }
-
-    @Test
-    @Controle
-    @DisplayName("senha só com espaços é recusada")
+    @DisplayName("senha vazia ou só com espaços é recusada")
     void blankPasswordIsRejected() {
         assertThatThrownBy(() -> Password.of(" ".repeat(20)))
+                .extracting("problem").isEqualTo(PasswordProblem.MISSING);
+        assertThatThrownBy(() -> Password.of(null))
                 .extracting("problem").isEqualTo(PasswordProblem.MISSING);
     }
 
@@ -59,6 +46,6 @@ class PasswordTest {
     @Controle
     @DisplayName("o valor nunca aparece no toString")
     void valueIsHiddenInToString() {
-        assertThat(Password.of("senha segura 123")).hasToString("****");
+        assertThat(Password.of("Senha@Segura123")).hasToString("****");
     }
 }

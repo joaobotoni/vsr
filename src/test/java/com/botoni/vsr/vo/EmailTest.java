@@ -18,7 +18,7 @@ class EmailTest {
     @Controle
     @DisplayName("e-mail é aparado e guardado em minúsculas")
     void emailIsNormalized() {
-        assertThat(Email.of("  Ana.Silva+vsr@VSR.com.BR ").value()).isEqualTo("ana.silva+vsr@vsr.com.br");
+        assertThat(Email.of("  Ana.Silva_vsr-1@Mail-1.VSR.com.BR ").value()).isEqualTo("ana.silva_vsr-1@mail-1.vsr.com.br");
     }
 
     @Test
@@ -37,8 +37,18 @@ class EmailTest {
             "sem @                    | anavsr.com      | MISSING_AT_SIGN",
             "com dois @               | ana@x@vsr.com   | MULTIPLE_AT_SIGNS",
             "caractere inválido local | ana!@vsr.com    | INVALID_LOCAL_PART",
+            "com +                    | ana+vsr@vsr.com | INVALID_LOCAL_PART",
+            "com %                    | ana%vsr@vsr.com | INVALID_LOCAL_PART",
+            "ponto no início          | .ana@vsr.com    | INVALID_LOCAL_PART",
+            "ponto no fim             | ana.@vsr.com    | INVALID_LOCAL_PART",
+            "pontos seguidos          | ana..b@vsr.com  | INVALID_LOCAL_PART",
             "domínio sem ponto        | ana@vsr         | INVALID_DOMAIN",
             "domínio com _            | ana@v_sr.com    | INVALID_DOMAIN",
+            "domínio com . no início  | ana@.vsr.com    | INVALID_DOMAIN",
+            "domínio com pontos seguidos | ana@vsr..com | INVALID_DOMAIN",
+            "rótulo começa com hífen  | ana@-vsr.com    | INVALID_DOMAIN",
+            "rótulo termina com hífen | ana@vsr-.com    | INVALID_DOMAIN",
+            "rótulo com 64 caracteres | ana@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com | INVALID_DOMAIN",
             "extensão de uma letra    | ana@vsr.c       | INVALID_TOP_LEVEL_DOMAIN",
             "extensão com número      | ana@vsr.c0m     | INVALID_TOP_LEVEL_DOMAIN"
     })
@@ -46,6 +56,13 @@ class EmailTest {
         assertThatThrownBy(() -> Email.of(value))
                 .isInstanceOf(EmailException.class)
                 .extracting("problem").isEqualTo(problem);
+    }
+
+    @Test
+    @Controle
+    @DisplayName("rótulo do domínio aceita até 63 caracteres")
+    void domainLabelLengthIsEnforced() {
+        assertThat(Email.of("ana@" + "b".repeat(63) + ".com").value()).endsWith(".com");
     }
 
     @Test
@@ -67,7 +84,7 @@ class EmailTest {
     }
 
     private static String emailOf(int length) {
-        String suffix = "@" + "b".repeat(length - 15) + ".com";
+        String suffix = "@" + ("b".repeat(60) + ".").repeat(4) + "com";
         return "a".repeat(length - suffix.length()) + suffix;
     }
 

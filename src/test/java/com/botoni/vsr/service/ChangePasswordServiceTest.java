@@ -47,8 +47,8 @@ import static org.mockito.Mockito.when;
 class ChangePasswordServiceTest {
 
     private static final int SESSION = 10;
-    private static final Password CURRENT = Password.of("senha segura 123");
-    private static final Password NEW = Password.of("nova senha 4567");
+    private static final Password CURRENT = Password.of("Senha@Segura123");
+    private static final Password NEW = Password.of("Nova@Senha4567");
 
     private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(100, 100, Duration.ofSeconds(1)));
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);

@@ -1,4 +1,4 @@
-package com.botoni.vsr.lib;
+package com.botoni.vsr.network;
 
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +20,7 @@ class ClientNetworkSpreadTest {
     void prefix56SharesOneBucket() {
         Set<String> buckets = new HashSet<>();
         for (int subnet = 0; subnet < SUBNETS; subnet++) {
-            buckets.add(ClientNetwork.of("2001:db8:aa:bb%02x::1".formatted(subnet)));
+            buckets.add(ClientNetwork.key("2001:db8:aa:bb%02x:0:0:0:1".formatted(subnet)));
         }
 
         assertThat(buckets).hasSize(1);

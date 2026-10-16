@@ -24,9 +24,9 @@ class TokenBucketTest {
     @Controle
     @DisplayName("cada consumo gasta um token e informa o saldo restante")
     void consumeSpendsOneToken() {
-        assertThat(bucket.take(KEY, START)).isEqualTo(new Verdict(true, 2, INTERVAL));
-        assertThat(bucket.take(KEY, START)).isEqualTo(new Verdict(true, 1, INTERVAL));
-        assertThat(bucket.take(KEY, START)).isEqualTo(new Verdict(true, 0, INTERVAL));
+        assertThat(bucket.take(KEY, START)).isEqualTo(new Allowance(true, 2, INTERVAL));
+        assertThat(bucket.take(KEY, START)).isEqualTo(new Allowance(true, 1, INTERVAL));
+        assertThat(bucket.take(KEY, START)).isEqualTo(new Allowance(true, 0, INTERVAL));
     }
 
     @Test
@@ -35,11 +35,11 @@ class TokenBucketTest {
     void exhaustedBucketIsRejected() {
         exhaust();
 
-        Verdict verdict = bucket.take(KEY, START + 4);
+        Allowance allowance = bucket.take(KEY, START + 4);
 
-        assertThat(verdict.exceeded()).isTrue();
-        assertThat(verdict.remaining()).isZero();
-        assertThat(verdict.retry()).isEqualTo(6);
+        assertThat(allowance.exceeded()).isTrue();
+        assertThat(allowance.remaining()).isZero();
+        assertThat(allowance.retry()).isEqualTo(6);
     }
 
     @Test

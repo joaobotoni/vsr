@@ -2,7 +2,6 @@ package com.botoni.vsr.vo;
 
 import com.botoni.vsr.database.enums.DevicePlatform;
 import com.botoni.vsr.dto.request.DeviceRequest;
-import com.botoni.vsr.support.Brecha;
 import com.botoni.vsr.support.Controle;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -25,20 +24,6 @@ class UntrustedTextTest {
     @AfterAll
     static void close() {
         FACTORY.close();
-    }
-
-    @Brecha
-    @ParameterizedTest(name = "nome aceita: {0}")
-    @DisplayName("nome aceita HTML, caracteres de controle e de inversão de direção")
-    @ValueSource(strings = {
-            "<script>alert(1)</script>",
-            "Ana\u0000Maria",
-            "Ana‮airam",
-            "Ana​Maria",
-            "Ana\r\nBcc: x@y.com"
-    })
-    void nameAcceptsUnsafeCharacters(String value) {
-        assertThat(Name.of(value).value()).isEqualTo(value.trim());
     }
 
     @Controle

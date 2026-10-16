@@ -33,7 +33,7 @@ class LoginServiceTest {
     private final AccessService accessService = mock(AccessService.class);
     private final LoginService loginService = new LoginService(loginAttemptService, userService, accessService);
 
-    private final LoginRequest request = new LoginRequest(Email.of("ana@vsr.com"), Password.of("senha segura 123"),
+    private final LoginRequest request = new LoginRequest(Email.of("ana@vsr.com"), Password.of("Senha@Segura123"),
             new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14"));
 
     @Test
@@ -44,7 +44,7 @@ class LoginServiceTest {
 
         login();
 
-        verify(loginAttemptService).verify(request.email(), request.password(), request.device().identifier());
+        verify(loginAttemptService).verify(request.email(), request.password(), request.device().identifier(), InetAddress.getLoopbackAddress());
     }
 
     @Test
@@ -85,7 +85,7 @@ class LoginServiceTest {
     }
 
     private Authentication attempt() {
-        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier());
+        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier(), InetAddress.getLoopbackAddress());
     }
 
     private void login() {

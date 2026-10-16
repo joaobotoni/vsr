@@ -5,7 +5,7 @@ import com.botoni.vsr.dto.request.RefreshRequest;
 import com.botoni.vsr.dto.request.RegisterRequest;
 import com.botoni.vsr.dto.response.AuthenticationResponse;
 import com.botoni.vsr.dto.response.TokenResponse;
-import com.botoni.vsr.lib.ClientNetwork;
+import com.botoni.vsr.network.ClientNetwork;
 import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.service.LoginService;
 import com.botoni.vsr.service.LogoutService;

@@ -14,6 +14,10 @@ spring:
       data-source-properties:
         logServerErrorDetail: false
 
+  flyway:
+    user: ${FLYWAY_USERNAME:${DB_USERNAME}}
+    password: ${FLYWAY_PASSWORD:${DB_PASSWORD}}
+
   jpa:
     database-platform: ${JPA_DIALECT}
     show-sql: false

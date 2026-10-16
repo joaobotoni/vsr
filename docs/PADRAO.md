@@ -40,7 +40,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `verify` | conferir um segredo (senha, credenciais, JWT) e lançar se não bater | `LocalCredentialService`, `*AttemptService`, `TokenService` |
 | `grant` | dar acesso a um usuário já conferido: dispositivo, sessão e tokens | `AccessService` |
 | `enroll` | registrar ou atualizar o dispositivo do usuário | `DeviceService` |
-| `known` | o dispositivo já pertence ao usuário | `DeviceService` |
+| `known` | o dispositivo é da conta e tem sessão ativa | `DeviceService`, `DeviceRepository` |
 
 ### Senha
 
@@ -51,6 +51,8 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `replace` | gravar a nova senha no lugar da atual | `LocalCredentialService` |
 | `hash` | calcular o hash de um segredo | `LocalCredentialService`, `RefreshTokenService` |
 | `rehash` | conferir que a nova senha é diferente da atual e calcular o hash dela | `LocalCredentialService` |
+| `upgrade` | gravar o hash recalculado com os parâmetros atuais do Argon2, depois de um login correto | `LocalCredentialService`, `AuthenticationConfig` |
+| `swap` | `replace` que desiste em silêncio se outra troca de senha gravou primeiro | `LocalCredentialService` |
 
 ### Tokens
 
@@ -93,7 +95,7 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `level` / `later` | saldo e instante depois da recarga | `Bucket` |
 | `moment` | instante da última recarga | `Bucket` |
 | `rate` / `period` | fichas por recarga / tempo entre recargas (`Duration`); `interval()` é o mesmo período em segundos | `Limit` |
-| `reset` | segundos até a próxima recarga | `Bucket`, `Verdict` |
+| `reset` | segundos até a próxima recarga | `Bucket`, `Allowance` |
 | `deadline` | instante (epoch) da próxima recarga | `RateLimitFilter` |
 | `capped` | limitado à capacidade | `Bucket` |
 | `key` | chave do saldo (ex.: `ip:...`, `login:...`) | `Attempt`, `TokenBucket`, `RateLimitFilter` |
@@ -101,10 +103,55 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `delegate` | o `RequestMatcher` do Spring que o `Matcher` envolve | `Matcher` |
 | `within` | exigir que o consumo esteja dentro do limite | `AttemptLimiter` |
 | `advise` | informar no `Retry-After` quando tentar de novo | `RateLimitFilter` |
-| `retry` | segundos até poder tentar de novo | `Verdict` |
-| `allowed` | resultado do último consumo, guardado no `Bucket` porque o `compute` do mapa só devolve o novo valor | `Bucket`, `Verdict` |
+| `retry` | segundos até poder tentar de novo | `Allowance` |
+| `allowed` | resultado do último consumo, guardado no `Bucket` porque o `compute` do mapa só devolve o novo valor | `Bucket`, `Allowance` |
+| `sized` | montar a regra com um teto de chaves próprio (o padrão é 50 mil) | `Rule` |
+| `crowded` | a regra está cheia e a chave ainda não tem saldo | `Rule` |
+| `vacate` | com a regra cheia, pedir a limpeza dos saldos ociosos | `Rule` |
+| `refused` | a recusa de uma chave nova numa regra cheia | `Rule` |
+| `relieve` | limpar os saldos ociosos sob demanda, no máximo uma vez por segundo | `Sweeper` |
+| `due` | já passou um segundo desde a última limpeza sob demanda (e reserva esta) | `Sweeper` |
 
-Tipos do rate limit: `Limit` é a configuração (capacidade, taxa, período); `Rule` é uma regra (rota + limite + saldos); `Verdict` é o resultado de um consumo (permitido, restante, reset); `RateLimitPolicy` escolhe a regra da requisição.
+Tipos do rate limit: `Limit` é a configuração (capacidade, taxa, período); `Rule` é uma regra (rota + limite + saldos); `Allowance` é o resultado de um consumo (permitido, restante, reset); `RateLimitPolicy` escolhe a regra da requisição.
+
+### Tentativas
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `attempt` | rodar uma ação contando a tentativa; falha esperada gasta a ficha, sucesso e erro de infraestrutura devolvem | `AttemptLimiter` |
+| `ceiled` | montar com teto: a tentativa (`Attempt`) com chave de teto, o limitador (`AttemptLimiter`) com regra de teto | `Attempt`, `AttemptLimiter` |
+| `ceiling` | chave ou regra do teto que soma várias chaves (ex.: todas as redes de uma conta) | `Attempt`, `AttemptLimiter` |
+| `ceil` | gastar uma ficha do teto, se houver | `AttemptLimiter` |
+| `beneath` | exigir que o teto não tenha estourado; se estourou, devolve a ficha da chave antes de recusar | `AttemptLimiter` |
+| `restore` | devolver a ficha do teto, se houver | `AttemptLimiter` |
+| `release` | devolver as fichas quando a exceção não é a falha esperada | `AttemptLimiter` |
+| `shut` | fechar a regra de teto, se houver | `AttemptLimiter` |
+| `limited` | a tentativa tem chave de teto | `Attempt` |
+| `covered` | o limitador tem regra de teto | `AttemptLimiter` |
+| `bounded` | a tentativa e o limitador têm teto, então o teto conta | `AttemptLimiter` |
+| `fails` | a exceção é a falha esperada da tentativa | `Attempt` |
+
+### Rede
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `address` | ler o endereço do cliente como literal IP, sem DNS | `ClientNetwork` |
+| `literal` | exigir que o texto seja um literal IPv4 ou IPv6 | `ClientNetwork` |
+| `ip` | o texto tem forma de literal IP | `ClientNetwork` |
+| `parse` | converter o literal em `InetAddress` | `ClientNetwork` |
+| `invalid` | a exceção de endereço inválido | `ClientNetwork` |
+| `network` | a rede (`Network`) do endereço já lido | `ClientNetwork` |
+| `from` | escolher a família (`Ipv4`, `Ipv6`) pelo endereço | `Network` |
+| `key` | chave da rede do cliente (ex.: `203.0.113.7`, `2001:db8::/56`), parte da chave do saldo | `Network`, `Mask`, `ClientNetwork` |
+| `prefix` | bits que identificam a rede na família | `Ipv4`, `Ipv6` |
+| `format` | formato da chave da família (`%s`, `%s/%d`) | `Ipv4`, `Ipv6` |
+| `valid` | o texto tem a sintaxe de um endereço da família | `Ipv4`, `Ipv6` |
+| `syntax` | a regex que define a sintaxe da família (no IPv6, montada a partir das formas abaixo) | `Ipv4`, `Ipv6` |
+| `expanded` | a forma do IPv6 com os 8 hextets escritos | `Ipv6` |
+| `compressed` | a forma do IPv6 com `::` depois de um número de hextets | `Ipv6` |
+| `head` / `tail` | os hextets antes / depois do `::` | `Ipv6` |
+| `apply` | aplicar o prefixo e devolver o endereço da rede | `Mask` |
+| `truncate` | cortar o endereço no prefixo, zerando os bits depois dele | `Mask` |
 
 ### Gerais
 
@@ -115,5 +162,6 @@ Tipos do rate limit: `Limit` é a configuração (capacidade, taxa, período); `
 | `find` | buscar e lançar se não existir (nunca devolve `Optional`) |
 | `show` | converter para o DTO de resposta |
 | `send` / `sendAttachments` | enviar e-mail sem anexos / com anexos |
+| `load` | conferir e ler os anexos uma vez, pelo caminho real e sem seguir link | `MailService` |
 | `plain` / `multipart` | montar a mensagem de texto / com partes |
 | `view` | consultar o perfil do usuário (`ProfileService`) |

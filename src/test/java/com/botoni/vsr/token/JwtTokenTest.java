@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -82,5 +83,15 @@ class JwtTokenTest {
         assertThatThrownBy(() -> new JwtToken(Tokens.SECRET, " ", Duration.ofMinutes(15), Clock.systemUTC()))
                 .isInstanceOf(JwtException.class)
                 .extracting("problem").isEqualTo(JwtProblem.MISSING_ISSUER);
+    }
+
+    @Controle
+    @ParameterizedTest(name = "validade {0} impede a subida")
+    @DisplayName("validade do JWT zero ou negativa impede a subida: todo token nasceria vencido")
+    @ValueSource(strings = {"PT0S", "-PT15M"})
+    void emptyExpirationIsRejected(String expiration) {
+        assertThatThrownBy(() -> new JwtToken(Tokens.SECRET, Tokens.ISSUER, Duration.parse(expiration), Clock.systemUTC()))
+                .isInstanceOf(JwtException.class)
+                .extracting("problem").isEqualTo(JwtProblem.INVALID_EXPIRATION);
     }
 }

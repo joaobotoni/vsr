@@ -70,6 +70,25 @@ begin
 end;
 $$;
 
+create function usuarios.dispositivo_conhecido(
+    p_email text,
+    p_identificador uuid
+)
+    returns boolean
+    language sql
+    stable
+as
+$$
+select exists (
+    select 1
+    from usuarios.dispositivo d
+    join usuarios.usuario u on u.id_usuario = d.id_usuario
+    join usuarios.sessao_ativa s on s.id_dispositivo = d.id_dispositivo
+    where u.email = p_email
+      and d.identificador = p_identificador
+);
+$$;
+
 create procedure usuarios.registrar_acesso_sessao(
     p_id_sessao int
 )

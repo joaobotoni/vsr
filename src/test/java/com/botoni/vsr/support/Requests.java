@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 public final class Requests {
 
-    public static final String VALID_PASSWORD = "senha segura 123";
+    public static final String VALID_PASSWORD = "Senha@Segura123";
 
     private static final String DEVICE = """
             {"identifier":"7f1c2a8e-3b4d-4c5e-8f90-112233445566","platform":"android",
@@ -38,7 +38,7 @@ public final class Requests {
     }
 
     public static MockHttpServletRequestBuilder changePassword(String token) {
-        return json(patch("/api/1/users/me/password"), CHANGE_PASSWORD.formatted(VALID_PASSWORD, "nova senha 4567"))
+        return json(patch("/api/1/users/me/password"), CHANGE_PASSWORD.formatted(VALID_PASSWORD, "Nova@Senha4567"))
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 

@@ -2,9 +2,9 @@ package com.botoni.vsr.filter;
 
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
-import com.botoni.vsr.lib.ClientNetwork;
+import com.botoni.vsr.network.ClientNetwork;
 import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.Verdict;
+import com.botoni.vsr.ratelimit.Allowance;
 import com.botoni.vsr.ratelimit.Rule;
 import com.botoni.vsr.ratelimit.RateLimitPolicy;
 import jakarta.servlet.FilterChain;
@@ -36,43 +36,43 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
         Rule rule = policy.resolve(request);
-        Verdict verdict = consume(rule, request);
-        headers(response, rule.limit(), verdict);
-        advise(response, verdict);
-        proceed(request, response, chain, verdict);
+        Allowance allowance = consume(rule, request);
+        headers(response, rule.limit(), allowance);
+        advise(response, allowance);
+        proceed(request, response, chain, allowance);
     }
 
-    private static Verdict consume(Rule rule, HttpServletRequest request) {
+    private static Allowance consume(Rule rule, HttpServletRequest request) {
         return rule.consume(key(request));
     }
 
-    private void headers(HttpServletResponse response, Limit limit, Verdict verdict) {
+    private void headers(HttpServletResponse response, Limit limit, Allowance allowance) {
         response.setHeader(LIMIT, String.valueOf(limit.capacity()));
-        response.setHeader(REMAINING, String.valueOf(remaining(verdict)));
-        response.setHeader(RESET, String.valueOf(deadline(verdict.retry())));
+        response.setHeader(REMAINING, String.valueOf(remaining(allowance)));
+        response.setHeader(RESET, String.valueOf(deadline(allowance.retry())));
     }
 
-    private static void advise(HttpServletResponse response, Verdict verdict) {
-        if (!verdict.exceeded()) {
+    private static void advise(HttpServletResponse response, Allowance allowance) {
+        if (!allowance.exceeded()) {
             return;
         }
-        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(verdict.retry()));
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(allowance.retry()));
     }
 
-    private static void proceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Verdict verdict)
+    private static void proceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Allowance allowance)
             throws ServletException, IOException {
-        if (verdict.exceeded()) {
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, verdict.retry());
+        if (allowance.exceeded()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, allowance.retry());
         }
         chain.doFilter(request, response);
     }
 
     private static String key(HttpServletRequest request) {
-        return String.format(KEY, ClientNetwork.of(request.getRemoteAddr()));
+        return String.format(KEY, ClientNetwork.key(request.getRemoteAddr()));
     }
 
-    private static long remaining(Verdict verdict) {
-        return (long) verdict.remaining();
+    private static long remaining(Allowance allowance) {
+        return (long) allowance.remaining();
     }
 
     private long deadline(long retry) {

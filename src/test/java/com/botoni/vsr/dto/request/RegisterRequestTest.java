@@ -5,7 +5,7 @@ import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.vo.Cpf;
 import com.botoni.vsr.vo.Email;
 import com.botoni.vsr.vo.Name;
-import com.botoni.vsr.vo.Password;
+import com.botoni.vsr.vo.NewPassword;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +38,6 @@ class RegisterRequestTest {
 
     private static RegisterRequest request(Name name) {
         DeviceRequest device = new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14");
-        return new RegisterRequest(name, Cpf.of("52998224725"), Email.of("ana@vsr.com"), Password.of("senha segura 123"), device);
+        return new RegisterRequest(name, Cpf.of("52998224725"), Email.of("ana@vsr.com"), NewPassword.of("Senha@Segura123"), device);
     }
 }

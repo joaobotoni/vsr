@@ -19,13 +19,13 @@ public class LoginService {
     private final AccessService accessService;
 
     public AuthenticationResponse login(LoginRequest request, InetAddress ip) {
-        Authentication authentication = verify(request);
+        Authentication authentication = verify(request, ip);
         User user = find(authentication);
         return grant(user, request, ip);
     }
 
-    private Authentication verify(LoginRequest request) {
-        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier());
+    private Authentication verify(LoginRequest request, InetAddress ip) {
+        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier(), ip);
     }
 
     private User find(Authentication authentication) {

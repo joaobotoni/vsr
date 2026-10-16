@@ -23,10 +23,10 @@ public class SessionService {
 
     private static final Integer KEEP_NONE = null;
 
+    private final Clock clock;
     private final SessionRepository sessionRepository;
     private final SessionMapper sessionMapper;
     private final SessionProperties sessionProperties;
-    private final Clock clock;
     private final SessionPolicyService sessionPolicyService;
 
     @Transactional

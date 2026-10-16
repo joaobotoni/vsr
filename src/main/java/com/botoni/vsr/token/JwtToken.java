@@ -27,7 +27,7 @@ public final class JwtToken {
 
     public JwtToken(String secretKey, String issuer, Duration expirationTime, Clock clock) {
         this.issuer = issuer;
-        this.expirationTime = expirationTime;
+        this.expirationTime = lifetime(expirationTime);
         this.algorithm = algorithm(secret(secretKey));
         this.verifier = verifier(algorithm, issuer);
         this.clock = clock;
@@ -87,6 +87,17 @@ public final class JwtToken {
 
     private static Integer session(DecodedJWT jwt) {
         return jwt.getClaim(SESSION_CLAIM).asInt();
+    }
+
+    private static Duration lifetime(Duration expirationTime) {
+        if (empty(expirationTime)) {
+            throw new JwtException(JwtProblem.INVALID_EXPIRATION);
+        }
+        return expirationTime;
+    }
+
+    private static boolean empty(Duration expirationTime) {
+        return expirationTime == null || expirationTime.isZero() || expirationTime.isNegative();
     }
 
     private static byte[] secret(String secretKey) {

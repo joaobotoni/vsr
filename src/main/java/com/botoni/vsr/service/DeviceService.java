@@ -26,7 +26,7 @@ public class DeviceService {
     }
 
     public boolean known(Email email, UUID identifier) {
-        return deviceRepository.existsByUserEmailAndIdentifier(email, identifier);
+        return deviceRepository.known(email.value(), identifier);
     }
 
     private void upsert(User user, DeviceRequest request) {

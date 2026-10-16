@@ -43,6 +43,19 @@ class RuleTest {
 
     @Test
     @Controle
+    @DisplayName("com o teto de chaves cheio, chave nova é recusada e as chaves já contadas seguem funcionando")
+    void fullRuleRejectsNewKeysOnly() {
+        try (Rule rule = Rule.sized(Matcher.any(), new Limit(5, 1, Duration.ofHours(1)), 2)) {
+            assertThat(rule.consume("ip:10.0.0.1").allowed()).isTrue();
+            assertThat(rule.consume("ip:10.0.0.2").allowed()).isTrue();
+
+            assertThat(rule.consume("ip:10.0.0.3").exceeded()).isTrue();
+            assertThat(rule.consume("ip:10.0.0.1").allowed()).isTrue();
+        }
+    }
+
+    @Test
+    @Controle
     @DisplayName("fechar descarta os saldos")
     void closeDiscardsBuckets() {
         Rule rule = Rule.any(new Limit(1, 1, Duration.ofHours(1)));
@@ -58,7 +71,7 @@ class RuleTest {
     @DisplayName("cada regra da política tem saldo próprio: estourar o login não afeta o cadastro nem o geral")
     void policyRulesAreIndependent() {
         Limit one = new Limit(1, 1, Duration.ofHours(1));
-        try (RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, one, one))) {
+        try (RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one))) {
             Rule login = policy.resolve(request("POST", "/api/1/auth/login"));
             login.consume(KEY);
 
@@ -73,7 +86,7 @@ class RuleTest {
     @DisplayName("a mesma rota resolve sempre a mesma regra, inclusive em versões diferentes da API")
     void sameRouteSharesRule() {
         Limit one = new Limit(1, 1, Duration.ofHours(1));
-        try (RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, one, one))) {
+        try (RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one))) {
             policy.resolve(request("POST", "/api/1/auth/login")).consume(KEY);
 
             assertThat(policy.resolve(request("POST", "/api/2/auth/login")).consume(KEY).exceeded()).isTrue();

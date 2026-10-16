@@ -101,12 +101,12 @@ class BucketTest {
     }
 
     @Nested
-    @DisplayName("retirada")
-    class Take {
+    @DisplayName("consumo")
+    class Consume {
 
         @ParameterizedTest(name = "{0} tokens → permitido, sobram {1}")
         @Controle
-        @DisplayName("com pelo menos um token, retira um e marca como permitido")
+        @DisplayName("com pelo menos um token, consome um e marca como permitido")
         @CsvSource({"3, 2", "1, 0", "1.5, 0.5", "2.25, 1.25"})
         void grantsWithToken(double tokens, double left) {
             assertThat(new Bucket(tokens, START, false).consume()).isEqualTo(new Bucket(left, START, true));
@@ -122,7 +122,7 @@ class BucketTest {
 
         @Test
         @Controle
-        @DisplayName("retiradas sucessivas esgotam exatamente a capacidade")
+        @DisplayName("consumos sucessivos esgotam exatamente a capacidade")
         void successiveConsumesExhaustCapacity() {
             Bucket bucket = Bucket.full(LIMIT, START);
             int granted = 0;
@@ -138,7 +138,7 @@ class BucketTest {
 
     @Nested
     @DisplayName("devolução")
-    class Restore {
+    class Refund {
 
         @Test
         @Controle

@@ -35,8 +35,8 @@ class ChangePasswordBruteForceTest {
 
     private static final int SESSION = 10;
     private static final int CAPACITY = 3;
-    private static final Password CURRENT = Password.of("senha segura 123");
-    private static final Password NEW = Password.of("nova senha 4567");
+    private static final Password CURRENT = Password.of("Senha@Segura123");
+    private static final Password NEW = Password.of("Nova@Senha4567");
 
     private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
@@ -92,7 +92,7 @@ class ChangePasswordBruteForceTest {
 
     private void guess(int times) {
         for (int i = 0; i < times; i++) {
-            Password guess = Password.of("chute numero " + i);
+            Password guess = Password.of("Chute@Numero" + i);
             assertThatThrownBy(() -> change(guess))
                     .isInstanceOf(CredentialException.class)
                     .extracting("problem").isEqualTo(CredentialProblem.INCORRECT_CURRENT_PASSWORD);
