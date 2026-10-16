@@ -4,8 +4,9 @@ import com.botoni.vsr.database.enums.DevicePlatform;
 import com.botoni.vsr.dto.request.DeviceRequest;
 import com.botoni.vsr.dto.request.LoginRequest;
 import com.botoni.vsr.exception.custom.RateLimitException;
-import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.AttemptLimiter;
+import com.botoni.vsr.ratelimit.RateLimitPolicy;
+import com.botoni.vsr.support.Policies;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Email;
@@ -30,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -43,19 +43,16 @@ class LoginLockoutTest {
     private static final int PARALLEL = 20;
     private static final String RIGHT = "Senha@Segura123";
     private static final String WRONG = "Senha@Errada999";
-    private static final UUID PHONE = UUID.randomUUID();
 
-    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final RateLimitPolicy rateLimitPolicy = Policies.of(new Limit(CAPACITY, 1, Duration.ofHours(1)), new Limit(CAPACITY * 10, 1, Duration.ofHours(1)));
     private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
-    private final DeviceService deviceService = mock(DeviceService.class);
-    private final LoginAttemptService loginAttemptService =
-            new LoginAttemptService(attemptLimiter, deviceService, authenticationManager);
+    private final LoginAttemptService loginAttemptService = new LoginAttemptService(rateLimitPolicy, authenticationManager);
     private final UserService userService = mock(UserService.class);
     private final LoginService loginService = new LoginService(loginAttemptService, userService, mock(AccessService.class));
 
     @AfterEach
     void close() {
-        attemptLimiter.close();
+        rateLimitPolicy.close();
     }
 
     @Test
@@ -75,7 +72,7 @@ class LoginLockoutTest {
             for (int i = 0; i < PARALLEL; i++) {
                 attempts.add(pool.submit(() -> {
                     start.await();
-                    attempt(WRONG, UUID.randomUUID());
+                    attempt(WRONG);
                     return null;
                 }));
             }
@@ -92,9 +89,8 @@ class LoginLockoutTest {
 
     @Test
     @Controle
-    @DisplayName("quem conhece só o e-mail não tranca a vítima, que entra pelo dispositivo que já usa")
-    void attackerCannotLockOutVictimDevice() {
-        when(deviceService.known(Email.of(Users.EMAIL), PHONE)).thenReturn(true);
+    @DisplayName("depois do limite de tentativas da conta naquela rede, até a senha certa é recusada nessa rede")
+    void exhaustedAccountRejectsEvenTheRightPassword() {
         when(authenticationManager.authenticate(any())).thenAnswer(invocation -> {
             UsernamePasswordAuthenticationToken token = invocation.getArgument(0);
             if (!RIGHT.equals(token.getCredentials())) {
@@ -102,28 +98,25 @@ class LoginLockoutTest {
             }
             return UsernamePasswordAuthenticationToken.authenticated(Users.principal(), null, List.of());
         });
-        when(userService.find(any())).thenReturn(Users.ana());
 
-        for (int i = 0; i < CAPACITY * 3; i++) {
-            attempt(WRONG, UUID.randomUUID());
+        for (int i = 0; i < CAPACITY; i++) {
+            attempt(WRONG);
         }
 
-        assertThatThrownBy(() -> loginService.login(request(RIGHT, UUID.randomUUID()), InetAddress.getLoopbackAddress()))
+        assertThatThrownBy(() -> loginService.login(request(RIGHT), InetAddress.getLoopbackAddress()))
                 .isInstanceOf(RateLimitException.class);
-        assertThatCode(() -> loginService.login(request(RIGHT, PHONE), InetAddress.getLoopbackAddress()))
-                .doesNotThrowAnyException();
     }
 
-    private void attempt(String password, UUID device) {
+    private void attempt(String password) {
         try {
-            loginService.login(request(password, device), InetAddress.getLoopbackAddress());
+            loginService.login(request(password), InetAddress.getLoopbackAddress());
         } catch (BadCredentialsException | RateLimitException ignored) {
             // falha esperada; o que importa é quantas tentativas chegaram à senha
         }
     }
 
-    private static LoginRequest request(String password, UUID device) {
+    private static LoginRequest request(String password) {
         return new LoginRequest(Email.of(Users.EMAIL), Password.of(password),
-                new DeviceRequest(device, DevicePlatform.ANDROID, "Samsung", "S23", "14"));
+                new DeviceRequest(UUID.randomUUID(), DevicePlatform.ANDROID, "Samsung", "S23", "14"));
     }
 }

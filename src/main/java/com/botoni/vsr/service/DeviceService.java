@@ -6,7 +6,6 @@ import com.botoni.vsr.database.repository.DeviceRepository;
 import com.botoni.vsr.dto.request.DeviceRequest;
 import com.botoni.vsr.exception.custom.DeviceException;
 import com.botoni.vsr.exception.enums.problem.DeviceProblem;
-import com.botoni.vsr.vo.Email;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +22,6 @@ public class DeviceService {
     public Device enroll(User user, DeviceRequest request) {
         upsert(user, request);
         return find(user, request.identifier());
-    }
-
-    public boolean known(Email email, UUID identifier) {
-        return deviceRepository.known(email.value(), identifier);
     }
 
     private void upsert(User user, DeviceRequest request) {

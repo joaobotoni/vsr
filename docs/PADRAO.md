@@ -15,7 +15,7 @@ Regras que valem para todo o código de produção. As regras de forma dos servi
 - **O privado que repassa para outro serviço usa o mesmo verbo do método chamado** (`issue` → `refreshTokenService.issue`). Se esse nome já existir na classe, ele recebe o substantivo do que devolve (`tokens` → `tokenService.issue`).
 - O privado que chama repositório, mapper ou framework traduz o nome técnico para o domínio (`clear` → `sessionRepository.revokeDevice`).
 - Guardas são `void`, têm o nome da condição exigida (`present`, `fresh`, `unexpired`) e o corpo do `if` só sai cedo (`throw` ou `return`).
-- Classes de cálculo (`Bucket`, `Limit`, `TokenBucket`) seguem o mesmo estilo de passos.
+- O `TokenBucket` é exceção declarada: segue o formato do commit b9f9420 (ver [Rate limit](#rate-limit)).
 
 ## Nomes
 
@@ -40,7 +40,6 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 | `verify` | conferir um segredo (senha, credenciais, JWT) e lançar se não bater | `LocalCredentialService`, `*AttemptService`, `TokenService` |
 | `grant` | dar acesso a um usuário já conferido: dispositivo, sessão e tokens | `AccessService` |
 | `enroll` | registrar ou atualizar o dispositivo do usuário | `DeviceService` |
-| `known` | o dispositivo é da conta e tem sessão ativa | `DeviceService`, `DeviceRepository` |
 
 ### Senha
 
@@ -84,52 +83,38 @@ Públicos → passos na ordem em que são chamados → auxiliares de desvio de f
 
 ### Rate limit
 
-| Verbo | Sentido | Onde |
+O algoritmo fica inteiro no `TokenBucket`, a mesma conta do script Lua (formato do commit b9f9420), com uma chave genérica e intocado; em volta dele ficam só o limite de chaves e a limpeza; com os records `Limit`, `Allowance` e `Bucket` dentro dele. Os records só carregam dados: a validação do `Limit` e o cálculo do `retry` ficam no `TokenBucket`. Este bloco segue esse formato em vez das regras de passos acima.
+
+| Nome | Sentido | Onde |
 |---|---|---|
-| `consume` | gastar uma ficha | `Rule`, `TokenBucket`, `Bucket` |
-| `take` | `consume` com o instante explícito (gancho de teste) | `TokenBucket` |
-| `refund` | devolver uma ficha | `Rule`, `TokenBucket`, `Bucket` |
-| `refill` | recarregar as fichas pelo tempo decorrido | `Bucket` |
-| `periods` | quantos intervalos completos se passaram desde a última recarga | `Bucket` |
-| `advance` / `next` | avançar o bucket para a próxima recarga, se houver intervalo completo | `Bucket` |
-| `level` / `later` | saldo e instante depois da recarga | `Bucket` |
-| `moment` | instante da última recarga | `Bucket` |
-| `rate` / `period` | fichas por recarga / tempo entre recargas (`Duration`); `interval()` é o mesmo período em segundos | `Limit` |
-| `reset` | segundos até a próxima recarga | `Bucket`, `Allowance` |
+| `allow` | recarregar e gastar uma ficha da chave dentro do `compute`; `allow(key, now)` recebe o instante (gancho de teste) | `TokenBucket` |
+| `evict` | remover os saldos ociosos (`findIdleKeys` acha, `removeKeys` remove só se ainda estiver ocioso) | `TokenBucket` |
+| `refillInterval` | o `period` do `Limit` em segundos, calculado uma vez | `TokenBucket` |
+| `ttl` | tempo para encher do zero: `ceil(capacity / refillRate)` intervalos; depois dele o saldo é `idle` | `TokenBucket` |
+| `lastRefill` | instante da última recarga | `TokenBucket.Bucket` |
+| `reset` | segundos até a próxima recarga | `TokenBucket.Allowance` |
+| `retry` | o `reset` arredondado para cima, com mínimo de 1 (`TokenBucket.retry(allowance)`) | `TokenBucket` |
+| `validate` | exigir capacidade, taxa e período maiores que zero ao montar o `TokenBucket` | `TokenBucket` |
+| `cleaner` / `schedule` | a thread de limpeza compartilhada por todos os `TokenBucket` / agendar o `evict` periódico | `TokenBucket` |
+| `crowded` | o limite de chaves (200 mil) está cheio e a chave é nova; antes de recusar, chama o `evict` no máximo uma vez por segundo (`due`) | `TokenBucket` |
+| `capacity` / `rate` / `period` | fichas máximas / fichas por recarga / tempo entre recargas (`Duration`), como no `rate-limit.yaml` | `TokenBucket.Limit` |
+| `pattern` | o caminho da rota em qualquer versão (`/api/*` + caminho) | `Route` |
+| `resolve` | escolher o `TokenBucket` da requisição, ou o fallback `api` | `RateLimitPolicy` |
+| `account` / `ceiling` | o `TokenBucket` da conta (conta e rede no login; usuário na troca de senha) / o do teto da conta | `RateLimitPolicy` |
+| `from` | montar as rotas da API com o limite de cada uma | `Routes` |
 | `deadline` | instante (epoch) da próxima recarga | `RateLimitFilter` |
-| `capped` | limitado à capacidade | `Bucket` |
-| `key` | chave do saldo (ex.: `ip:...`, `login:...`) | `Attempt`, `TokenBucket`, `RateLimitFilter` |
-| `pattern` | casar método e caminho da rota | `Matcher` |
-| `delegate` | o `RequestMatcher` do Spring que o `Matcher` envolve | `Matcher` |
-| `within` | exigir que o consumo esteja dentro do limite | `AttemptLimiter` |
 | `advise` | informar no `Retry-After` quando tentar de novo | `RateLimitFilter` |
-| `retry` | segundos até poder tentar de novo | `Allowance` |
-| `allowed` | resultado do último consumo, guardado no `Bucket` porque o `compute` do mapa só devolve o novo valor | `Bucket`, `Allowance` |
-| `sized` | montar a regra com um teto de chaves próprio (o padrão é 50 mil) | `Rule` |
-| `crowded` | a regra está cheia e a chave ainda não tem saldo | `Rule` |
-| `vacate` | com a regra cheia, pedir a limpeza dos saldos ociosos | `Rule` |
-| `refused` | a recusa de uma chave nova numa regra cheia | `Rule` |
-| `relieve` | limpar os saldos ociosos sob demanda, no máximo uma vez por segundo | `Sweeper` |
-| `due` | já passou um segundo desde a última limpeza sob demanda (e reserva esta) | `Sweeper` |
+| `within` | exigir que o consumo esteja dentro do limite, senão `429` | `LoginAttemptService`, `PasswordAttemptService` |
+| `network` / `account` | no login, gastar da conta naquela rede / do teto da conta (só se a rede ainda tinha saldo) | `LoginAttemptService` |
 
-Tipos do rate limit: `Limit` é a configuração (capacidade, taxa, período); `Rule` é uma regra (rota + limite + saldos); `Allowance` é o resultado de um consumo (permitido, restante, reset); `RateLimitPolicy` escolhe a regra da requisição.
+Classes do rate limit:
 
-### Tentativas
-
-| Verbo | Sentido | Onde |
-|---|---|---|
-| `attempt` | rodar uma ação contando a tentativa; falha esperada gasta a ficha, sucesso e erro de infraestrutura devolvem | `AttemptLimiter` |
-| `ceiled` | montar com teto: a tentativa (`Attempt`) com chave de teto, o limitador (`AttemptLimiter`) com regra de teto | `Attempt`, `AttemptLimiter` |
-| `ceiling` | chave ou regra do teto que soma várias chaves (ex.: todas as redes de uma conta) | `Attempt`, `AttemptLimiter` |
-| `ceil` | gastar uma ficha do teto, se houver | `AttemptLimiter` |
-| `beneath` | exigir que o teto não tenha estourado; se estourou, devolve a ficha da chave antes de recusar | `AttemptLimiter` |
-| `restore` | devolver a ficha do teto, se houver | `AttemptLimiter` |
-| `release` | devolver as fichas quando a exceção não é a falha esperada | `AttemptLimiter` |
-| `shut` | fechar a regra de teto, se houver | `AttemptLimiter` |
-| `limited` | a tentativa tem chave de teto | `Attempt` |
-| `covered` | o limitador tem regra de teto | `AttemptLimiter` |
-| `bounded` | a tentativa e o limitador têm teto, então o teto conta | `AttemptLimiter` |
-| `fails` | a exceção é a falha esperada da tentativa | `Attempt` |
+| Classe | Responsabilidade |
+|---|---|
+| `TokenBucket` | o algoritmo e os saldos de um limite, a validação do limite e o `retry`, com `Limit` (configuração), `Allowance` (resultado) e `Bucket` (saldo) aninhados como records só de dados |
+| `Route` | record no estilo dos VOs: método e caminho validados |
+| `RateLimitPolicy` | dona de todos os `TokenBucket`: o de cada rota, o fallback, o da conta e o do teto; fecha todos no `close()` |
+| `Routes` | as rotas da API e o limite de cada uma |
 
 ### Rede
 

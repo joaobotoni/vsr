@@ -7,8 +7,9 @@ import com.botoni.vsr.exception.custom.CredentialException;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.CredentialProblem;
 import com.botoni.vsr.mapper.LocalCredentialMapper;
-import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.AttemptLimiter;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
+import com.botoni.vsr.ratelimit.RateLimitPolicy;
+import com.botoni.vsr.support.Policies;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Password;
@@ -38,13 +39,13 @@ class ChangePasswordBruteForceTest {
     private static final Password CURRENT = Password.of("Senha@Segura123");
     private static final Password NEW = Password.of("Nova@Senha4567");
 
-    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(CAPACITY, 1, Duration.ofHours(1)));
+    private final RateLimitPolicy rateLimitPolicy = Policies.account(new Limit(CAPACITY, 1, Duration.ofHours(1)));
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final PasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final LocalCredentialService localCredentialService =
             new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder, Clock.systemUTC());
     private final ChangePasswordService changePasswordService = new ChangePasswordService(
-            new PasswordAttemptService(attemptLimiter, localCredentialService), localCredentialService,
+            new PasswordAttemptService(rateLimitPolicy, localCredentialService), localCredentialService,
             new PasswordService(localCredentialService, mock(SessionService.class), mock(AccessService.class)));
 
     private final User user = Users.ana();
@@ -58,7 +59,7 @@ class ChangePasswordBruteForceTest {
 
     @AfterEach
     void close() {
-        attemptLimiter.close();
+        rateLimitPolicy.close();
     }
 
     @Test
@@ -72,22 +73,23 @@ class ChangePasswordBruteForceTest {
 
     @Test
     @Controle
-    @DisplayName("senha atual certa devolve a tentativa: trocas legítimas nunca trancam a conta")
-    void correctPasswordRefundsAttempt() {
-        for (int i = 0; i < CAPACITY * 3; i++) {
+    @DisplayName("toda tentativa conta, inclusive com a senha certa: depois do limite, a troca é recusada")
+    void everyAttemptCounts() {
+        for (int i = 0; i < CAPACITY; i++) {
             assertThatCode(() -> change(CURRENT)).doesNotThrowAnyException();
         }
+
+        assertThatThrownBy(() -> change(CURRENT)).isInstanceOf(RateLimitException.class);
     }
 
     @Test
     @Controle
-    @DisplayName("falha de infraestrutura passa adiante e devolve a tentativa")
-    void infrastructureFailureRefundsAttempt() {
+    @DisplayName("o limite é gasto antes de conferir a senha: recusada, a troca nem consulta o banco")
+    void limitIsCheckedBeforePassword() {
+        guess(CAPACITY);
         when(repository.findByUserUuid(user.getUuid())).thenThrow(new DataAccessResourceFailureException("banco indisponível"));
 
-        for (int i = 0; i < CAPACITY * 3; i++) {
-            assertThatThrownBy(() -> change(CURRENT)).isInstanceOf(DataAccessResourceFailureException.class);
-        }
+        assertThatThrownBy(() -> change(CURRENT)).isInstanceOf(RateLimitException.class);
     }
 
     private void guess(int times) {

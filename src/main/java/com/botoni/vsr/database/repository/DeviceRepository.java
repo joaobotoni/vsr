@@ -3,7 +3,6 @@ package com.botoni.vsr.database.repository;
 import com.botoni.vsr.database.entity.Device;
 import com.botoni.vsr.database.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.query.Procedure;
 import org.springframework.data.repository.query.Param;
 
@@ -13,9 +12,6 @@ import java.util.UUID;
 public interface DeviceRepository extends JpaRepository<Device, Integer> {
 
     Optional<Device> findByUserAndIdentifier(User user, UUID identifier);
-
-    @Query(value = "select usuarios.dispositivo_conhecido(:email, :identifier)", nativeQuery = true)
-    boolean known(@Param("email") String email, @Param("identifier") UUID identifier);
 
     @Procedure(procedureName = "usuarios.registrar_dispositivo")
     void upsert(@Param("p_id_usuario") Integer user,

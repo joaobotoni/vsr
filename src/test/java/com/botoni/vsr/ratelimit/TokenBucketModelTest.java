@@ -1,5 +1,6 @@
 package com.botoni.vsr.ratelimit;
 
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import com.botoni.vsr.ratelimit.TokenBucket.Allowance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,7 +26,6 @@ class TokenBucketModelTest {
     private static final int OPERATIONS = 50_000;
     private static final int KEYS = 12;
     private static final double MAX_STEP_SECONDS = 4;
-    private static final double REFUND_CHANCE = 0.3;
 
     @Controle
     @ParameterizedTest(name = "capacidade {0}, taxa {1}, intervalo {2}ms")
@@ -39,24 +40,20 @@ class TokenBucketModelTest {
     })
     void matchesModel(int capacity, double refillRate, long intervalMillis) {
         Limit limit = new Limit(capacity, refillRate, Duration.ofMillis(intervalMillis));
-        TokenBucket bucket = new TokenBucket(limit, new ConcurrentHashMap<>());
+        double[] clock = {1_000};
+        TokenBucket tokenBucket = new TokenBucket(limit, 1_000, new ConcurrentHashMap<>());
         Model model = new Model(limit);
         Random random = new Random(SEED + capacity);
-        double now = 1_000;
 
         for (int i = 0; i < OPERATIONS; i++) {
-            now += random.nextDouble() * MAX_STEP_SECONDS * random.nextDouble();
+            clock[0] += random.nextDouble() * MAX_STEP_SECONDS * random.nextDouble();
+            double now = clock[0];
             String key = "ip:10.0.0." + random.nextInt(KEYS);
-            if (random.nextDouble() < REFUND_CHANCE) {
-                bucket.refund(key);
-                model.refund(key);
-                continue;
-            }
-            Allowance allowance = bucket.take(key, now);
+            Allowance allowance = tokenBucket.allow(key, now);
 
             assertThat(allowance).as("operação %d, chave %s, t=%s", i, key, now).isEqualTo(model.consume(key, now));
             assertThat(allowance.remaining()).isBetween(0.0, (double) capacity - 1);
-            assertThat(allowance.reset()).isGreaterThan(0).isLessThanOrEqualTo(limit.interval());
+            assertThat(allowance.reset()).isGreaterThan(0).isLessThanOrEqualTo(limit.period().toMillis() / 1000.0);
         }
     }
 
@@ -71,7 +68,7 @@ class TokenBucketModelTest {
         }
 
         Allowance consume(String key, double now) {
-            double interval = limit.interval();
+            double interval = limit.period().toMillis() / 1000.0;
             double[] bucket = state.computeIfAbsent(key, k -> new double[]{limit.capacity(), now});
             double refills = Math.floor((now - bucket[1]) / interval);
             if (refills > 0) {
@@ -83,13 +80,6 @@ class TokenBucketModelTest {
                 bucket[0] = bucket[0] - 1;
             }
             return new Allowance(allowed, Math.floor(bucket[0]), interval - (now - bucket[1]));
-        }
-
-        void refund(String key) {
-            double[] bucket = state.get(key);
-            if (bucket != null) {
-                bucket[0] = Math.min(limit.capacity(), bucket[0] + 1);
-            }
         }
     }
 }

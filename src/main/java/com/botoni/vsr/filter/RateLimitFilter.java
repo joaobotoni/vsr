@@ -3,9 +3,9 @@ package com.botoni.vsr.filter;
 import com.botoni.vsr.exception.custom.RateLimitException;
 import com.botoni.vsr.exception.enums.problem.RateLimitProblem;
 import com.botoni.vsr.network.ClientNetwork;
-import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.Allowance;
-import com.botoni.vsr.ratelimit.Rule;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
+import com.botoni.vsr.ratelimit.TokenBucket.Allowance;
+import com.botoni.vsr.ratelimit.TokenBucket;
 import com.botoni.vsr.ratelimit.RateLimitPolicy;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -35,34 +35,34 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
-        Rule rule = policy.resolve(request);
-        Allowance allowance = consume(rule, request);
-        headers(response, rule.limit(), allowance);
+        TokenBucket tokenBucket = policy.resolve(request);
+        Allowance allowance = consume(tokenBucket, request);
+        headers(response, tokenBucket.limit(), allowance);
         advise(response, allowance);
         proceed(request, response, chain, allowance);
     }
 
-    private static Allowance consume(Rule rule, HttpServletRequest request) {
-        return rule.consume(key(request));
+    private static Allowance consume(TokenBucket tokenBucket, HttpServletRequest request) {
+        return tokenBucket.allow(key(request));
     }
 
     private void headers(HttpServletResponse response, Limit limit, Allowance allowance) {
         response.setHeader(LIMIT, String.valueOf(limit.capacity()));
         response.setHeader(REMAINING, String.valueOf(remaining(allowance)));
-        response.setHeader(RESET, String.valueOf(deadline(allowance.retry())));
+        response.setHeader(RESET, String.valueOf(deadline(TokenBucket.retry(allowance))));
     }
 
     private static void advise(HttpServletResponse response, Allowance allowance) {
-        if (!allowance.exceeded()) {
+        if (allowance.allowed()) {
             return;
         }
-        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(allowance.retry()));
+        response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(TokenBucket.retry(allowance)));
     }
 
     private static void proceed(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Allowance allowance)
             throws ServletException, IOException {
-        if (allowance.exceeded()) {
-            throw new RateLimitException(RateLimitProblem.EXCEEDED, allowance.retry());
+        if (!allowance.allowed()) {
+            throw new RateLimitException(RateLimitProblem.EXCEEDED, TokenBucket.retry(allowance));
         }
         chain.doFilter(request, response);
     }

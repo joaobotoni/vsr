@@ -61,18 +61,6 @@ class ProcedureVerificationTest {
     }
 
     @Test
-    void knownDeviceNeedsActiveSession() throws Exception {
-        String known = "select usuarios.dispositivo_conhecido('ana@vsr.com', '00000000-0000-0000-0000-0000000000a1')::text";
-        execute("call usuarios.registrar_dispositivo(1, '00000000-0000-0000-0000-0000000000a1', 'android', 'Samsung', 'S23', '14')");
-        assertThat(text(known)).isEqualTo("false");
-        int active = session("00000000-0000-0000-0000-0000000000a1");
-        assertThat(text(known)).isEqualTo("true");
-        assertThat(text("select usuarios.dispositivo_conhecido('bia@vsr.com', '00000000-0000-0000-0000-0000000000a1')::text")).isEqualTo("false");
-        execute("call usuarios.revogar_sessao(" + active + ")");
-        assertThat(text(known)).isEqualTo("false");
-    }
-
-    @Test
     void refreshTokenRules() throws Exception {
         int session = session("00000000-0000-0000-0000-000000000002");
         execute("call usuarios.emitir_refresh_token(" + session + ", " + HASH_A + ")");

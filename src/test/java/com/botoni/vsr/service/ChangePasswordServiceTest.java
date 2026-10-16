@@ -8,8 +8,9 @@ import com.botoni.vsr.exception.custom.SessionException;
 import com.botoni.vsr.exception.enums.problem.CredentialProblem;
 import com.botoni.vsr.exception.enums.problem.SessionProblem;
 import com.botoni.vsr.mapper.LocalCredentialMapper;
-import com.botoni.vsr.ratelimit.Limit;
-import com.botoni.vsr.ratelimit.AttemptLimiter;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
+import com.botoni.vsr.ratelimit.RateLimitPolicy;
+import com.botoni.vsr.support.Policies;
 import com.botoni.vsr.support.Controle;
 import com.botoni.vsr.support.Users;
 import com.botoni.vsr.vo.Password;
@@ -50,7 +51,7 @@ class ChangePasswordServiceTest {
     private static final Password CURRENT = Password.of("Senha@Segura123");
     private static final Password NEW = Password.of("Nova@Senha4567");
 
-    private final AttemptLimiter attemptLimiter = AttemptLimiter.from(new Limit(100, 100, Duration.ofSeconds(1)));
+    private final RateLimitPolicy rateLimitPolicy = Policies.account(new Limit(100, 100, Duration.ofSeconds(1)));
     private final LocalCredentialRepository repository = mock(LocalCredentialRepository.class);
     private final SessionService sessionService = mock(SessionService.class);
     private final AccessService accessService = mock(AccessService.class);
@@ -60,14 +61,14 @@ class ChangePasswordServiceTest {
             new LocalCredentialService(repository, mock(LocalCredentialMapper.class), encoder, Clock.systemUTC());
     private final PasswordService passwordService = new PasswordService(localCredentialService, sessionService, accessService);
     private final ChangePasswordService changePasswordService =
-            new ChangePasswordService(new PasswordAttemptService(attemptLimiter, localCredentialService), localCredentialService, passwordService);
+            new ChangePasswordService(new PasswordAttemptService(rateLimitPolicy, localCredentialService), localCredentialService, passwordService);
 
     private final User user = Users.ana();
     private String stored;
 
     @AfterEach
     void close() {
-        attemptLimiter.close();
+        rateLimitPolicy.close();
     }
 
     @BeforeEach

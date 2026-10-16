@@ -17,7 +17,7 @@ class RouteTest {
     @Controle
     @DisplayName("o padrão da rota vale para qualquer versão da API")
     void patternIsVersioned() {
-        assertThat(new Route(HttpMethod.POST, "/auth/login").pattern()).isEqualTo("/api/*/auth/login");
+        assertThat(Route.of(HttpMethod.POST, "/auth/login").pattern()).isEqualTo("/api/*/auth/login");
     }
 
     @Test
@@ -49,4 +49,5 @@ class RouteTest {
                 .isInstanceOf(RouteException.class)
                 .extracting("problem").isEqualTo(RouteProblem.MISSING_METHOD);
     }
+
 }

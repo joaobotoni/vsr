@@ -1,8 +1,6 @@
 package com.botoni.vsr.properties;
 
-import com.botoni.vsr.exception.custom.LimitException;
-import com.botoni.vsr.exception.enums.problem.LimitProblem;
-import com.botoni.vsr.ratelimit.Limit;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -18,14 +16,4 @@ public record RateLimitProperties(
         @NotNull Limit ceiling,
         @NotNull Limit password
 ) {
-
-    public RateLimitProperties {
-        if (isLow(account, ceiling)) {
-            throw new LimitException(LimitProblem.CEILING_TOO_LOW, ceiling.capacity(), account.capacity());
-        }
-    }
-
-    private static boolean isLow(Limit account, Limit ceiling) {
-        return account != null && ceiling != null && ceiling.capacity() <= account.capacity();
-    }
 }

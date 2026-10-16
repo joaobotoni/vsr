@@ -25,7 +25,7 @@ public class LoginService {
     }
 
     private Authentication verify(LoginRequest request, InetAddress ip) {
-        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier(), ip);
+        return loginAttemptService.verify(request.email(), request.password(), ip);
     }
 
     private User find(Authentication authentication) {

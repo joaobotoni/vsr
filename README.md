@@ -164,9 +164,7 @@ A view `usuarios.sessao_ativa` define num lugar só o que é uma sessão ativa: 
 
 - O login exige e-mail, senha e os dados do dispositivo.
 - E-mail inexistente e senha incorreta produzem **a mesma resposta** (`E-mail ou senha incorretos.`).
-- Antes de conferir a senha, a API **gasta uma tentativa** do limite da conta; se a senha estiver certa, a tentativa é devolvida. Como a tentativa é gasta antes, requisições paralelas não furam o limite.
-- O limite é separado por origem: um **dispositivo já usado pela conta** tem limite próprio, e todos os dispositivos desconhecidos dividem o limite da conta. Quem conhece só o e-mail esgota apenas o limite dos desconhecidos; o dono continua entrando pelo próprio aparelho.
-- Falhas de infraestrutura (por exemplo, banco indisponível) devolvem a tentativa.
+- Antes de conferir a senha, a API **gasta uma tentativa** da conta naquela rede (`RATE_LIMIT_ACCOUNT_*`) e do teto da conta (`RATE_LIMIT_CEILING_*`). Toda tentativa conta, certa ou errada. Como a tentativa é gasta antes, requisições paralelas não furam o limite.
 - A conferência da senha roda **fora de transação**.
 - O dispositivo é identificado pelo par **(usuário, identificador UUID)**. Se já existir e os dados (plataforma, fabricante, modelo, versão do sistema) mudaram, eles são atualizados.
 - Cada dispositivo tem **no máximo uma sessão ativa**: um novo login revoga as sessões anteriores daquele dispositivo.
@@ -224,7 +222,7 @@ Regras do refresh token:
 ### Logout e troca de senha
 
 - O **logout** revoga a sessão do token apresentado.
-- A **troca de senha** exige a senha atual (`422` se estiver errada) e recusa uma nova senha igual à atual (`422`). Senhas atuais erradas gastam o mesmo limite por conta (`RATE_LIMIT_ACCOUNT_*`), contado pelo usuário e de qualquer IP; ao exceder, responde `429`.
+- A **troca de senha** exige a senha atual (`422` se estiver errada) e recusa uma nova senha igual à atual (`422`). Cada troca gasta o mesmo limite por conta (`RATE_LIMIT_ACCOUNT_*`, chave `password:<usuário>`), de qualquer IP; ao exceder, responde `429` sem conferir a senha.
 - As conferências e o novo hash são calculados **fora de transação**. Depois, numa transação curta:
   1. a sessão atual é validada e **todas as sessões do usuário são revogadas, inclusive a atual**;
   2. o novo hash é gravado;
@@ -252,7 +250,7 @@ No banco, textos livres não podem ter espaços nas extremidades e respeitam lim
 
 O limite usa o algoritmo **token bucket** e tem duas camadas.
 
-**Por rede e rota.** A chave é o IP do cliente; endereços IPv6 são agrupados pelo bloco `/56`, o tamanho comum entregue por provedores domésticos,, para que um único cliente não escape do limite trocando de endereço dentro da própria rede.
+**Por rede e rota.** A chave é o IP do cliente; endereços IPv6 são agrupados pelo bloco `/56`, o tamanho comum entregue por provedores domésticos, para que um único cliente não escape do limite trocando de endereço dentro da própria rede.
 
 | Rota | Variáveis |
 |---|---|
@@ -264,13 +262,15 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 
 Toda resposta traz `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset`. Ao exceder o limite, a resposta é `429` com o cabeçalho `Retry-After`.
 
-**Por conta.** Conta só as **senhas erradas**; a tentativa é gasta antes de conferir a senha e devolvida quando ela está certa. Ao exceder, responde `429` sem conferir a senha.
+**Por conta.** O mesmo algoritmo, com outras chaves. Toda tentativa conta, certa ou errada, e é gasta antes de conferir a senha; ao exceder, responde `429` sem conferir a senha.
 
-- **Dispositivo já conhecido da conta:** dispositivo da conta com **sessão ativa**. Tem saldo próprio por conta e dispositivo (`RATE_LIMIT_ACCOUNT_*`), fora do teto. Quem só conhece o e-mail não tranca a vítima no aparelho que ela já usa.
-- **Dispositivo desconhecido:** saldo por conta e rede (`RATE_LIMIT_ACCOUNT_*`, com IPv4 inteiro e IPv6 agrupado por `/56`) e um teto da conta que soma todas as redes (`RATE_LIMIT_CEILING_*`). Uma rede sozinha só esgota o próprio saldo; espalhar o ataque esbarra no teto. A rede que já estourou o próprio saldo não gasta o teto.
-- **Troca de senha:** as senhas atuais erradas gastam o mesmo limite `RATE_LIMIT_ACCOUNT_*`, contado por usuário e de qualquer IP, sem teto.
+| Onde | Chave | Variáveis | Para quê |
+|---|---|---|---|
+| Login | `login:<e-mail>:network:<rede>` | `RATE_LIMIT_ACCOUNT_*` | Quem ataca de uma rede só esgota o saldo dessa rede; a vítima segue entrando da própria rede |
+| Login | `login:<e-mail>` | `RATE_LIMIT_CEILING_*` | Teto da conta somando todas as redes, contra força bruta espalhada; só é gasto quando a rede ainda tem saldo, então uma rede sozinha não esgota o teto |
+| Troca de senha | `password:<usuário>` | `RATE_LIMIT_ACCOUNT_*` | Senha atual chutada com um token roubado |
 
-Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Cada regra guarda no máximo 50 mil chaves: cheia, ela libera os saldos ociosos (no máximo uma vez por segundo) e, se ainda não houver espaço, recusa chave nova com `429`; as chaves já contadas seguem funcionando. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
+O algoritmo é um só (`TokenBucket`): uma chave genérica, recarga de `rate` fichas a cada `period`, até `capacity`. Os contadores ficam em memória: valem para uma única instância e zeram quando a aplicação reinicia. Saldos parados pelo tempo de encher do zero são apagados por uma limpeza periódica, numa única thread compartilhada por todos os limites. Cada limite guarda no máximo 200 mil chaves: cheio, apaga os saldos ociosos (no máximo uma vez por segundo) e, se ainda não couber, recusa a chave nova com `429`; as chaves já contadas seguem funcionando. Capacidade, taxa e intervalo precisam ser maiores que zero, senão a aplicação não inicia.
 
 ### Envio de e-mail
 
@@ -406,7 +406,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 | Ameaça | Proteção |
 |---|---|
-| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`; falhas de login contadas por conta e rede (ou por dispositivo conhecido), com um teto da conta somando todas as redes |
+| Força bruta e credential stuffing | Limite por rede e rota, com IPv6 agrupado por `/56`; no login, limite por conta e rede mais um teto da conta somando as redes; na troca de senha, limite por usuário |
 | Descoberta de contas no login | Mesma resposta e mesmo tempo para e-mail inexistente e senha errada |
 | Vazamento do banco | Senhas em Argon2id; refresh tokens em HMAC-SHA-256 com chave fora do banco |
 | Roubo de refresh token | Rotação a cada uso, detecção de reuso de qualquer geração e revogação da sessão |
@@ -427,7 +427,8 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 - **Autorização:** não existe modelo de permissões; só autenticação. Cada point futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
-- **Limite por conta:** quem conhece o e-mail de alguém e ataca de várias redes ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente o login dessa pessoa a partir de um **dispositivo novo**; uma rede sozinha só esgota o próprio limite, e o dispositivo que a vítima já usa não é afetado.
+- **Limite por conta:** uma rede sozinha não tranca a vítima, mas quem ataca de várias redes ao mesmo tempo ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente novos logins dessa pessoa até a recarga. Sessões já abertas não são afetadas, porque a renovação por refresh token não passa por esse limite.
+- **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
 - **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
 - **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
 - **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`.
@@ -463,7 +464,7 @@ A configuração é feita **por variáveis de ambiente**:
 | Banco | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FLYWAY_USERNAME` e `FLYWAY_PASSWORD` (dono das migrations; sem eles, o Flyway usa `DB_USERNAME`), `DB_DRIVER`, `DB_POOL_NAME`, `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`, `DB_POOL_MAX_LIFETIME`, `JPA_DIALECT`, `JPA_BATCH_SIZE` |
 | Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
 | E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
-| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (senhas erradas: no login, por conta e rede ou por dispositivo conhecido; na troca de senha, por usuário), `CEILING` (teto de falhas da conta somando as redes; precisa ser maior que `ACCOUNT`, senão a aplicação não inicia) e `PASSWORD_RESET` |
+| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`) e `PASSWORD_RESET` |
 | Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
 
 Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As chaves podem ser geradas com `openssl rand -base64 32`.
@@ -477,7 +478,7 @@ Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As 
 | `REGISTER` | 30 | 30 | `10m` | Por IP; cadastro é raro, mas vários aparelhos podem dividir o IP |
 | `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
 | `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
-| `ACCOUNT` | 5 | 5 | `15m` | Senhas erradas por conta e rede, ou por dispositivo conhecido |
+| `ACCOUNT` | 10 | 10 | `15m` | Tentativas por conta e rede; como a senha certa também conta, fica um pouco acima de 5 para não incomodar quem entra várias vezes |
 | `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
 
 Os valores são ponto de partida: acompanhe os `429` no log (`Limite de requisições excedido`) e ajuste o limite por IP se aparecerem clientes legítimos.
@@ -504,7 +505,7 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **229 testes**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **543 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 

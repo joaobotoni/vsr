@@ -61,7 +61,6 @@ class AppRoleTest {
             execute(app, "select count(*) from catalogo.tipo_item");
             execute(app, "call usuarios.registrar_dispositivo(1, '00000000-0000-0000-0000-0000000000b1', 'android', 'Samsung', 'S23', '14')");
             execute(app, "insert into usuarios.sessao (id_dispositivo, endereco_ip, expira_em) select id_dispositivo, '10.0.0.1', now() + interval '30 days' from usuarios.dispositivo");
-            execute(app, "select usuarios.dispositivo_conhecido('ana@vsr.com', '00000000-0000-0000-0000-0000000000b1')");
             execute(app, "call usuarios.revogar_sessoes_usuario(1, null)");
         }).doesNotThrowAnyException();
     }

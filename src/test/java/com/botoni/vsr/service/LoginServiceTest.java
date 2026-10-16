@@ -44,7 +44,7 @@ class LoginServiceTest {
 
         login();
 
-        verify(loginAttemptService).verify(request.email(), request.password(), request.device().identifier(), InetAddress.getLoopbackAddress());
+        verify(loginAttemptService).verify(request.email(), request.password(), InetAddress.getLoopbackAddress());
     }
 
     @Test
@@ -85,7 +85,7 @@ class LoginServiceTest {
     }
 
     private Authentication attempt() {
-        return loginAttemptService.verify(request.email(), request.password(), request.device().identifier(), InetAddress.getLoopbackAddress());
+        return loginAttemptService.verify(request.email(), request.password(), InetAddress.getLoopbackAddress());
     }
 
     private void login() {

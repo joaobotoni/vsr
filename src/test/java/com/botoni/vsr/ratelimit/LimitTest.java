@@ -2,6 +2,7 @@ package com.botoni.vsr.ratelimit;
 
 import com.botoni.vsr.exception.custom.LimitException;
 import com.botoni.vsr.exception.enums.problem.LimitProblem;
+import com.botoni.vsr.ratelimit.TokenBucket.Limit;
 import com.botoni.vsr.support.Controle;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,25 +10,21 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("Limite do rate limit")
+@DisplayName("Validação do limite do rate limit")
 class LimitTest {
 
     @Test
     @Controle
-    @DisplayName("limite válido guarda o intervalo em segundos")
+    @DisplayName("limite válido monta o token bucket")
     void validLimitIsAccepted() {
-        assertThat(new Limit(5, 1, Duration.ofMillis(1500)).interval()).isEqualTo(1.5);
-    }
+        Limit limit = new Limit(5, 0.5, Duration.ofMillis(1500));
 
-    @Test
-    @Controle
-    @DisplayName("o tempo de vida do bucket é o tempo de recarregá-lo do zero até a capacidade")
-    void ttlIsTimeToRefillCompletely() {
-        assertThat(new Limit(5, 2, Duration.ofSeconds(10)).ttl()).isEqualTo(30);
+        assertThat(bucket(limit).limit()).isEqualTo(limit);
     }
 
     @Controle
@@ -40,7 +37,7 @@ class LimitTest {
             "intervalo negativo      | 5 | 1  | -PT1S | INVALID_REFILL_INTERVAL"
     })
     void invalidLimitIsRejected(String description, int capacity, double refillRate, Duration interval, LimitProblem problem) {
-        assertThatThrownBy(() -> new Limit(capacity, refillRate, interval))
+        assertThatThrownBy(() -> bucket(new Limit(capacity, refillRate, interval)))
                 .isInstanceOf(LimitException.class)
                 .extracting("problem").isEqualTo(problem);
     }
@@ -49,8 +46,12 @@ class LimitTest {
     @Controle
     @DisplayName("intervalo ausente impede a subida")
     void missingIntervalIsRejected() {
-        assertThatThrownBy(() -> new Limit(5, 1, null))
+        assertThatThrownBy(() -> bucket(new Limit(5, 1, null)))
                 .isInstanceOf(LimitException.class)
                 .extracting("problem").isEqualTo(LimitProblem.INVALID_REFILL_INTERVAL);
+    }
+
+    private static TokenBucket bucket(Limit limit) {
+        return new TokenBucket(limit, 1_000, new ConcurrentHashMap<>());
     }
 }
