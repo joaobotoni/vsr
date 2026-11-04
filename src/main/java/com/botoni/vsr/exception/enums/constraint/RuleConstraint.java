@@ -13,7 +13,9 @@ public enum RuleConstraint implements Constraint {
 
     RN_SESSAO_ATIVA("rn_sessao_ativa", HttpStatus.UNAUTHORIZED, "A sessão foi encerrada ou expirou. Faça login novamente."),
     RN_REFRESH_TOKEN_RENOVADO("rn_refresh_token_renovado", HttpStatus.CONFLICT, "O refresh token já foi renovado por outra requisição."),
-    RN_SENHA_ALTERADA("rn_senha_alterada", HttpStatus.CONFLICT, "A senha foi alterada por outra requisição. Tente novamente.");
+    RN_SENHA_ALTERADA("rn_senha_alterada", HttpStatus.CONFLICT, "A senha foi alterada por outra requisição. Tente novamente."),
+    RN_ESTADO_EXISTENTE("rn_estado_existente", HttpStatus.UNPROCESSABLE_CONTENT, "O estado informado não existe."),
+    RN_IMOVEL_VISTORIA_ANDAMENTO("rn_imovel_vistoria_andamento", HttpStatus.CONFLICT, "O imóvel possui uma vistoria em andamento e não pode ser removido.");
 
     private final String constraint;
     private final HttpStatus status;

@@ -129,6 +129,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V5__triggers.sql` | Triggers de `updated_at` |
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
+| `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
 
 ### Procedures
 
@@ -143,6 +144,8 @@ Ficam em `src/main/resources/db/migration`:
 | `emitir_refresh_token` | Confere se a sessão está ativa (`rn_sessao_ativa`) e grava o hash do primeiro refresh token, com a validade da sessão |
 | `renovar_refresh_token` | Confere se a sessão e o token estão válidos (`rn_sessao_ativa`), troca o hash atual pelo novo só se o atual ainda for o apresentado (`rn_refresh_token_renovado`) e guarda o antigo no histórico |
 | `trocar_senha` | Grava o novo hash só se o hash atual ainda for o lido pela aplicação (`rn_senha_alterada`) |
+| `enderecos.registrar_endereco` | Função: localiza o endereço pela cadeia estado, cidade, bairro, logradouro (com CEP) e endereço, criando o que faltar, e devolve o id. Nomes comparados sem diferenciar maiúsculas de minúsculas. Estado inexistente: `rn_estado_existente` |
+| `imoveis.remover_imovel` | Remove o imóvel logicamente (`removido_em`). Recusa se houver vistoria em andamento (`rn_imovel_vistoria_andamento`) |
 | `rotinas.limpar_sessoes_expiradas` | Apaga as sessões vencidas, junto com seus refresh tokens e histórico. Roda todo dia às 03:00 (UTC) pelo job `limpar-sessoes-expiradas` |
 
 A view `usuarios.sessao_ativa` define num lugar só o que é uma sessão ativa: não revogada e não expirada.
@@ -330,6 +333,11 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `POST` | `/api/1/auth/logout` | Bearer | Revoga a sessão atual | `204` |
 | `GET` | `/api/1/users/me` | Bearer | Retorna o usuário autenticado | `200` |
 | `PATCH` | `/api/1/users/me/password` | Bearer | Troca a senha, revoga todas as sessões e devolve os tokens de uma sessão nova | `200` |
+| `POST` | `/api/1/properties` | Bearer | Cadastra um imóvel do usuário, com o endereço | `201` |
+| `GET` | `/api/1/properties?page=0&size=20` | Bearer | Lista os imóveis do usuário, do mais novo ao mais antigo (`size` até 50) | `200` |
+| `GET` | `/api/1/properties/{id}` | Bearer | Detalha um imóvel do usuário | `200` |
+| `PATCH` | `/api/1/properties/{id}` | Bearer | Altera descrição, tipo e categoria; campo ausente fica como está | `200` |
+| `DELETE` | `/api/1/properties/{id}` | Bearer | Remove o imóvel logicamente; recusa com `409` se houver vistoria em andamento | `204` |
 
 **Exemplo de cadastro**
 
@@ -368,6 +376,33 @@ Content-Type: application/json
 ```
 
 O login usa o mesmo formato, sem `name` e `cpf`, e devolve a mesma resposta. A renovação recebe `{ "refreshToken": "..." }` e devolve o objeto `token`. A troca de senha recebe `{ "currentPassword": "...", "newPassword": "..." }`.
+
+**Exemplo de imóvel**
+
+```http
+POST /api/1/properties
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+Content-Type: application/json
+
+{
+  "description": "Apartamento de frente",
+  "type": "apartamento",
+  "category": "residencial",
+  "address": {
+    "cep": "01310-100",
+    "state": "SP",
+    "city": "São Paulo",
+    "district": "Bela Vista",
+    "street": "Avenida Paulista",
+    "number": "1000",
+    "complement": "Apto 12"
+  }
+}
+```
+
+A resposta traz o `id` (UUID) do imóvel e o endereço com o CEP sem máscara. `type`: `apartamento`, `casa`, `sala_comercial`, `galpao` ou `outro`; `category`: `residencial`, `comercial` ou `alto_padrao`. As listagens respondem `{ "items": [...], "page": 0, "size": 20, "total": 1 }`.
+
+Imóvel de outro usuário, ou já removido, responde `404`, como se não existisse. O mesmo titular não cadastra dois imóveis ativos no mesmo endereço (`409`).
 
 ### Formato de erro
 
@@ -413,7 +448,8 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Sessão revogada com token ainda válido | A sessão é conferida em toda requisição; a revogação vale na hora |
 | Token apontando para a sessão de outro usuário | A sessão é buscada pelo id **e** pelo usuário do token |
 | Escritas concorrentes | Renovação de token e troca de senha só gravam se o valor atual ainda for o lido |
-| Exposição de ids internos | A API expõe o UUID público do usuário, nunca o id sequencial; o JWT também não carrega o e-mail |
+| Exposição de ids internos | A API expõe o UUID público do usuário e do imóvel, nunca o id sequencial; o JWT também não carrega o e-mail |
+| Acesso a dados de outro usuário | Os imóveis são sempre buscados pelo UUID **e** pelo dono; o recurso alheio responde `404`, sem revelar que existe |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
 | Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
 | Rebaixamento para HTTP | `Strict-Transport-Security` (1 ano, com subdomínios) em toda resposta, inclusive atrás de proxy que termina o TLS |
@@ -424,14 +460,15 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 **Pendências conhecidas**
 
-- **Autorização:** não existe modelo de permissões; só autenticação. Cada point futuro de imóveis e vistorias precisará filtrar os dados pelo usuário autenticado.
+- **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
+- **Endereços:** os nomes são comparados sem diferenciar maiúsculas, mas com acento: "Sao Paulo" e "São Paulo" viram cidades diferentes.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
 - **Limite por conta:** uma rede sozinha não tranca a vítima, mas quem ataca de várias redes ao mesmo tempo ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente novos logins dessa pessoa até a recarga. Sessões já abertas não são afetadas, porque a renovação por refresh token não passa por esse limite.
 - **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
 - **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
 - **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
-- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis to vsr_app;` e `alter default privileges in schema enderecos, imoveis grant execute on routines to vsr_app;`.
 
 **Riscos aceitos**
 
@@ -505,8 +542,10 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **543 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **566 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
+
+O `PropertyFlowTest` sobe a aplicação inteira contra o PostgreSQL embutido (migrations sem o `pg_cron` e sem a `V7`): valida o mapeamento JPA com `ddl-auto: validate` e o fluxo de imóveis de ponta a ponta, inclusive o isolamento entre usuários.
 
 O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.

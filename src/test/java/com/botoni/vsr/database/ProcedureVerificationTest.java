@@ -21,7 +21,7 @@ class ProcedureVerificationTest {
 
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql");
     private static final String HASH_A = "'\\x" + "aa".repeat(32) + "'::bytea";
     private static final String HASH_B = "'\\x" + "bb".repeat(32) + "'::bytea";
     private static final String HASH_C = "'\\x" + "cc".repeat(32) + "'::bytea";
@@ -119,6 +119,36 @@ class ProcedureVerificationTest {
         assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + middle)).isEqualTo("true");
         assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + newest)).isEqualTo("true");
         assertThat(text("select (revogada_em is null)::text from usuarios.sessao where id_sessao = " + other)).isEqualTo("true");
+    }
+
+    @Test
+    void addressIsReusedIgnoringCase() throws Exception {
+        String first = text("select enderecos.registrar_endereco('SP', 'São Paulo', 'Bela Vista', '01310100', 'Avenida Paulista', '1000', null)::text");
+        String same = text("select enderecos.registrar_endereco('SP', 'SÃO PAULO', 'bela vista', '01310100', 'avenida paulista', '1000', null)::text");
+        String other = text("select enderecos.registrar_endereco('SP', 'São Paulo', 'Bela Vista', '01310100', 'Avenida Paulista', '1000', 'Apto 1')::text");
+        assertThat(same).isEqualTo(first);
+        assertThat(other).isNotEqualTo(first);
+        assertThat(text("select count(*)::text from enderecos.cidade where lower(nome) = 'são paulo'")).isEqualTo("1");
+    }
+
+    @Test
+    void addressRequiresExistingState() {
+        assertRule("select enderecos.registrar_endereco('XX', 'Cidade', 'Bairro', '01310100', 'Rua', '1', null)", "rn_estado_existente");
+    }
+
+    @Test
+    void propertyRemovalIsLogicalAndFreesTheAddress() throws Exception {
+        String address = text("select enderecos.registrar_endereco('RJ', 'Rio de Janeiro', 'Centro', '20040002', 'Rua da Assembleia', '10', null)::text");
+        String insert = "insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values (" + address
+                + ", 1, 'casa', 'residencial') returning id_imovel::text";
+        int property = Integer.parseInt(text(insert));
+        execute("insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo) values (1, " + property + ", 'entrada')");
+        assertRule("call imoveis.remover_imovel(" + property + ")", "rn_imovel_vistoria_andamento");
+
+        execute("update vistorias.vistoria set status = 'finalizada', finalizada_em = now() where id_imovel = " + property);
+        execute("call imoveis.remover_imovel(" + property + ")");
+        assertThat(text("select (removido_em is not null)::text from imoveis.imovel where id_imovel = " + property)).isEqualTo("true");
+        assertThat(text(insert)).isNotEqualTo(String.valueOf(property));
     }
 
     @Test

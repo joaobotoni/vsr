@@ -149,4 +149,18 @@ Classes do rate limit:
 | `send` / `sendAttachments` | enviar e-mail sem anexos / com anexos |
 | `load` | conferir e ler os anexos uma vez, pelo caminho real e sem seguir link | `MailService` |
 | `plain` / `multipart` | montar a mensagem de texto / com partes |
-| `view` | consultar o perfil do usuário (`ProfileService`) |
+| `view` | consultar um recurso do dono e devolver a resposta (`ProfileService`, `PropertyService`) |
+
+### Imóveis e endereços
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `add` | caso de uso de cadastro de um recurso do usuário (imóvel) | `PropertyService` |
+| `list` | consultar, paginada, a coleção do dono | `PropertyService` |
+| `edit` | alteração parcial: campo ausente fica como está | `PropertyService` |
+| `amend` | aplicar no entity os campos enviados na edição | `PropertyService`, `PropertyMapper` |
+| `remove` | remoção lógica (`removido_em`): a aplicação nunca apaga linhas | `PropertyService` |
+| `discard` | chamar a procedure de remoção lógica | `PropertyService` |
+| `owned` | buscar o recurso pelo dono e lançar `NOT_FOUND` se não for dele ou se foi removido | `PropertyService` |
+| `locate` | localizar o endereço pela cadeia estado, cidade, bairro, logradouro e endereço, criando o que faltar | `AddressService` |
+| `results` | converter a página de entidades para `PageResponse` | `PropertyService` |

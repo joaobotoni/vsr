@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 public enum UniqueConstraint implements Constraint {
 
     PK_PESSOA_FISICA("pk_pessoa_fisica", "Esta pessoa já possui cadastro de pessoa física."),
+    UQ_PESSOA_UUID("uq_pessoa_uuid", "O identificador público da pessoa já está em uso."),
     UQ_PESSOA_FISICA_CPF("uq_pessoa_fisica_cpf", "Já existe um cadastro com o CPF informado."),
     PK_PESSOA_JURIDICA("pk_pessoa_juridica", "Esta pessoa já possui cadastro de pessoa jurídica."),
     UQ_PESSOA_JURIDICA_CNPJ("uq_pessoa_juridica_cnpj", "Já existe um cadastro com o CNPJ informado."),
@@ -37,6 +38,8 @@ public enum UniqueConstraint implements Constraint {
     UQ_IMOVEL_ENDERECO_TITULAR("uq_imovel_endereco_titular", "O titular já possui um imóvel cadastrado neste endereço."),
     PK_IMOVEL_PROPRIETARIO("pk_imovel_proprietario", "Esta pessoa já consta como proprietária do imóvel."),
     UQ_TIPO_AMBIENTE_NOME("uq_tipo_ambiente_nome", "Já existe um tipo de ambiente com este nome."),
+    UQ_TIPO_AMBIENTE_UUID("uq_tipo_ambiente_uuid", "O identificador público do tipo de ambiente já está em uso."),
+    UQ_TIPO_ITEM_UUID("uq_tipo_item_uuid", "O identificador público do tipo de item já está em uso."),
     UQ_TIPO_ITEM_NOME("uq_tipo_item_nome", "Já existe um tipo de item com este nome."),
     PK_TIPO_AMBIENTE_ITEM("pk_tipo_ambiente_item", "Este item já está associado ao tipo de ambiente."),
     UQ_VISTORIA_UUID("uq_vistoria_uuid", "Já existe uma vistoria com o identificador informado."),

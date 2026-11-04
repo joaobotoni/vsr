@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @RestControllerAdvice
@@ -23,5 +24,10 @@ public class ValidationExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ProblemDetail unreadable() {
         return Problems.of(ValidationProblem.UNREADABLE_BODY).build();
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ProblemDetail mismatch(MethodArgumentTypeMismatchException exception) {
+        return Problems.of(ValidationProblem.INVALID_PARAMETER).args(exception.getName()).build();
     }
 }

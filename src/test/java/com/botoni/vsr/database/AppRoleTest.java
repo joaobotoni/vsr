@@ -24,7 +24,7 @@ class AppRoleTest {
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final Path ROLE = Path.of("docs/db/app-role.sql");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql");
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
 
     private static EmbeddedPostgres postgres;
@@ -62,6 +62,9 @@ class AppRoleTest {
             execute(app, "call usuarios.registrar_dispositivo(1, '00000000-0000-0000-0000-0000000000b1', 'android', 'Samsung', 'S23', '14')");
             execute(app, "insert into usuarios.sessao (id_dispositivo, endereco_ip, expira_em) select id_dispositivo, '10.0.0.1', now() + interval '30 days' from usuarios.dispositivo");
             execute(app, "call usuarios.revogar_sessoes_usuario(1, null)");
+            execute(app, "insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values ("
+                    + "enderecos.registrar_endereco('SP', 'São Paulo', 'Sé', '01001000', 'Praça da Sé', '1', null), 1, 'casa', 'residencial')");
+            execute(app, "do $$ declare v int := (select max(id_imovel) from imoveis.imovel); begin call imoveis.remover_imovel(v); end $$");
         }).doesNotThrowAnyException();
     }
 
@@ -71,6 +74,8 @@ class AppRoleTest {
     void appCannotDelete() {
         assertDenied("delete from usuarios.sessao");
         assertDenied("delete from usuarios.usuario");
+        assertDenied("delete from imoveis.imovel");
+        assertDenied("delete from enderecos.endereco");
     }
 
     @Test

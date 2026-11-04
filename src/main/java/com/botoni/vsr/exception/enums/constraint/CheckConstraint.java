@@ -42,6 +42,7 @@ public enum CheckConstraint implements Constraint {
     CK_ENDERECO_COMPLEMENTO("ck_endereco_complemento", text("O complemento do endereço", 100)),
     CK_IMOVEL_TITULAR("ck_imovel_titular", "O imóvel deve estar vinculado a um único titular: usuário ou empresa."),
     CK_IMOVEL_DESCRICAO("ck_imovel_descricao", text("A descrição do imóvel", 200)),
+    CK_IMOVEL_REMOVIDO_EM("ck_imovel_removido_em", "A data de remoção do imóvel não pode ser anterior à data de criação."),
     CK_TIPO_AMBIENTE_TITULAR("ck_tipo_ambiente_titular", "O tipo de ambiente pode estar vinculado a, no máximo, um titular: usuário ou empresa."),
     CK_TIPO_AMBIENTE_NOME("ck_tipo_ambiente_nome", text("O nome do tipo de ambiente", 100)),
     CK_TIPO_ITEM_TITULAR("ck_tipo_item_titular", "O tipo de item pode estar vinculado a, no máximo, um titular: usuário ou empresa."),
