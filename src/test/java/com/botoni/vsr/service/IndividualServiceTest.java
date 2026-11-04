@@ -34,7 +34,7 @@ class IndividualServiceTest {
         Individual saved = individualService.save(Name.of("Ana Maria"), Cpf.of("529.982.247-25"));
 
         assertThat(saved.getType()).isEqualTo(PersonType.INDIVIDUAL);
-        assertThat(saved.getName()).isEqualTo(Name.of("Ana Maria"));
+        assertThat(saved.getName()).isEqualTo("Ana Maria");
         assertThat(saved.getCpf()).isEqualTo(Cpf.of("52998224725"));
         verify(repository).save(saved);
     }

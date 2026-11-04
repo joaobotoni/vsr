@@ -13,6 +13,7 @@ public enum ForeignKeyConstraint implements Constraint {
 
     FK_PESSOA_FISICA_PESSOA("fk_pessoa_fisica_pessoa", "A pessoa informada não existe ou não é do tipo pessoa física."),
     FK_PESSOA_JURIDICA_PESSOA("fk_pessoa_juridica_pessoa", "A pessoa informada não existe ou não é do tipo pessoa jurídica."),
+    FK_PESSOA_USUARIO_TITULAR("fk_pessoa_usuario_titular", "O usuário titular do cadastro da pessoa não existe."),
     FK_USUARIO_PESSOA("fk_usuario_pessoa", "A pessoa física informada para o usuário não existe."),
     FK_CREDENCIAL_LOCAL_USUARIO("fk_credencial_local_usuario", "O usuário informado para a credencial local não existe."),
     FK_CREDENCIAL_SOCIAL_USUARIO("fk_credencial_social_usuario", "O usuário informado para a credencial social não existe."),

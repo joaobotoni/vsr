@@ -2,7 +2,6 @@ package com.botoni.vsr.database.entity;
 
 import com.botoni.vsr.database.enums.PersonType;
 import com.botoni.vsr.vo.Cnpj;
-import com.botoni.vsr.vo.Name;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
@@ -11,6 +10,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * Pessoa jurídica: o nome é a razão social (texto livre, já normalizado na entrada), com o nome fantasia à parte.
+ */
 @Entity
 @Getter
 @Table(schema = "pessoas", name = "pessoa_juridica")
@@ -24,16 +26,25 @@ public class Company extends Person {
     @Column(name = "nome_fantasia", nullable = false)
     private String tradeName;
 
-    public Company(Name legalName, String tradeName, Cnpj cnpj) {
-        super(PersonType.COMPANY, legalName);
-        this.tradeName = trim(tradeName);
+    public Company(User owner, String legalName, String tradeName, Cnpj cnpj) {
+        super(owner, PersonType.COMPANY, legalName);
+        this.tradeName = tradeName;
         this.cnpj = cnpj;
     }
 
-    private static String trim(String value) {
-        if (value == null) {
-            return null;
+    @Override
+    public void rename(String legalName) {
+        if (legalName == null) {
+            return;
         }
-        return value.trim();
+        setName(legalName);
+    }
+
+    @Override
+    public void retitle(String tradeName) {
+        if (tradeName == null) {
+            return;
+        }
+        this.tradeName = tradeName;
     }
 }

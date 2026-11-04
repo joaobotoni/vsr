@@ -50,7 +50,7 @@ class AccountServiceTest {
     void openGrantsAccessWithoutVerification() {
         RegisterRequest request = request();
         InetAddress ip = InetAddress.getLoopbackAddress();
-        Individual person = new Individual(request.name(), request.cpf());
+        Individual person = new Individual(null, request.name(), request.cpf());
         when(individualService.save(request.name(), request.cpf())).thenReturn(person);
         when(userService.save(person, request.email())).thenReturn(user);
 

@@ -30,6 +30,7 @@ public enum CheckConstraint implements Constraint {
     CK_REFRESH_TOKEN_RENOVADO_EM("ck_refresh_token_renovado_em", "A data de renovação do refresh token não pode ser anterior à data de criação."),
     CK_REFRESH_TOKEN_USADO_HASH("ck_refresh_token_usado_hash", "O hash do refresh token usado deve conter exatamente 32 bytes."),
     CK_PESSOA_CONTATO_TELEFONE("ck_pessoa_contato_telefone", "O número de telefone informado é inválido."),
+    CK_PESSOA_CONTATO_MEIO("ck_pessoa_contato_meio", "O contato deve ter ao menos um telefone ou um e-mail."),
     CK_PESSOA_CONTATO_EMAIL("ck_pessoa_contato_email", "O e-mail de contato informado é inválido."),
     CK_PESSOA_TITULARIDADE_TITULAR("ck_pessoa_titularidade_titular", "A titularidade deve ser atribuída a um único titular: usuário ou empresa."),
     CK_ESTADO_SIGLA("ck_estado_sigla", "A sigla do estado informada é inválida."),

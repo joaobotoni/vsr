@@ -21,7 +21,7 @@ class ProcedureVerificationTest {
 
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql");
     private static final String HASH_A = "'\\x" + "aa".repeat(32) + "'::bytea";
     private static final String HASH_B = "'\\x" + "bb".repeat(32) + "'::bytea";
     private static final String HASH_C = "'\\x" + "cc".repeat(32) + "'::bytea";
@@ -181,6 +181,39 @@ class ProcedureVerificationTest {
                 "rn_ambiente_origem");
         assertRule("insert into vistorias.item (id_ambiente, nome, id_item_origem) values (" + other + ", 'Teto', " + item + ")",
                 "rn_item_origem");
+    }
+
+    @Test
+    void peopleBelongToTheirOwner() throws Exception {
+        int other = Integer.parseInt(text("insert into pessoas.pessoa (id_pessoa, tipo, nome) overriding system value "
+                + "values (900, 'pf', 'Caio') returning id_pessoa::text"));
+        execute("insert into pessoas.pessoa_fisica (id_pessoa, cpf) values (" + other + ", '39053344705')");
+        int otherUser = Integer.parseInt(text("insert into usuarios.usuario (id_pessoa, email) values (" + other
+                + ", 'caio@vsr.com') returning id_usuario::text"));
+        String mine = person(901, 1, "86288366757");
+        String theirs = person(902, otherUser, "86288366757");
+        assertThat(theirs).isNotEqualTo(mine);
+        assertThatThrownBy(() -> person(903, 1, "86288366757"))
+                .isInstanceOf(PSQLException.class)
+                .satisfies(exception -> assertThat(((PSQLException) exception).getServerErrorMessage().getConstraint())
+                        .isEqualTo("uq_pessoa_fisica_titular_cpf"));
+        assertThat(text("select count(*)::text from pessoas.pessoa_fisica where cpf = '86288366757' and id_usuario_titular is not null"))
+                .isEqualTo("2");
+
+        String address = text("select enderecos.registrar_endereco('SC', 'Florianópolis', 'Centro', '88010000', 'Rua Felipe Schmidt', '9', null)::text");
+        String property = text("insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values (" + address
+                + ", 1, 'casa', 'residencial') returning id_imovel::text");
+        execute("insert into imoveis.imovel_proprietario (id_imovel, id_pessoa) values (" + property + ", " + mine + ")");
+        assertRule("insert into imoveis.imovel_proprietario (id_imovel, id_pessoa) values (" + property + ", " + theirs + ")",
+                "rn_pessoa_titular");
+        assertRule("update pessoas.pessoa set id_usuario_titular = " + otherUser + " where id_pessoa = " + mine, "rn_pessoa_titular_fixo");
+    }
+
+    private static String person(int id, int owner, String cpf) throws SQLException {
+        execute("insert into pessoas.pessoa (id_pessoa, tipo, nome, id_usuario_titular) overriding system value values ("
+                + id + ", 'pf', 'Pessoa', " + owner + ")");
+        execute("insert into pessoas.pessoa_fisica (id_pessoa, cpf) values (" + id + ", '" + cpf + "')");
+        return String.valueOf(id);
     }
 
     @Test

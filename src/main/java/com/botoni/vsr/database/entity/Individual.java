@@ -11,6 +11,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * Pessoa física: o nome segue as regras de {@link Name}.
+ */
 @Entity
 @Getter
 @Table(schema = "pessoas", name = "pessoa_fisica")
@@ -21,8 +24,16 @@ public class Individual extends Person {
     @Column(name = "cpf", nullable = false, updatable = false)
     private Cpf cpf;
 
-    public Individual(Name name, Cpf cpf) {
-        super(PersonType.INDIVIDUAL, name);
+    public Individual(User owner, Name name, Cpf cpf) {
+        super(owner, PersonType.INDIVIDUAL, name.value());
         this.cpf = cpf;
+    }
+
+    @Override
+    public void rename(String name) {
+        if (name == null) {
+            return;
+        }
+        setName(Name.of(name).value());
     }
 }

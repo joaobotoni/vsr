@@ -33,7 +33,7 @@ class ProfileServiceTest {
     @DisplayName("o perfil expõe o UUID público, não o id do banco")
     void profileExposesUuid() {
         User user = User.builder().id(1).uuid(Users.UUID).email(Email.of(Users.EMAIL))
-                .person(new Individual(Name.of("Ana"), Cpf.of("52998224725"))).build();
+                .person(new Individual(null, Name.of("Ana"), Cpf.of("52998224725"))).build();
         when(userService.find(Users.UUID)).thenReturn(user);
 
         UserResponse response = profileService.view(Users.UUID);

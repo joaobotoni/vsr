@@ -1,11 +1,14 @@
 package com.botoni.vsr.controller;
 
+import com.botoni.vsr.dto.request.OwnerRequest;
 import com.botoni.vsr.dto.request.PageQuery;
 import com.botoni.vsr.dto.request.PropertyEditRequest;
 import com.botoni.vsr.dto.request.PropertyRequest;
 import com.botoni.vsr.dto.response.PageResponse;
+import com.botoni.vsr.dto.response.PersonSummaryResponse;
 import com.botoni.vsr.dto.response.PropertyResponse;
 import com.botoni.vsr.principal.Principal;
+import com.botoni.vsr.service.OwnerService;
 import com.botoni.vsr.service.PropertyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -29,6 +33,7 @@ import java.util.UUID;
 public class PropertyController {
 
     private final PropertyService propertyService;
+    private final OwnerService ownerService;
 
     @PostMapping
     public ResponseEntity<PropertyResponse> add(@AuthenticationPrincipal Principal principal, @RequestBody @Valid PropertyRequest request) {
@@ -54,6 +59,24 @@ public class PropertyController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remove(@AuthenticationPrincipal Principal principal, @PathVariable UUID id) {
         propertyService.remove(principal.user(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/owners")
+    public ResponseEntity<List<PersonSummaryResponse>> owners(@AuthenticationPrincipal Principal principal, @PathVariable UUID id) {
+        return ResponseEntity.ok(ownerService.list(principal.user(), id));
+    }
+
+    @PostMapping("/{id}/owners")
+    public ResponseEntity<Void> link(@AuthenticationPrincipal Principal principal, @PathVariable UUID id,
+                                     @RequestBody @Valid OwnerRequest request) {
+        ownerService.link(principal.user(), id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/owners/{person}")
+    public ResponseEntity<Void> unlink(@AuthenticationPrincipal Principal principal, @PathVariable UUID id, @PathVariable UUID person) {
+        ownerService.unlink(principal.user(), id, person);
         return ResponseEntity.noContent().build();
     }
 }

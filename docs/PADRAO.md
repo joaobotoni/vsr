@@ -183,6 +183,19 @@ Classes do rate limit:
 | `contents` | os itens de um tipo de ambiente que o usuário vê | `CatalogService` |
 | `accessible` | o tipo do catálogo é padrão ou do próprio usuário | `CatalogService` |
 
+### Pessoas
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `individual` / `company` | cadastrar pessoa física / jurídica no cadastro privado do usuário | `PersonService` |
+| `natural` / `legal` | montar a pessoa física / jurídica a partir do pedido | `PersonService` |
+| `rename` / `retitle` | trocar o nome (validado pelo subtipo) / o nome fantasia; nulo mantém o atual | `Person`, `Individual`, `Company` |
+| `lookup` | o contato da pessoa, ou `null` sem contato | `ContactService` |
+| `index` | os contatos de várias pessoas, por id da pessoa | `ContactService`, `PersonService` |
+| `keep` | gravar o contato só se tiver telefone ou e-mail | `ContactService` |
+| `link` / `unlink` | vincular / desvincular (logicamente) uma pessoa a um imóvel ou a uma vistoria | `OwnerService`, `ParticipantService` |
+| `bind` / `release` | chamar o vínculo / o desvínculo no banco | `OwnerService`, `ParticipantService` |
+
 ### Evidências
 
 | Verbo | Sentido | Onde |

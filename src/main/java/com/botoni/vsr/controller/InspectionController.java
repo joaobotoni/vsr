@@ -4,13 +4,16 @@ import com.botoni.vsr.dto.request.InspectionEditRequest;
 import com.botoni.vsr.dto.request.InspectionQuery;
 import com.botoni.vsr.dto.request.InspectionRequest;
 import com.botoni.vsr.dto.request.PageQuery;
+import com.botoni.vsr.dto.request.ParticipantRequest;
 import com.botoni.vsr.dto.request.RoomRequest;
 import com.botoni.vsr.dto.response.InspectionDetailResponse;
 import com.botoni.vsr.dto.response.InspectionResponse;
 import com.botoni.vsr.dto.response.PageResponse;
+import com.botoni.vsr.dto.response.ParticipantResponse;
 import com.botoni.vsr.dto.response.RoomResponse;
 import com.botoni.vsr.principal.Principal;
 import com.botoni.vsr.service.InspectionService;
+import com.botoni.vsr.service.ParticipantService;
 import com.botoni.vsr.service.RoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -35,6 +39,7 @@ public class InspectionController {
 
     private final InspectionService inspectionService;
     private final RoomService roomService;
+    private final ParticipantService participantService;
 
     @PostMapping
     public ResponseEntity<InspectionResponse> start(@AuthenticationPrincipal Principal principal, @RequestBody @Valid InspectionRequest request) {
@@ -66,6 +71,24 @@ public class InspectionController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remove(@AuthenticationPrincipal Principal principal, @PathVariable UUID id) {
         inspectionService.remove(principal.user(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/people")
+    public ResponseEntity<List<ParticipantResponse>> people(@AuthenticationPrincipal Principal principal, @PathVariable UUID id) {
+        return ResponseEntity.ok(participantService.list(principal.user(), id));
+    }
+
+    @PostMapping("/{id}/people")
+    public ResponseEntity<Void> link(@AuthenticationPrincipal Principal principal, @PathVariable UUID id,
+                                     @RequestBody @Valid ParticipantRequest request) {
+        participantService.link(principal.user(), id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/people/{person}")
+    public ResponseEntity<Void> unlink(@AuthenticationPrincipal Principal principal, @PathVariable UUID id, @PathVariable UUID person) {
+        participantService.unlink(principal.user(), id, person);
         return ResponseEntity.noContent().build();
     }
 

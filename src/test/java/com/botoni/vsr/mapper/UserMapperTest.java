@@ -26,7 +26,7 @@ class UserMapperTest {
     @DisplayName("a resposta expõe o UUID público, não o id sequencial do banco")
     void responseExposesPublicUuid() {
         UUID uuid = UUID.randomUUID();
-        User user = User.builder().id(42).uuid(uuid).email(Email.of(Users.EMAIL)).person(new Individual(Name.of("Ana"), Cpf.of("52998224725"))).build();
+        User user = User.builder().id(42).uuid(uuid).email(Email.of(Users.EMAIL)).person(new Individual(null, Name.of("Ana"), Cpf.of("52998224725"))).build();
 
         UserResponse response = userMapper.response(user);
 

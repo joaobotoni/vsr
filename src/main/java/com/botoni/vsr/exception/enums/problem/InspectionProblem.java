@@ -18,6 +18,7 @@ public enum InspectionProblem implements Problem {
     EVIDENCE_NOT_FOUND(HttpStatus.NOT_FOUND, "A evidência solicitada não foi encontrada."),
     UNKNOWN_TYPE(HttpStatus.INTERNAL_SERVER_ERROR, "O tipo de vistoria %s é desconhecido."),
     UNKNOWN_STATUS(HttpStatus.INTERNAL_SERVER_ERROR, "O status de vistoria %s é desconhecido."),
+    UNKNOWN_ROLE(HttpStatus.INTERNAL_SERVER_ERROR, "O papel de pessoa na vistoria %s é desconhecido."),
     UNKNOWN_CONDITION(HttpStatus.INTERNAL_SERVER_ERROR, "O estado de item %s é desconhecido.");
 
     private final HttpStatus status;

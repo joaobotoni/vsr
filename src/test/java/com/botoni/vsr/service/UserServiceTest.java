@@ -32,7 +32,7 @@ class UserServiceTest {
     private final UserService userService = new UserService(repository, Mappers.getMapper(UserMapper.class));
 
     private final User user = User.builder().id(1).uuid(Users.UUID).email(Email.of(Users.EMAIL))
-            .person(new Individual(Name.of("Ana"), Cpf.of("52998224725"))).build();
+            .person(new Individual(null, Name.of("Ana"), Cpf.of("52998224725"))).build();
 
     @BeforeEach
     void storedUser() {
@@ -44,7 +44,7 @@ class UserServiceTest {
     @Controle
     @DisplayName("usuário é encontrado junto com a pessoa")
     void userIsFoundWithPerson() {
-        assertThat(userService.find(Users.UUID).getPerson().getName()).isEqualTo(Name.of("Ana"));
+        assertThat(userService.find(Users.UUID).getPerson().getName()).isEqualTo("Ana");
     }
 
     @Test

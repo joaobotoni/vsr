@@ -2,7 +2,7 @@
 
 API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
 
-Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis**, **catálogo** (leitura) e **vistorias** com ambientes, itens e evidências fotográficas. Pessoas, empresas e pessoas da vistoria já estão modeladas no banco e serão expostas nas próximas etapas.
+Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis** com proprietários, **catálogo** (leitura), **pessoas** (cadastro privado de cada usuário) e **vistorias** com ambientes, itens, evidências fotográficas e pessoas vinculadas. Vínculos entre pessoas e empresas e imóveis de empresa já estão modelados no banco e serão expostos nas próximas etapas.
 
 ---
 
@@ -130,6 +130,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 | `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
+| `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
 | `V10__evidencias.sql` | Remoção lógica da evidência |
 | `V9__vistorias.sql` | Remoção lógica de vistoria, ambiente e item; nomes únicos só entre ativos; uma vistoria em andamento por imóvel e uma saída por entrada; triggers das regras de vistoria; procedure `vistorias.copiar_vistoria` |
 
@@ -293,6 +294,9 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 
 **Pessoas e empresas**
 
+- Cada usuário tem o **próprio cadastro** de pessoas (proprietários, inquilinos). O mesmo CPF ou CNPJ pode existir no cadastro de usuários diferentes, sem que um veja o do outro; dentro de um cadastro, não se repete. A pessoa de uma conta (o próprio usuário) não tem titular, e o CPF dela continua único entre as contas.
+- Só pessoas do cadastro do próprio usuário entram como proprietárias dos imóveis dele ou como pessoas das vistorias dele.
+- O contato tem telefone, e-mail ou os dois.
 - Uma pessoa é física (`pf`) ou jurídica (`pj`), e o subtipo precisa corresponder ao tipo.
 - O vínculo entre pessoa física e empresa pode ser `socio`, `representante`, `mei` ou `funcionario`, e é único por par.
 - A titularidade de uma pessoa pertence a exatamente um titular: um usuário ou uma empresa.
@@ -345,6 +349,14 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `GET` | `/api/1/properties/{id}` | Bearer | Detalha um imóvel do usuário | `200` |
 | `PATCH` | `/api/1/properties/{id}` | Bearer | Altera descrição, tipo e categoria; campo ausente fica como está | `200` |
 | `DELETE` | `/api/1/properties/{id}` | Bearer | Remove o imóvel logicamente; recusa com `409` se houver vistoria em andamento | `204` |
+| `GET` | `/api/1/properties/{id}/owners` | Bearer | Proprietários do imóvel | `200` |
+| `POST` | `/api/1/properties/{id}/owners` | Bearer | Vincula um proprietário `{ person }` do cadastro do usuário | `204` |
+| `DELETE` | `/api/1/properties/{id}/owners/{person}` | Bearer | Desvincula o proprietário | `204` |
+| `POST` | `/api/1/people/individuals` | Bearer | Cadastra pessoa física `{ name, cpf, phone?, email? }` | `201` |
+| `POST` | `/api/1/people/companies` | Bearer | Cadastra pessoa jurídica `{ name (razão social), tradeName, cnpj, phone?, email? }` | `201` |
+| `GET` | `/api/1/people?page=&size=` | Bearer | Lista o cadastro de pessoas do usuário, por nome | `200` |
+| `GET` | `/api/1/people/{id}` | Bearer | Detalha a pessoa, com o contato | `200` |
+| `PATCH` | `/api/1/people/{id}` | Bearer | Altera nome, nome fantasia (só jurídica), telefone e e-mail | `200` |
 | `GET` | `/api/1/catalog/rooms` | Bearer | Tipos de ambiente (padrão e do usuário), com os itens típicos | `200` |
 | `GET` | `/api/1/catalog/items` | Bearer | Tipos de item (padrão e do usuário) | `200` |
 | `POST` | `/api/1/inspections` | Bearer | Inicia a vistoria: `{ property, type, entry?, notes? }`; a saída com `entry` copia ambientes e itens da entrada | `201` |
@@ -353,6 +365,9 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `PATCH` | `/api/1/inspections/{id}` | Bearer | Altera as observações | `200` |
 | `POST` | `/api/1/inspections/{id}/finish` | Bearer | Finaliza; a partir daí nada muda (`409`) | `200` |
 | `DELETE` | `/api/1/inspections/{id}` | Bearer | Remove logicamente a vistoria em andamento | `204` |
+| `GET` | `/api/1/inspections/{id}/people` | Bearer | Pessoas da vistoria, com o papel | `200` |
+| `POST` | `/api/1/inspections/{id}/people` | Bearer | Vincula `{ person, role }` (`proprietario` ou `inquilino`); vincular de novo troca o papel | `204` |
+| `DELETE` | `/api/1/inspections/{id}/people/{person}` | Bearer | Desvincula a pessoa da vistoria em andamento | `204` |
 | `POST` | `/api/1/inspections/{id}/rooms` | Bearer | Adiciona um ambiente `{ name, type?, notes? }`; com `type`, já cria os itens típicos | `201` |
 | `PATCH` | `/api/1/rooms/{id}` | Bearer | Altera nome e observações do ambiente | `200` |
 | `DELETE` | `/api/1/rooms/{id}` | Bearer | Remove logicamente o ambiente | `204` |
@@ -478,6 +493,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
 | Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o rollback apaga o arquivo já gravado |
 | Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
+| Descoberta de CPF ou CNPJ de terceiros | O cadastro de pessoas é privado por usuário: cadastrar um CPF que outro usuário já tem não dá conflito nem revela o nome gravado por ele |
 | Adulteração de vistoria finalizada | Triggers no banco recusam qualquer alteração na vistoria finalizada e nos seus ambientes, itens, evidências e pessoas, mesmo fora da API |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
 | Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
@@ -490,6 +506,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 **Pendências conhecidas**
 
 - **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
+- **Pessoas:** ainda não há remoção de pessoa do cadastro, nem a escolha da própria conta como proprietária. A tabela `pessoa_titularidade` não é usada (a titularidade está em `pessoa.id_usuario_titular`).
 - **Catálogo personalizado:** a API só lê o catálogo (a role `vsr_app` não grava nele); criar tipos de ambiente e de item do usuário depende de liberar essa escrita.
 - **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
 - **Arquivos de evidências removidas** ficam no disco (a remoção é lógica, como no banco).
@@ -578,10 +595,10 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **592 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **600 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
-O `PropertyFlowTest`, o `InspectionFlowTest` e o `EvidenceFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
+O `PropertyFlowTest`, o `InspectionFlowTest`, o `EvidenceFlowTest` e o `PersonFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
 
 O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.

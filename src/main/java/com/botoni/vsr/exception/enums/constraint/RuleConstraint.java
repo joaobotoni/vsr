@@ -20,6 +20,8 @@ public enum RuleConstraint implements Constraint {
     RN_VISTORIA_EM_ANDAMENTO("rn_vistoria_em_andamento", HttpStatus.CONFLICT, "A vistoria não está em andamento: foi finalizada ou removida."),
     RN_VISTORIA_ENTRADA("rn_vistoria_entrada", HttpStatus.UNPROCESSABLE_CONTENT, "A vistoria de entrada deve ser do tipo entrada e estar finalizada."),
     RN_AMBIENTE_ORIGEM("rn_ambiente_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O ambiente de origem deve pertencer à vistoria de entrada."),
+    RN_PESSOA_TITULAR("rn_pessoa_titular", HttpStatus.UNPROCESSABLE_CONTENT, "A pessoa informada não pertence ao seu cadastro."),
+    RN_PESSOA_TITULAR_FIXO("rn_pessoa_titular_fixo", HttpStatus.UNPROCESSABLE_CONTENT, "O titular do cadastro da pessoa não pode ser alterado."),
     RN_ITEM_ORIGEM("rn_item_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O item de origem deve pertencer ao ambiente de origem.");
 
     private final String constraint;

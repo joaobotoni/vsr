@@ -3,6 +3,7 @@ package com.botoni.vsr.database.enums;
 import com.botoni.vsr.exception.custom.PersonTypeException;
 import com.botoni.vsr.exception.enums.problem.PersonTypeProblem;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 
 @Getter
@@ -11,6 +12,7 @@ public enum PersonType {
     INDIVIDUAL("pf"),
     COMPANY("pj");
 
+    @JsonValue
     private final String value;
 
     PersonType(String value) {

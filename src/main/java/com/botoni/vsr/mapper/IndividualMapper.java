@@ -8,5 +8,8 @@ import org.mapstruct.Mapper;
 @Mapper(config = MapperConfiguration.class)
 public interface IndividualMapper {
 
-    Individual entity(Name name, Cpf cpf);
+    /** Pessoa de uma conta: sem titular. */
+    default Individual entity(Name name, Cpf cpf) {
+        return new Individual(null, name, cpf);
+    }
 }
