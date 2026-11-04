@@ -15,7 +15,12 @@ public enum RuleConstraint implements Constraint {
     RN_REFRESH_TOKEN_RENOVADO("rn_refresh_token_renovado", HttpStatus.CONFLICT, "O refresh token já foi renovado por outra requisição."),
     RN_SENHA_ALTERADA("rn_senha_alterada", HttpStatus.CONFLICT, "A senha foi alterada por outra requisição. Tente novamente."),
     RN_ESTADO_EXISTENTE("rn_estado_existente", HttpStatus.UNPROCESSABLE_CONTENT, "O estado informado não existe."),
-    RN_IMOVEL_VISTORIA_ANDAMENTO("rn_imovel_vistoria_andamento", HttpStatus.CONFLICT, "O imóvel possui uma vistoria em andamento e não pode ser removido.");
+    RN_IMOVEL_VISTORIA_ANDAMENTO("rn_imovel_vistoria_andamento", HttpStatus.CONFLICT, "O imóvel possui uma vistoria em andamento e não pode ser removido."),
+    RN_IMOVEL_ATIVO("rn_imovel_ativo", HttpStatus.UNPROCESSABLE_CONTENT, "O imóvel informado foi removido."),
+    RN_VISTORIA_EM_ANDAMENTO("rn_vistoria_em_andamento", HttpStatus.CONFLICT, "A vistoria não está em andamento: foi finalizada ou removida."),
+    RN_VISTORIA_ENTRADA("rn_vistoria_entrada", HttpStatus.UNPROCESSABLE_CONTENT, "A vistoria de entrada deve ser do tipo entrada e estar finalizada."),
+    RN_AMBIENTE_ORIGEM("rn_ambiente_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O ambiente de origem deve pertencer à vistoria de entrada."),
+    RN_ITEM_ORIGEM("rn_item_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O item de origem deve pertencer ao ambiente de origem.");
 
     private final String constraint;
     private final HttpStatus status;

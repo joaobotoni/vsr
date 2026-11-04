@@ -39,7 +39,7 @@ public class PropertyService {
 
     @Transactional
     public PropertyResponse add(UUID user, PropertyRequest request) {
-        User owner = find(user);
+        User owner = owner(user);
         Address address = locate(request.address());
         Property property = save(owner, address, request);
         return show(property);
@@ -70,7 +70,12 @@ public class PropertyService {
         discard(found);
     }
 
-    private User find(UUID user) {
+    @Transactional(readOnly = true)
+    public Property find(UUID user, UUID property) {
+        return owned(user, property);
+    }
+
+    private User owner(UUID user) {
         return userService.find(user);
     }
 

@@ -43,6 +43,8 @@ public enum UniqueConstraint implements Constraint {
     UQ_TIPO_ITEM_NOME("uq_tipo_item_nome", "Já existe um tipo de item com este nome."),
     PK_TIPO_AMBIENTE_ITEM("pk_tipo_ambiente_item", "Este item já está associado ao tipo de ambiente."),
     UQ_VISTORIA_UUID("uq_vistoria_uuid", "Já existe uma vistoria com o identificador informado."),
+    UQ_VISTORIA_ANDAMENTO("uq_vistoria_andamento", "O imóvel já possui uma vistoria em andamento."),
+    UQ_VISTORIA_SAIDA("uq_vistoria_saida", "A vistoria de entrada já possui uma vistoria de saída."),
     PK_VISTORIA_PESSOA("pk_vistoria_pessoa", "Esta pessoa já está vinculada à vistoria."),
     UQ_AMBIENTE_UUID("uq_ambiente_uuid", "Já existe um ambiente com o identificador informado."),
     UQ_AMBIENTE_NOME("uq_ambiente_nome", "Já existe um ambiente com este nome nesta vistoria."),

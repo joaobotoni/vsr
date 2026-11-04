@@ -1,9 +1,11 @@
 package com.botoni.vsr.configuration;
 
+import com.botoni.vsr.database.enums.InspectionStatus;
 import com.botoni.vsr.properties.VersionProperties;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer;
@@ -21,6 +23,12 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
         configurer.addPathPrefix(PREFIX, HandlerTypePredicate.forAnnotation(RestController.class));
+    }
+
+    /** Filtros na URL usam o mesmo valor do JSON ({@code ?status=em_andamento}), não o nome da constante. */
+    @Override
+    public void addFormatters(@NonNull FormatterRegistry registry) {
+        registry.addConverter(String.class, InspectionStatus.class, InspectionStatus::from);
     }
 
     @Override

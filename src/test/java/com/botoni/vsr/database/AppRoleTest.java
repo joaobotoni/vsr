@@ -24,7 +24,7 @@ class AppRoleTest {
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final Path ROLE = Path.of("docs/db/app-role.sql");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql");
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
 
     private static EmbeddedPostgres postgres;
@@ -65,6 +65,11 @@ class AppRoleTest {
             execute(app, "insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values ("
                     + "enderecos.registrar_endereco('SP', 'São Paulo', 'Sé', '01001000', 'Praça da Sé', '1', null), 1, 'casa', 'residencial')");
             execute(app, "do $$ declare v int := (select max(id_imovel) from imoveis.imovel); begin call imoveis.remover_imovel(v); end $$");
+            execute(app, "insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values ("
+                    + "enderecos.registrar_endereco('SP', 'São Paulo', 'Sé', '01001000', 'Praça da Sé', '2', null), 1, 'casa', 'residencial')");
+            execute(app, "insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo) "
+                    + "select 1, max(id_imovel), 'entrada' from imoveis.imovel");
+            execute(app, "do $$ declare v int := (select max(id_vistoria) from vistorias.vistoria); begin call vistorias.copiar_vistoria(v); end $$");
         }).doesNotThrowAnyException();
     }
 
@@ -76,6 +81,8 @@ class AppRoleTest {
         assertDenied("delete from usuarios.usuario");
         assertDenied("delete from imoveis.imovel");
         assertDenied("delete from enderecos.endereco");
+        assertDenied("delete from vistorias.vistoria");
+        assertDenied("delete from vistorias.item");
     }
 
     @Test

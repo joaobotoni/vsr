@@ -21,7 +21,7 @@ class ProcedureVerificationTest {
 
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql");
     private static final String HASH_A = "'\\x" + "aa".repeat(32) + "'::bytea";
     private static final String HASH_B = "'\\x" + "bb".repeat(32) + "'::bytea";
     private static final String HASH_C = "'\\x" + "cc".repeat(32) + "'::bytea";
@@ -149,6 +149,38 @@ class ProcedureVerificationTest {
         execute("call imoveis.remover_imovel(" + property + ")");
         assertThat(text("select (removido_em is not null)::text from imoveis.imovel where id_imovel = " + property)).isEqualTo("true");
         assertThat(text(insert)).isNotEqualTo(String.valueOf(property));
+    }
+
+    @Test
+    void inspectionRules() throws Exception {
+        String address = text("select enderecos.registrar_endereco('PR', 'Curitiba', 'Centro', '80010000', 'Rua XV de Novembro', '5', null)::text");
+        String property = text("insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values (" + address
+                + ", 1, 'casa', 'residencial') returning id_imovel::text");
+        String entry = text("insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo) values (1, " + property
+                + ", 'entrada') returning id_vistoria::text");
+        String room = text("insert into vistorias.ambiente (id_vistoria, nome) values (" + entry + ", 'Sala') returning id_ambiente::text");
+        String item = text("insert into vistorias.item (id_ambiente, nome, estado) values (" + room + ", 'Piso', 'bom') returning id_item::text");
+
+        String exit = "insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo, id_vistoria_entrada) values (1, "
+                + property + ", 'saida', " + entry + ") returning id_vistoria::text";
+        assertRule(exit, "rn_vistoria_entrada");
+
+        execute("update vistorias.vistoria set status = 'finalizada', finalizada_em = now() where id_vistoria = " + entry);
+        assertRule("update vistorias.vistoria set observacoes_iniciais = 'depois' where id_vistoria = " + entry, "rn_vistoria_em_andamento");
+        assertRule("insert into vistorias.ambiente (id_vistoria, nome) values (" + entry + ", 'Cozinha')", "rn_vistoria_em_andamento");
+        assertRule("update vistorias.item set estado = 'ruim' where id_item = " + item, "rn_vistoria_em_andamento");
+
+        String copy = text(exit);
+        execute("call vistorias.copiar_vistoria(" + copy + ")");
+        assertThat(text("select a.id_ambiente_origem::text from vistorias.ambiente a where a.id_vistoria = " + copy)).isEqualTo(room);
+        assertThat(text("select i.id_item_origem::text || ':' || coalesce(i.estado::text, '-') from vistorias.item i "
+                + "join vistorias.ambiente a on a.id_ambiente = i.id_ambiente where a.id_vistoria = " + copy)).isEqualTo(item + ":-");
+
+        String other = text("insert into vistorias.ambiente (id_vistoria, nome) values (" + copy + ", 'Varanda') returning id_ambiente::text");
+        assertRule("update vistorias.ambiente set id_ambiente_origem = " + other + " where id_vistoria = " + copy + " and nome = 'Sala'",
+                "rn_ambiente_origem");
+        assertRule("insert into vistorias.item (id_ambiente, nome, id_item_origem) values (" + other + ", 'Teto', " + item + ")",
+                "rn_item_origem");
     }
 
     @Test

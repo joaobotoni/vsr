@@ -163,4 +163,22 @@ Classes do rate limit:
 | `discard` | chamar a procedure de remoção lógica | `PropertyService` |
 | `owned` | buscar o recurso pelo dono e lançar `NOT_FOUND` se não for dele ou se foi removido | `PropertyService` |
 | `locate` | localizar o endereço pela cadeia estado, cidade, bairro, logradouro e endereço, criando o que faltar | `AddressService` |
-| `results` | converter a página de entidades para `PageResponse` | `PropertyService` |
+| `results` | converter a página de entidades para `PageResponse` | `PropertyService`, `InspectionService` |
+| `find` (público) | entregar a entidade do dono a outro serviço, lançando `NOT_FOUND` | `PropertyService`, `InspectionService`, `RoomService` |
+| `store` | gravar já (`saveAndFlush`), para o banco validar a alteração dentro do caso de uso | `InspectionService`, `RoomService`, `ItemService` |
+
+### Vistorias e catálogo
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `start` | iniciar uma vistoria (entrada ou saída) | `InspectionService` |
+| `copy` | copiar ambientes e itens da vistoria de entrada para a de saída (procedure) | `InspectionService` |
+| `finish` | caso de uso de finalização da vistoria | `InspectionService`, `InspectionRepository` |
+| `conclude` | chamar a finalização no banco | `InspectionService` |
+| `entry` | a vistoria de entrada do dono, ou `null` sem entrada | `InspectionService` |
+| `attach` | pôr na entidade nova a coleção recém-gravada, para a resposta | `RoomService` |
+| `standard` | itens típicos do tipo de ambiente, criados no ambiente novo | `RoomService`, `ItemMapper` |
+| `rooms` / `items` | o catálogo de tipos de ambiente / de item que o usuário vê | `CatalogService` |
+| `room` / `item` | o tipo de ambiente / de item do catálogo que o usuário vê, ou `NOT_FOUND` | `CatalogService` |
+| `contents` | os itens de um tipo de ambiente que o usuário vê | `CatalogService` |
+| `accessible` | o tipo do catálogo é padrão ou do próprio usuário | `CatalogService` |

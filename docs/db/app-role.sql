@@ -15,7 +15,7 @@ grant select, insert, update on all tables in schema pessoas, usuarios, vinculos
 grant select on all tables in schema catalogo to vsr_app;
 grant usage, select on all sequences in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias to vsr_app;
 
-grant execute on all routines in schema documento, usuarios, enderecos, imoveis to vsr_app;
+grant execute on all routines in schema documento, usuarios, enderecos, imoveis, vistorias to vsr_app;
 grant execute on procedure rotinas.violar(text) to vsr_app;
 revoke execute on procedure rotinas.limpar_sessoes_expiradas() from public;
 
@@ -26,5 +26,5 @@ alter default privileges in schema catalogo
     grant select on tables to vsr_app;
 alter default privileges in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias
     grant usage, select on sequences to vsr_app;
-alter default privileges in schema documento, usuarios, enderecos, imoveis
+alter default privileges in schema documento, usuarios, enderecos, imoveis, vistorias
     grant execute on routines to vsr_app;
