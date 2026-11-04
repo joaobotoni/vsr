@@ -12,6 +12,7 @@ import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -52,6 +53,11 @@ public abstract class Person {
     @Setter(AccessLevel.PROTECTED)
     @Column(name = "nome", nullable = false)
     private String name;
+
+    /** Controle de concorrência: duas alterações simultâneas do mesmo registro, a segunda recebe 409. */
+    @Version
+    @Column(name = "versao", nullable = false)
+    private Integer version;
 
     protected Person(User owner, PersonType type, String name) {
         this.owner = owner;

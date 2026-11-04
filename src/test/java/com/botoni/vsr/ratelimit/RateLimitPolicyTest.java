@@ -18,7 +18,7 @@ class RateLimitPolicyTest {
     private static final String KEY = "ip:10.0.0.1";
 
     private final RateLimitPolicy policy = RateLimitPolicy.from(new RateLimitProperties(
-            limit(100), limit(3), limit(4), limit(5), limit(6), limit(9), limit(7), limit(8)));
+            limit(100), limit(3), limit(4), limit(5), limit(6), limit(9), limit(7), limit(8), limit(10)));
 
     @AfterEach
     void close() {
@@ -49,7 +49,7 @@ class RateLimitPolicyTest {
     @DisplayName("cada rota tem saldo próprio: estourar o login não afeta o cadastro nem o geral")
     void routesHaveOwnBalance() {
         Limit one = new Limit(1, 1, Duration.ofHours(1));
-        try (RateLimitPolicy strict = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one, one))) {
+        try (RateLimitPolicy strict = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one, one, one))) {
             TokenBucket login = strict.resolve(request("POST", "/api/1/auth/login"));
             login.allow(KEY);
 
@@ -64,7 +64,7 @@ class RateLimitPolicyTest {
     @DisplayName("a mesma rota resolve sempre o mesmo saldo, inclusive em versões diferentes da API")
     void sameRouteSharesBalance() {
         Limit one = new Limit(1, 1, Duration.ofHours(1));
-        try (RateLimitPolicy strict = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one, one))) {
+        try (RateLimitPolicy strict = RateLimitPolicy.from(new RateLimitProperties(one, one, one, one, one, new Limit(2, 1, Duration.ofHours(1)), one, one, one))) {
             strict.resolve(request("POST", "/api/1/auth/login")).allow(KEY);
 
             assertThat(strict.resolve(request("POST", "/api/2/auth/login")).allow(KEY).allowed()).isFalse();

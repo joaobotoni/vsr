@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -67,6 +68,11 @@ public class Room {
 
     @Column(name = "removido_em", insertable = false, updatable = false)
     private Instant removedAt;
+
+    /** Controle de concorrência: duas alterações simultâneas do mesmo registro, a segunda recebe 409. */
+    @Version
+    @Column(name = "versao", nullable = false)
+    private Integer version;
 
     @OrderBy("id")
     @SQLRestriction("removido_em is null")

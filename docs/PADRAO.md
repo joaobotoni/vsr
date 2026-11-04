@@ -219,3 +219,8 @@ Classes do rate limit:
 | `save` (arquivo) | gravar o arquivo com nome gerado e apagá-lo se a transação for desfeita | `StorageService` |
 | `load` (arquivo) | conferir e ler o arquivo uma vez, pelo caminho real e sem seguir link | `StorageService` |
 | `cleanup` | registrar a remoção do arquivo no rollback da transação | `StorageService` |
+| `record` | gravar o registro da evidência numa transação curta e, se recusado, apagar o arquivo | `EvidenceService` |
+| `intact` | exigir que o arquivo lido confira com o SHA-256 gravado no envio | `EvidenceService` |
+| `delete` / `erase` | apagar o arquivo, só registrando a falha no log | `StorageService` |
+| `stale` | arquivos do diretório mais antigos que a idade informada | `StorageService`, `OrphanService` |
+| `sweep` / `purge` | limpeza periódica de órfãos / apagar um arquivo sem registro | `OrphanService` |

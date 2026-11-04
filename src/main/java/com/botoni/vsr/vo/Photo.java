@@ -3,6 +3,8 @@ package com.botoni.vsr.vo;
 import com.botoni.vsr.exception.custom.PhotoException;
 import com.botoni.vsr.exception.enums.problem.PhotoProblem;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 /**
@@ -15,6 +17,7 @@ public record Photo(byte[] content, String contentType, String extension) {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
     private static final String JPEG_TYPE = "image/jpeg";
     private static final String PNG_TYPE = "image/png";
+    private static final String SHA_256 = "SHA-256";
 
     public Photo {
         content = content.clone();
@@ -40,6 +43,19 @@ public record Photo(byte[] content, String contentType, String extension) {
 
     public int size() {
         return content.length;
+    }
+
+    /** SHA-256 do conteúdo, gravado na evidência e conferido a cada download. */
+    public byte[] hash() {
+        return digest(content);
+    }
+
+    public static byte[] digest(byte[] content) {
+        try {
+            return MessageDigest.getInstance(SHA_256).digest(content);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private static boolean starts(byte[] content, byte[] signature) {

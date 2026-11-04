@@ -13,6 +13,7 @@ import com.botoni.vsr.exception.custom.CatalogException;
 import com.botoni.vsr.exception.enums.problem.CatalogProblem;
 import com.botoni.vsr.mapper.CatalogMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class CatalogService {
+
+    /** Teto das listas curtas, que não são paginadas. */
+    private static final Limit LIST = Limit.of(200);
 
     private final RoomTypeRepository roomTypeRepository;
     private final ItemTypeRepository itemTypeRepository;
@@ -76,7 +80,7 @@ public class CatalogService {
     }
 
     private List<RoomType> visible(UUID user) {
-        return roomTypeRepository.findAllVisible(user);
+        return roomTypeRepository.findAllVisible(user, LIST);
     }
 
     private List<RoomTypeResponse> show(List<RoomType> types, UUID user) {
@@ -84,7 +88,7 @@ public class CatalogService {
     }
 
     private List<ItemType> available(UUID user) {
-        return itemTypeRepository.findAllVisible(user);
+        return itemTypeRepository.findAllVisible(user, LIST);
     }
 
     private List<ItemTypeResponse> describe(List<ItemType> types) {

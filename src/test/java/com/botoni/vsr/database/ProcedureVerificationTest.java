@@ -21,7 +21,8 @@ class ProcedureVerificationTest {
 
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql",
+            "V13__regras_integridade_auditoria.sql");
     private static final String HASH_A = "'\\x" + "aa".repeat(32) + "'::bytea";
     private static final String HASH_B = "'\\x" + "bb".repeat(32) + "'::bytea";
     private static final String HASH_C = "'\\x" + "cc".repeat(32) + "'::bytea";
@@ -214,6 +215,49 @@ class ProcedureVerificationTest {
                 + id + ", 'pf', 'Pessoa', " + owner + ")");
         execute("insert into pessoas.pessoa_fisica (id_pessoa, cpf) values (" + id + ", '" + cpf + "')");
         return String.valueOf(id);
+    }
+
+    @Test
+    void integrityRulesAndAudit() throws Exception {
+        execute("insert into pessoas.pessoa (id_pessoa, tipo, nome) overriding system value values (950, 'pf', 'Duda')");
+        execute("insert into pessoas.pessoa_fisica (id_pessoa, cpf) values (950, '18609139034')");
+        int stranger = Integer.parseInt(text("insert into usuarios.usuario (id_pessoa, email) values (950, 'duda@vsr.com') "
+                + "returning id_usuario::text"));
+        String address = text("select enderecos.registrar_endereco('GO', 'Goiânia', 'Setor Oeste', '74110010', 'Rua 1', '1', null)::text");
+        String property = text("insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values (" + address
+                + ", 1, 'casa', 'residencial') returning id_imovel::text");
+
+        assertRule("insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo) values (" + stranger + ", " + property
+                + ", 'entrada')", "rn_vistoria_responsavel");
+
+        String inspection = text("insert into vistorias.vistoria (id_usuario_responsavel, id_imovel, tipo) values (1, " + property
+                + ", 'entrada') returning id_vistoria::text");
+        String foreignRoom = text("insert into catalogo.tipo_ambiente (nome, id_usuario) values ('Adega', " + stranger
+                + ") returning id_tipo_ambiente::text");
+        String foreignItem = text("insert into catalogo.tipo_item (nome, id_usuario) values ('Barril', " + stranger
+                + ") returning id_tipo_item::text");
+        assertRule("insert into vistorias.ambiente (id_vistoria, id_tipo_ambiente, nome) values (" + inspection + ", " + foreignRoom
+                + ", 'Adega')", "rn_catalogo_uso");
+        String room = text("insert into vistorias.ambiente (id_vistoria, nome) values (" + inspection + ", 'Adega') returning id_ambiente::text");
+        assertRule("insert into vistorias.item (id_ambiente, id_tipo_item, nome) values (" + room + ", " + foreignItem + ", 'Barril')",
+                "rn_catalogo_uso");
+
+        String privateCompany = text("insert into pessoas.pessoa (id_pessoa, tipo, nome, id_usuario_titular) overriding system value "
+                + "values (951, 'pj', 'Privada', 1) returning id_pessoa::text");
+        execute("insert into pessoas.pessoa_juridica (id_pessoa, cnpj, nome_fantasia) values (" + privateCompany + ", '11444777000161', 'Privada')");
+        assertRule("insert into vinculos.vinculo_pessoa_empresa (id_pessoa_fisica, id_pessoa_juridica, tipo) values (1, "
+                + privateCompany + ", 'socio')", "rn_empresa_cadastro");
+        assertRule("insert into imoveis.imovel (id_endereco, id_pessoa_juridica, tipo, categoria) values (" + address + ", "
+                + privateCompany + ", 'casa', 'residencial')", "rn_empresa_cadastro");
+
+        String user = text("select uuid::text from usuarios.usuario where id_usuario = 1");
+        execute("begin; select set_config('vsr.usuario', '" + user + "', true); "
+                + "update vistorias.ambiente set observacoes = 'Teto manchado' where id_ambiente = " + room + "; commit;");
+        assertThat(text("select usuario::text || ':' || operacao || ':' || (depois ->> 'observacoes') from auditoria.registro "
+                + "where tabela = 'vistorias.ambiente' order by id_registro desc limit 1")).isEqualTo(user + ":UPDATE:Teto manchado");
+        execute("update vistorias.ambiente set nome = 'Adega fria' where id_ambiente = " + room);
+        assertThat(text("select coalesce(usuario::text, 'sem usuário') || ':' || (antes ->> 'nome') from auditoria.registro "
+                + "where tabela = 'vistorias.ambiente' order by id_registro desc limit 1")).isEqualTo("sem usuário:Adega");
     }
 
     @Test

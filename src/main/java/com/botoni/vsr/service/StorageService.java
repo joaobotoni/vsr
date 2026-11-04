@@ -16,7 +16,12 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Arquivos das evidências em disco. O nome é sempre gerado aqui (UUID + extensão do formato real); a leitura confere o
@@ -29,6 +34,7 @@ import java.util.UUID;
 public class StorageService {
 
     private final EvidenceProperties evidenceProperties;
+    private final Clock clock;
 
     public String save(Photo photo) {
         String name = name(photo);
@@ -42,6 +48,17 @@ public class StorageService {
         Path real = real(path(name));
         inside(real);
         return read(real);
+    }
+
+    /** Apaga o arquivo, se existir; a falha só vai para o log (o arquivo vira órfão e sai na limpeza). */
+    public void delete(String name) {
+        erase(path(name));
+    }
+
+    /** Nomes dos arquivos do diretório mais antigos que {@code age}, candidatos à limpeza de órfãos. */
+    public List<String> stale(Duration age) {
+        Instant limit = clock.instant().minus(age);
+        return list().stream().filter(path -> older(path, limit)).map(path -> path.getFileName().toString()).toList();
     }
 
     private static String name(Photo photo) {
@@ -72,6 +89,22 @@ public class StorageService {
         TransactionSynchronizationManager.registerSynchronization(new Cleanup(path));
     }
 
+    private List<Path> list() {
+        try (Stream<Path> files = Files.list(directory())) {
+            return files.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).toList();
+        } catch (IOException exception) {
+            throw new StorageException(StorageProblem.READ_FAILED, exception);
+        }
+    }
+
+    private static void erase(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException exception) {
+            log.warn("Arquivo de evidência não apagado: {}", path.getFileName(), exception);
+        }
+    }
+
     private static Path real(Path path) {
         try {
             return path.toRealPath(LinkOption.NOFOLLOW_LINKS);
@@ -91,6 +124,14 @@ public class StorageService {
             return input.readAllBytes();
         } catch (IOException exception) {
             throw new StorageException(StorageProblem.READ_FAILED, exception);
+        }
+    }
+
+    private static boolean older(Path path, Instant limit) {
+        try {
+            return Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant().isBefore(limit);
+        } catch (IOException exception) {
+            return false;
         }
     }
 

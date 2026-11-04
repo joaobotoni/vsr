@@ -64,6 +64,7 @@ public class PropertyService {
     public PropertyResponse edit(UUID user, UUID property, PropertyEditRequest request) {
         Property found = owned(user, property);
         amend(found, request);
+        store(found);
         return show(found);
     }
 
@@ -112,6 +113,10 @@ public class PropertyService {
 
     private void amend(Property property, PropertyEditRequest request) {
         propertyMapper.amend(request, property);
+    }
+
+    private void store(Property property) {
+        propertyRepository.saveAndFlush(property);
     }
 
     private void discard(Property property) {

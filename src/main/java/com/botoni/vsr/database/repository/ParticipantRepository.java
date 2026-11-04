@@ -1,6 +1,7 @@
 package com.botoni.vsr.database.repository;
 
 import com.botoni.vsr.database.entity.Participant;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,7 +12,7 @@ import java.util.List;
 public interface ParticipantRepository extends JpaRepository<Participant, Participant.Key> {
 
     @Query("select a from Participant a join fetch a.person p where a.inspection.id = :inspection and a.removedAt is null order by p.name")
-    List<Participant> findActive(@Param("inspection") Integer inspection);
+    List<Participant> findActive(@Param("inspection") Integer inspection, Limit limit);
 
     /** Vincula com o papel informado, ou reativa o vínculo desfeito com o papel novo. */
     @Modifying(flushAutomatically = true)

@@ -2,6 +2,7 @@ package com.botoni.vsr.database.repository;
 
 import com.botoni.vsr.database.entity.Membership;
 import com.botoni.vsr.dto.response.MemberResponse;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -20,12 +21,12 @@ public interface MembershipRepository extends JpaRepository<Membership, Integer>
     Optional<Membership> findActive(@Param("user") UUID user, @Param("company") UUID company);
 
     @Query("select m " + ACTIVE + " order by c.name")
-    List<Membership> findAllActive(@Param("user") UUID user);
+    List<Membership> findAllActive(@Param("user") UUID user, Limit limit);
 
     @Query("select new com.botoni.vsr.dto.response.MemberResponse(u.uuid, i.name, u.email, m.role) "
             + "from Membership m join m.individual i, User u "
             + "where u.person = i and m.company.id = :company and m.removedAt is null order by i.name")
-    List<MemberResponse> findMembers(@Param("company") Integer company);
+    List<MemberResponse> findMembers(@Param("company") Integer company, Limit limit);
 
     /** Vincula com o papel informado, ou reativa o vínculo desfeito com o papel novo. */
     @Modifying(flushAutomatically = true)

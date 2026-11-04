@@ -16,7 +16,8 @@ public enum RequestProblem implements Problem {
     REQUEST_FAILED(HttpStatus.BAD_REQUEST, "Não foi possível processar a requisição."),
     BODY_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "O corpo da requisição deve ter no máximo %d bytes."),
     LENGTH_REQUIRED(HttpStatus.LENGTH_REQUIRED, "O cabeçalho Content-Length é obrigatório."),
-    INVALID_ADDRESS(HttpStatus.BAD_REQUEST, "O endereço de origem da requisição é inválido.");
+    INVALID_ADDRESS(HttpStatus.BAD_REQUEST, "O endereço de origem da requisição é inválido."),
+    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "O registro foi alterado por outra requisição. Recarregue e tente de novo.");
 
     private final HttpStatus status;
     private final String message;

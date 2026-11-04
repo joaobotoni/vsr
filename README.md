@@ -130,6 +130,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 | `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
+| `V13__regras_integridade_auditoria.sql` | Regras `rn_vistoria_responsavel`, `rn_catalogo_uso` e `rn_empresa_cadastro`; SHA-256 das evidências; coluna `versao` para controle de concorrência; schema `auditoria` com o histórico de imóveis, vistorias e vínculos |
 | `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
 | `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
 | `V10__evidencias.sql` | Remoção lógica da evidência |
@@ -267,6 +268,7 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 | `POST /auth/register` | `RATE_LIMIT_REGISTER_*` |
 | `POST /auth/refresh` | `RATE_LIMIT_REFRESH_*` |
 | `POST /rooms/{id}/evidences` | `RATE_LIMIT_UPLOAD_*` |
+| `POST /companies` e `POST /companies/{id}/members` | `RATE_LIMIT_COMPANY_*` |
 | `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` (limita a **troca** de senha) |
 | Demais rotas | `RATE_LIMIT_API_*` |
 
@@ -301,6 +303,13 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 - Uma pessoa é física (`pf`) ou jurídica (`pj`), e o subtipo precisa corresponder ao tipo.
 - O vínculo entre pessoa física e empresa pode ser `socio`, `representante`, `mei` ou `funcionario`, e é único por par.
 - A titularidade de uma pessoa pertence a exatamente um titular: um usuário ou uma empresa.
+
+**Integridade e auditoria**
+
+- O banco confere, mesmo fora da API: o responsável pela vistoria é o dono do imóvel ou membro da empresa dele; o tipo do catálogo usado num ambiente ou item é padrão ou de quem participa da vistoria; vínculos e imóveis de empresa só aceitam empresas da plataforma.
+- Toda inclusão, alteração e exclusão em imóveis, proprietários, vistorias, ambientes, itens, evidências, pessoas da vistoria e vínculos de empresa vai para `auditoria.registro`, com o valor antigo, o novo, a data e o usuário autenticado (informado pela aplicação em cada transação de escrita). A role da aplicação não lê nem altera esse histórico.
+- Cada foto guarda o SHA-256 do arquivo; o download recusa (`500`, `StorageProblem.INTEGRITY`) um arquivo trocado no disco.
+- Imóvel, vistoria, ambiente, item e pessoa têm versão: duas alterações simultâneas do mesmo registro, a segunda recebe `409` (`RequestProblem.CONCURRENT_UPDATE`).
 
 **Empresas**
 
@@ -457,7 +466,7 @@ Content-Type: application/json
 
 A resposta traz o `id` (UUID) do imóvel e o endereço com o CEP sem máscara. `type`: `apartamento`, `casa`, `sala_comercial`, `galpao` ou `outro`; `category`: `residencial`, `comercial` ou `alto_padrao`. As listagens respondem `{ "items": [...], "page": 0, "size": 20, "total": 1 }`.
 
-Imóvel, vistoria, ambiente ou item de outro usuário, ou já removido, responde `404`, como se não existisse. Nas edições (`PATCH`), campo ausente fica como está. As observações aceitam quebra de linha; os demais textos são de uma linha. O mesmo titular não cadastra dois imóveis ativos no mesmo endereço (`409`).
+Imóvel, vistoria, ambiente ou item de outro usuário, ou já removido, responde `404`, como se não existisse. Vincular o que já está vinculado e desvincular o que não está respondem `204` sem mudar nada (operações idempotentes). As listas curtas (membros, proprietários, pessoas da vistoria, catálogo, empresas) não são paginadas e trazem no máximo 200 itens. Nas edições (`PATCH`), campo ausente fica como está. As observações aceitam quebra de linha; os demais textos são de uma linha. O mesmo titular não cadastra dois imóveis ativos no mesmo endereço (`409`).
 
 ### Formato de erro
 
@@ -507,7 +516,9 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Acesso a dados de outro usuário | Imóveis, vistorias, ambientes e itens são sempre buscados pelo UUID **e** pelo dono (o responsável pela vistoria); o recurso alheio responde `404`, sem revelar que existe |
 | Arquivo malicioso no upload | O formato vem dos primeiros bytes (JPEG ou PNG), não do nome nem do `Content-Type` do cliente: HTML, SVG e scripts disfarçados de imagem são recusados (`415`). O nome no disco é gerado (UUID); o download sai com o tipo conferido, `nosniff` e `Content-Disposition: inline` |
 | Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
-| Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o rollback apaga o arquivo já gravado |
+| Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o arquivo já gravado é apagado; uma limpeza diária (03:30) apaga arquivos sem registro com mais de 1 hora |
+| Arquivo trocado no disco | SHA-256 gravado no envio e conferido em cada download |
+| Alteração sem rastro | Histórico de auditoria gravado por trigger, com o usuário da transação, inacessível à role da aplicação |
 | Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
 | Acesso residual de ex-membro | Imóveis e vistorias de empresa valem só para membros ativos, conferido em cada consulta |
 | Descoberta de contas pela inclusão de membro | A inclusão por e-mail responde `204` exista a conta ou não |
@@ -529,6 +540,8 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 - **Catálogo personalizado:** tipos criados não são editados nem removidos.
 - **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
 - **Arquivos de evidências removidas** ficam no disco (a remoção é lógica, como no banco).
+- **Auditoria:** ainda não há endpoint para consultar o histórico; a consulta é feita no banco, com o usuário dono das migrations.
+- **Concorrência:** a versão protege contra alterações simultâneas no servidor, mas a API ainda não recebe `If-Match`; um cliente com dados antigos sobrescreve se não houver outra alteração no meio.
 - **Edição parcial:** um `PATCH` não limpa campos opcionais (enviar `null` mantém o valor atual).
 - **Empresas:** não há verificação de que quem cadastra o CNPJ representa mesmo a empresa; o primeiro a cadastrar vira administrador.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
@@ -537,7 +550,7 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 - **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
 - **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
 - **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
-- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`. O schema `auditoria` não recebe nenhum grant, de propósito.
 
 **Riscos aceitos**
 
@@ -571,7 +584,7 @@ A configuração é feita **por variáveis de ambiente**:
 | Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
 | E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
 | Evidências | `EVIDENCE_DIR`: diretório dos arquivos das fotos (criado se não existir; faça backup junto com o banco) |
-| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`), `PASSWORD_RESET` e `UPLOAD` (envio de evidências) |
+| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`), `PASSWORD_RESET`, `UPLOAD` (envio de evidências) e `COMPANY` (cadastro de empresa e inclusão de membro) |
 | Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
 
 Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As chaves podem ser geradas com `openssl rand -base64 32`.
@@ -586,6 +599,7 @@ Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As 
 | `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
 | `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
 | `UPLOAD` | 60 | 60 | `1m` | Por IP; uma vistoria envia várias fotos seguidas, mas cada uma pesa até 10 MB |
+| `COMPANY` | 10 | 10 | `10m` | Por IP; contra cadastro de CNPJ em massa e varredura de e-mails pela inclusão de membro |
 | `ACCOUNT` | 10 | 10 | `15m` | Tentativas por conta e rede; como a senha certa também conta, fica um pouco acima de 5 para não incomodar quem entra várias vezes |
 | `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
 
@@ -614,7 +628,7 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **606 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **612 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 

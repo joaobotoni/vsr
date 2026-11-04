@@ -13,6 +13,7 @@ public enum StorageProblem implements Problem {
 
     WRITE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível gravar o arquivo da evidência."),
     READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível ler o arquivo da evidência."),
+    INTEGRITY(HttpStatus.INTERNAL_SERVER_ERROR, "O arquivo da evidência não confere com o registrado no envio."),
     OUTSIDE_DIRECTORY(HttpStatus.INTERNAL_SERVER_ERROR, "O arquivo da evidência está fora do diretório configurado.");
 
     private final HttpStatus status;

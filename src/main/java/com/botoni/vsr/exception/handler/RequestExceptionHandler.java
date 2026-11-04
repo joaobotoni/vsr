@@ -6,6 +6,7 @@ import com.botoni.vsr.exception.lib.problem.Problems;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -30,6 +31,11 @@ public class RequestExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ProblemDetail unsupported(HttpRequestMethodNotSupportedException exception) {
         return Problems.of(RequestProblem.METHOD_NOT_SUPPORTED).args(exception.getMethod()).build();
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail concurrent() {
+        return Problems.of(RequestProblem.CONCURRENT_UPDATE).build();
     }
 
     @ExceptionHandler(ResponseStatusException.class)

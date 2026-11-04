@@ -24,7 +24,8 @@ class AppRoleTest {
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final Path ROLE = Path.of("docs/db/app-role.sql");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql",
+            "V13__regras_integridade_auditoria.sql");
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
 
     private static EmbeddedPostgres postgres;
@@ -83,6 +84,7 @@ class AppRoleTest {
         assertDenied("delete from enderecos.endereco");
         assertDenied("delete from vistorias.vistoria");
         assertDenied("delete from vistorias.item");
+        assertDenied("delete from auditoria.registro");
     }
 
     @Test
@@ -101,6 +103,22 @@ class AppRoleTest {
                 .isInstanceOf(PSQLException.class)
                 .satisfies(exception -> org.assertj.core.api.Assertions
                         .assertThat(((PSQLException) exception).getServerErrorMessage().getConstraint()).isEqualTo(rule));
+    }
+
+    @Test
+    @Controle
+    @DisplayName("a aplicação não lê nem altera o histórico de auditoria, mas as alterações dela são registradas")
+    void auditIsWriteOnlyThroughTriggers() throws SQLException {
+        assertDenied("select count(*) from auditoria.registro");
+        assertDenied("insert into auditoria.registro (tabela, operacao) values ('falsa', 'INSERT')");
+        assertDenied("update auditoria.registro set usuario = null");
+        execute(app, "insert into imoveis.imovel (id_endereco, id_usuario, tipo, categoria) values ("
+                + "enderecos.registrar_endereco('PE', 'Recife', 'Boa Vista', '50050000', 'Rua da Aurora', '3', null), 1, 'casa', 'residencial')");
+        try (Statement statement = owner.createStatement();
+             java.sql.ResultSet result = statement.executeQuery("select count(*) from auditoria.registro where tabela = 'imoveis.imovel'")) {
+            result.next();
+            org.assertj.core.api.Assertions.assertThat(result.getInt(1)).isPositive();
+        }
     }
 
     @Test

@@ -15,6 +15,8 @@ public interface EvidenceRepository extends JpaRepository<Evidence, Integer> {
             + "and e.removedAt is null and r.removedAt is null and " + Access.INSPECTION + "and i.removedAt is null")
     Optional<Evidence> findOwned(@Param("user") UUID user, @Param("evidence") UUID evidence);
 
+    boolean existsByPath(String path);
+
     @Modifying(flushAutomatically = true)
     @Query(value = "update vistorias.evidencia set removido_em = now() where id_evidencia = :evidence", nativeQuery = true)
     int remove(@Param("evidence") Integer evidence);

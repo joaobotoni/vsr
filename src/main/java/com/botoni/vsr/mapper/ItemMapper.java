@@ -17,6 +17,7 @@ public interface ItemMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "room", source = "room")
@@ -30,6 +31,7 @@ public interface ItemMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "description", ignore = true)
@@ -44,6 +46,7 @@ public interface ItemMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "room", ignore = true)
     @Mapping(target = "type", ignore = true)
     @Mapping(target = "origin", ignore = true)

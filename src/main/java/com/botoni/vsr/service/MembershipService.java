@@ -13,6 +13,7 @@ import com.botoni.vsr.exception.custom.CompanyException;
 import com.botoni.vsr.exception.enums.problem.CompanyProblem;
 import com.botoni.vsr.vo.Email;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,9 +28,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MembershipService {
 
+    /** Teto das listas curtas, que não são paginadas. */
+    private static final Limit LIST = Limit.of(200);
+
     private final MembershipRepository membershipRepository;
     private final UserRepository userRepository;
-    private final UserService userService;
 
     @Transactional(readOnly = true)
     public Membership verify(UUID user, UUID company) {
@@ -38,7 +41,7 @@ public class MembershipService {
 
     @Transactional(readOnly = true)
     public List<Membership> companies(UUID user) {
-        return membershipRepository.findAllActive(user);
+        return membershipRepository.findAllActive(user, LIST);
     }
 
     @Transactional(readOnly = true)
@@ -67,7 +70,7 @@ public class MembershipService {
     }
 
     private List<MemberResponse> members(Membership membership) {
-        return membershipRepository.findMembers(membership.getCompany().getId());
+        return membershipRepository.findMembers(membership.getCompany().getId(), LIST);
     }
 
     private Individual member(Email email) {
@@ -75,11 +78,7 @@ public class MembershipService {
     }
 
     private Individual person(UUID member) {
-        return userService.find(member).getPerson();
-    }
-
-    private void release(Individual person, Company company) {
-        membershipRepository.unlink(person.getId(), company.getId());
+        return userRepository.findWithPersonByUuid(member).map(User::getPerson).orElse(null);
     }
 
     private Membership active(UUID user, UUID company) {
@@ -99,6 +98,14 @@ public class MembershipService {
             return;
         }
         admin(membership);
+    }
+
+    /** Usuário inexistente ou que não é membro: nada muda, e a resposta é a mesma. */
+    private void release(Individual person, Company company) {
+        if (person == null) {
+            return;
+        }
+        membershipRepository.unlink(person.getId(), company.getId());
     }
 
     private void bind(Individual person, Company company, MembershipRole role) {

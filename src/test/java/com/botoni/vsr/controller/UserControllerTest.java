@@ -53,6 +53,18 @@ class UserControllerTest {
 
     @Test
     @Controle
+    @DisplayName("alteração simultânea do mesmo registro (versão desatualizada) responde 409")
+    void staleVersionRespondsConflict() throws Exception {
+        doThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException("Inspection", 1))
+                .when(changePasswordService).change(any(), any(), any(), any(), any());
+
+        mockMvc.perform(Requests.changePassword(Tokens.valid()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RequestProblem.CONCURRENT_UPDATE"));
+    }
+
+    @Test
+    @Controle
     @DisplayName("troca concorrente detectada no banco responde 409")
     void concurrentChangeRespondsConflict() throws Exception {
         doThrow(new DataIntegrityViolationException(CONSTRAINT,

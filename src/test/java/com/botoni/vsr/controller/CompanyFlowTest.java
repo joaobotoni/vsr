@@ -91,6 +91,15 @@ class CompanyFlowTest extends ApplicationTest {
                 .andExpect(jsonPath("$", hasSize(0)));
         mockMvc.perform(authorized(get("/api/1/companies"), admin))
                 .andExpect(jsonPath("$[0].role").value("socio"));
+
+        mockMvc.perform(authorized(delete(members + "/" + java.util.UUID.randomUUID()), admin))
+                .andExpect(status().isNoContent());
+        org.assertj.core.api.Assertions.assertThat(text("select usuario::text from auditoria.registro "
+                + "where tabela = 'vinculos.vinculo_pessoa_empresa' and operacao = 'UPDATE' order by id_registro desc limit 1"))
+                .isEqualTo(adminId);
+        org.assertj.core.api.Assertions.assertThat(text("select count(*)::text from auditoria.registro "
+                + "where tabela = 'vistorias.ambiente' and operacao = 'INSERT' and usuario = '" + adminId + "'"))
+                .isEqualTo("1");
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.botoni.vsr.database.repository;
 
 import com.botoni.vsr.database.entity.Ownership;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,7 +12,7 @@ import java.util.List;
 public interface OwnershipRepository extends JpaRepository<Ownership, Ownership.Key> {
 
     @Query("select o from Ownership o join fetch o.person p where o.property.id = :property and o.removedAt is null order by p.name")
-    List<Ownership> findActive(@Param("property") Integer property);
+    List<Ownership> findActive(@Param("property") Integer property, Limit limit);
 
     /** Vincula, ou reativa o vínculo desfeito. */
     @Modifying(flushAutomatically = true)

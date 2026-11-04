@@ -19,6 +19,7 @@ public interface PropertyMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "user", expression = "java(company == null ? user : null)")
     @Mapping(target = "company", source = "company")
@@ -31,6 +32,7 @@ public interface PropertyMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "company", ignore = true)

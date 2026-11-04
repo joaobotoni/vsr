@@ -21,6 +21,7 @@ public interface EvidenceMapper {
     @Mapping(target = "path", source = "path")
     @Mapping(target = "contentType", source = "photo.contentType")
     @Mapping(target = "size", expression = "java(photo.size())")
+    @Mapping(target = "hash", expression = "java(photo.hash())")
     @Mapping(target = "receivedAt", source = "receivedAt")
     @Mapping(target = "description", source = "description")
     Evidence entity(Room room, Item item, String path, Photo photo, Instant receivedAt, String description);

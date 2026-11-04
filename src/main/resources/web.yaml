@@ -9,6 +9,8 @@ vsr:
     max-upload-size: 10MB
   evidence:
     directory: ${EVIDENCE_DIR}
+    orphan-age: 1h
+    cleanup-cron: "0 30 3 * * *"
   version:
     header: ${VERSION_HEADER}
     supported: ${VERSION_SUPPORTED}

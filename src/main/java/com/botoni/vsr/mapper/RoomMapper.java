@@ -17,6 +17,7 @@ public interface RoomMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "items", ignore = true)
@@ -30,6 +31,7 @@ public interface RoomMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "inspection", ignore = true)
     @Mapping(target = "type", ignore = true)
     @Mapping(target = "origin", ignore = true)

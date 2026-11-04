@@ -8,6 +8,7 @@ import com.botoni.vsr.dto.request.OwnerRequest;
 import com.botoni.vsr.dto.response.PersonSummaryResponse;
 import com.botoni.vsr.mapper.PersonMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OwnerService {
+
+    /** Teto das listas curtas, que não são paginadas. */
+    private static final Limit LIST = Limit.of(200);
 
     private final OwnershipRepository ownershipRepository;
     private final PropertyService propertyService;
@@ -52,7 +56,7 @@ public class OwnerService {
     }
 
     private List<Ownership> owners(Property property) {
-        return ownershipRepository.findActive(property.getId());
+        return ownershipRepository.findActive(property.getId(), LIST);
     }
 
     private List<PersonSummaryResponse> show(List<Ownership> owners) {

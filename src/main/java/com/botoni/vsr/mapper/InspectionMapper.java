@@ -18,6 +18,7 @@ public interface InspectionMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "startedAt", ignore = true)
     @Mapping(target = "finishedAt", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
@@ -34,6 +35,7 @@ public interface InspectionMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
+    @Mapping(target = "version", ignore = true)
     @Mapping(target = "responsible", ignore = true)
     @Mapping(target = "property", ignore = true)
     @Mapping(target = "type", ignore = true)

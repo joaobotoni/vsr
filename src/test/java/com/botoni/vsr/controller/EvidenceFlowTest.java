@@ -120,6 +120,23 @@ class EvidenceFlowTest extends ApplicationTest {
 
     @Test
     @Controle
+    @DisplayName("arquivo trocado no disco depois do envio é recusado no download")
+    void tamperedFileIsRejected() throws Exception {
+        String token = register("Noel Aragão", "62096654203", "noel.evidencia@vsr.com");
+        String room = room(token, "5");
+        String evidence = read(authorized(upload(room, photo("foto.jpg", "image/jpeg", JPEG)), token), 201, "$.id");
+        String path = text("select caminho_arquivo from vistorias.evidencia where uuid = '" + evidence + "'");
+        assertThat(text("select length(hash_sha256)::text from vistorias.evidencia where uuid = '" + evidence + "'")).isEqualTo("32");
+
+        Files.write(EVIDENCES.resolve(path), PNG);
+
+        mockMvc.perform(authorized(get("/api/1/evidences/" + evidence), token))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("StorageProblem.INTEGRITY"));
+    }
+
+    @Test
+    @Controle
     @DisplayName("evidência e ambiente de outro usuário respondem 404")
     void othersSeeNothing() throws Exception {
         String owner = register("Lia Campos", "10033907579", "lia.evidencia@vsr.com");

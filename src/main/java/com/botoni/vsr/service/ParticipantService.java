@@ -8,6 +8,7 @@ import com.botoni.vsr.dto.request.ParticipantRequest;
 import com.botoni.vsr.dto.response.ParticipantResponse;
 import com.botoni.vsr.mapper.PersonMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ParticipantService {
+
+    /** Teto das listas curtas, que não são paginadas. */
+    private static final Limit LIST = Limit.of(200);
 
     private final ParticipantRepository participantRepository;
     private final InspectionService inspectionService;
@@ -53,7 +57,7 @@ public class ParticipantService {
     }
 
     private List<Participant> participants(Inspection inspection) {
-        return participantRepository.findActive(inspection.getId());
+        return participantRepository.findActive(inspection.getId(), LIST);
     }
 
     private List<ParticipantResponse> show(List<Participant> participants) {

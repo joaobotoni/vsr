@@ -64,6 +64,9 @@ public class Evidence {
     @Column(name = "recebida_em", updatable = false)
     private Instant receivedAt;
 
+    @Column(name = "hash_sha256", updatable = false)
+    private byte[] hash;
+
     @Column(name = "descricao")
     private String description;
 
