@@ -12,10 +12,11 @@ create role vsr_app login password :'app_password';
 grant usage on schema documento, pessoas, usuarios, vinculos, enderecos, imoveis, catalogo, vistorias, rotinas to vsr_app;
 
 grant select, insert, update on all tables in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias to vsr_app;
-grant select on all tables in schema catalogo to vsr_app;
+grant select, insert on all tables in schema catalogo to vsr_app;
+grant usage, select on all sequences in schema catalogo to vsr_app;
 grant usage, select on all sequences in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias to vsr_app;
 
-grant execute on all routines in schema documento, usuarios, enderecos, imoveis, vistorias to vsr_app;
+grant execute on all routines in schema documento, usuarios, enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;
 grant execute on procedure rotinas.violar(text) to vsr_app;
 revoke execute on procedure rotinas.limpar_sessoes_expiradas() from public;
 
@@ -23,8 +24,10 @@ revoke execute on procedure rotinas.limpar_sessoes_expiradas() from public;
 alter default privileges in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias
     grant select, insert, update on tables to vsr_app;
 alter default privileges in schema catalogo
-    grant select on tables to vsr_app;
+    grant select, insert on tables to vsr_app;
+alter default privileges in schema catalogo
+    grant usage, select on sequences to vsr_app;
 alter default privileges in schema pessoas, usuarios, vinculos, enderecos, imoveis, vistorias
     grant usage, select on sequences to vsr_app;
-alter default privileges in schema documento, usuarios, enderecos, imoveis, vistorias
+alter default privileges in schema documento, usuarios, enderecos, imoveis, vistorias, vinculos, catalogo
     grant execute on routines to vsr_app;

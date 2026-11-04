@@ -12,7 +12,7 @@ import java.util.UUID;
 public interface RoomRepository extends JpaRepository<Room, Integer> {
 
     @Query("select r from Room r join fetch r.inspection i where r.uuid = :room and r.removedAt is null "
-            + "and i.responsible.uuid = :user and i.removedAt is null")
+            + "and " + Access.INSPECTION + "and i.removedAt is null")
     Optional<Room> findOwned(@Param("user") UUID user, @Param("room") UUID room);
 
     @Modifying(flushAutomatically = true)

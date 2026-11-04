@@ -22,6 +22,7 @@ public interface InspectionMapper {
     @Mapping(target = "finishedAt", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "rooms", ignore = true)
+    @Mapping(target = "company", ignore = true)
     @Mapping(target = "status", constant = "IN_PROGRESS")
     @Mapping(target = "responsible", source = "user")
     @Mapping(target = "property", source = "property")
@@ -42,6 +43,7 @@ public interface InspectionMapper {
     @Mapping(target = "finishedAt", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "rooms", ignore = true)
+    @Mapping(target = "company", ignore = true)
     void amend(InspectionEditRequest request, @MappingTarget Inspection inspection);
 
     @Mapping(target = "id", source = "uuid")

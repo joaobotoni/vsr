@@ -2,8 +2,11 @@ package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.ItemType;
 import com.botoni.vsr.database.entity.RoomType;
+import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.database.repository.ItemTypeRepository;
 import com.botoni.vsr.database.repository.RoomTypeRepository;
+import com.botoni.vsr.dto.request.ItemTypeRequest;
+import com.botoni.vsr.dto.request.RoomTypeRequest;
 import com.botoni.vsr.dto.response.ItemTypeResponse;
 import com.botoni.vsr.dto.response.RoomTypeResponse;
 import com.botoni.vsr.exception.custom.CatalogException;
@@ -27,6 +30,7 @@ public class CatalogService {
     private final RoomTypeRepository roomTypeRepository;
     private final ItemTypeRepository itemTypeRepository;
     private final CatalogMapper catalogMapper;
+    private final UserService userService;
 
     @Transactional(readOnly = true)
     public List<RoomTypeResponse> rooms(UUID user) {
@@ -38,6 +42,22 @@ public class CatalogService {
     public List<ItemTypeResponse> items(UUID user) {
         List<ItemType> types = available(user);
         return describe(types);
+    }
+
+    @Transactional
+    public RoomTypeResponse addRoom(UUID user, RoomTypeRequest request) {
+        User owner = owner(user);
+        List<ItemType> items = chosen(user, request.items());
+        RoomType type = saveRoom(owner, request);
+        attach(type, items);
+        return summary(type, items);
+    }
+
+    @Transactional
+    public ItemTypeResponse addItem(UUID user, ItemTypeRequest request) {
+        User owner = owner(user);
+        ItemType type = saveItem(owner, request);
+        return detail(type);
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +89,34 @@ public class CatalogService {
 
     private List<ItemTypeResponse> describe(List<ItemType> types) {
         return catalogMapper.items(types);
+    }
+
+    private User owner(UUID user) {
+        return userService.find(user);
+    }
+
+    private List<ItemType> chosen(UUID user, List<UUID> items) {
+        return items.stream().distinct().map(item -> existingItem(user, item)).toList();
+    }
+
+    private RoomType saveRoom(User owner, RoomTypeRequest request) {
+        return roomTypeRepository.saveAndFlush(new RoomType(owner, request.name()));
+    }
+
+    private void attach(RoomType type, List<ItemType> items) {
+        items.forEach(item -> roomTypeRepository.attach(type.getId(), item.getId()));
+    }
+
+    private RoomTypeResponse summary(RoomType type, List<ItemType> items) {
+        return catalogMapper.room(type, items);
+    }
+
+    private ItemType saveItem(User owner, ItemTypeRequest request) {
+        return itemTypeRepository.saveAndFlush(new ItemType(owner, request.name()));
+    }
+
+    private ItemTypeResponse detail(ItemType type) {
+        return catalogMapper.item(type);
     }
 
     private RoomType existingRoom(UUID user, UUID type) {

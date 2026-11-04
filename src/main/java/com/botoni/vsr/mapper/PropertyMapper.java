@@ -1,6 +1,7 @@
 package com.botoni.vsr.mapper;
 
 import com.botoni.vsr.database.entity.Address;
+import com.botoni.vsr.database.entity.Company;
 import com.botoni.vsr.database.entity.Property;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.dto.request.PropertyEditRequest;
@@ -19,22 +20,25 @@ public interface PropertyMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
-    @Mapping(target = "user", source = "user")
+    @Mapping(target = "user", expression = "java(company == null ? user : null)")
+    @Mapping(target = "company", source = "company")
     @Mapping(target = "address", source = "address")
     @Mapping(target = "description", source = "request.description")
     @Mapping(target = "type", source = "request.type")
     @Mapping(target = "category", source = "request.category")
-    Property entity(User user, Address address, PropertyRequest request);
+    Property entity(User user, Company company, Address address, PropertyRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "company", ignore = true)
     @Mapping(target = "address", ignore = true)
     void amend(PropertyEditRequest request, @MappingTarget Property property);
 
     @Mapping(target = "id", source = "uuid")
+    @Mapping(target = "company", source = "company.uuid")
     PropertyResponse response(Property property);
 
     @Mapping(target = "cep", source = "street.cep")

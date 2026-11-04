@@ -22,6 +22,9 @@ public enum RuleConstraint implements Constraint {
     RN_AMBIENTE_ORIGEM("rn_ambiente_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O ambiente de origem deve pertencer à vistoria de entrada."),
     RN_PESSOA_TITULAR("rn_pessoa_titular", HttpStatus.UNPROCESSABLE_CONTENT, "A pessoa informada não pertence ao seu cadastro."),
     RN_PESSOA_TITULAR_FIXO("rn_pessoa_titular_fixo", HttpStatus.UNPROCESSABLE_CONTENT, "O titular do cadastro da pessoa não pode ser alterado."),
+    RN_CATALOGO_PERSONALIZADO("rn_catalogo_personalizado", HttpStatus.UNPROCESSABLE_CONTENT, "Só é possível criar tipos personalizados do próprio usuário."),
+    RN_CATALOGO_ITEM("rn_catalogo_item", HttpStatus.UNPROCESSABLE_CONTENT, "O tipo de ambiente personalizado só recebe itens padrão ou do mesmo usuário."),
+    RN_EMPRESA_ADMINISTRADOR("rn_empresa_administrador", HttpStatus.CONFLICT, "A empresa precisa de ao menos um sócio, representante ou MEI ativo."),
     RN_ITEM_ORIGEM("rn_item_origem", HttpStatus.UNPROCESSABLE_CONTENT, "O item de origem deve pertencer ao ambiente de origem.");
 
     private final String constraint;

@@ -24,7 +24,7 @@ class AppRoleTest {
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final Path ROLE = Path.of("docs/db/app-role.sql");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql", "V10__evidencias.sql", "V11__pessoas.sql", "V12__empresas_catalogo_enderecos.sql");
     private static final String INSUFFICIENT_PRIVILEGE = "42501";
 
     private static EmbeddedPostgres postgres;
@@ -87,9 +87,20 @@ class AppRoleTest {
 
     @Test
     @Controle
-    @DisplayName("a aplicação não altera o catálogo, que é só leitura")
-    void catalogIsReadOnly() {
-        assertDenied("insert into catalogo.tipo_item (nome, padrao) values ('Teste', false)");
+    @DisplayName("no catálogo, a aplicação só cria tipos personalizados do usuário; os padrão não mudam")
+    void catalogAcceptsOnlyCustomTypes() throws SQLException {
+        execute(app, "insert into catalogo.tipo_item (nome, id_usuario) values ('Deck', 1)");
+        assertRule("insert into catalogo.tipo_item (nome, padrao) values ('Padrão falso', true)", "rn_catalogo_personalizado");
+        assertRule("insert into catalogo.tipo_item (nome) values ('Sem dono')", "rn_catalogo_personalizado");
+        assertDenied("update catalogo.tipo_item set nome = 'Chão' where nome = 'Piso'");
+        assertDenied("delete from catalogo.tipo_item where nome = 'Piso'");
+    }
+
+    private static void assertRule(String sql, String rule) {
+        assertThatThrownBy(() -> execute(app, sql))
+                .isInstanceOf(PSQLException.class)
+                .satisfies(exception -> org.assertj.core.api.Assertions
+                        .assertThat(((PSQLException) exception).getServerErrorMessage().getConstraint()).isEqualTo(rule));
     }
 
     @Test

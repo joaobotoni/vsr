@@ -66,6 +66,11 @@ public class Inspection {
     @Column(name = "status", nullable = false)
     private InspectionStatus status;
 
+    /** A empresa do imóvel, gravada pelo banco no início da vistoria. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_pessoa_juridica", insertable = false, updatable = false)
+    private Company company;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_vistoria_entrada", updatable = false)
     private Inspection entry;

@@ -32,7 +32,7 @@ class PropertyServiceTest {
 
     private final PropertyRepository propertyRepository = mock(PropertyRepository.class);
     private final PropertyService propertyService = new PropertyService(propertyRepository, mock(UserService.class),
-            mock(AddressService.class), Mappers.getMapper(PropertyMapper.class));
+            mock(AddressService.class), mock(CompanyService.class), Mappers.getMapper(PropertyMapper.class));
 
     @Test
     @Controle

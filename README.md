@@ -2,7 +2,7 @@
 
 API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
 
-Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis** com proprietários, **catálogo** (leitura), **pessoas** (cadastro privado de cada usuário) e **vistorias** com ambientes, itens, evidências fotográficas e pessoas vinculadas. Vínculos entre pessoas e empresas e imóveis de empresa já estão modelados no banco e serão expostos nas próximas etapas.
+Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis** com proprietários, **catálogo** (leitura), **pessoas** (cadastro privado de cada usuário) e **vistorias** com ambientes, itens, evidências fotográficas e pessoas vinculadas. Também estão expostos **empresas** com membros (imóveis e vistorias compartilhados pela equipe), o **catálogo personalizado** e a lista de **estados**.
 
 ---
 
@@ -130,6 +130,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 | `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
+| `V12__empresas_catalogo_enderecos.sql` | Nomes de cidade, bairro e logradouro comparados sem acento (`documento.sem_acento`); regras do catálogo personalizado; vínculos de empresa desfeitos logicamente, a empresa nunca fica sem administrador; a vistoria herda a empresa do imóvel; proprietários e pessoas da vistoria aceitam o cadastro de membros da empresa |
 | `V11__pessoas.sql` | Cadastro privado de pessoas por usuário (`id_usuario_titular`): CPF e CNPJ únicos entre as contas e dentro de cada cadastro; contato com telefone ou e-mail; vínculos de proprietário e de pessoa da vistoria desfeitos logicamente; triggers de titular |
 | `V10__evidencias.sql` | Remoção lógica da evidência |
 | `V9__vistorias.sql` | Remoção lógica de vistoria, ambiente e item; nomes únicos só entre ativos; uma vistoria em andamento por imóvel e uma saída por entrada; triggers das regras de vistoria; procedure `vistorias.copiar_vistoria` |
@@ -301,10 +302,16 @@ Regras já garantidas pelo schema, que valem para as próximas funcionalidades d
 - O vínculo entre pessoa física e empresa pode ser `socio`, `representante`, `mei` ou `funcionario`, e é único por par.
 - A titularidade de uma pessoa pertence a exatamente um titular: um usuário ou uma empresa.
 
+**Empresas**
+
+- A empresa é um cadastro compartilhado da plataforma (CNPJ único). Quem cadastra entra como administrador.
+- Sócio, representante e MEI administram (incluem e removem membros); funcionário opera. A empresa nunca fica sem administrador ativo.
+- Imóveis da empresa e as vistorias deles valem para todos os membros ativos. Quem sai da empresa perde o acesso, inclusive às vistorias em que foi responsável.
+
 **Endereços**
 
 - Hierarquia: estado, cidade, bairro, logradouro (com CEP de 8 dígitos) e endereço (número e complemento).
-- Nomes são únicos dentro do nível superior, sem diferenciar maiúsculas de minúsculas.
+- Nomes são únicos dentro do nível superior, sem diferenciar maiúsculas, minúsculas e acentos ("Sao Paulo" e "SÃO PAULO" são a mesma cidade).
 - Os 27 estados brasileiros são carregados pela migration.
 
 **Imóveis**
@@ -344,7 +351,7 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `POST` | `/api/1/auth/logout` | Bearer | Revoga a sessão atual | `204` |
 | `GET` | `/api/1/users/me` | Bearer | Retorna o usuário autenticado | `200` |
 | `PATCH` | `/api/1/users/me/password` | Bearer | Troca a senha, revoga todas as sessões e devolve os tokens de uma sessão nova | `200` |
-| `POST` | `/api/1/properties` | Bearer | Cadastra um imóvel do usuário, com o endereço | `201` |
+| `POST` | `/api/1/properties` | Bearer | Cadastra um imóvel do usuário, ou da empresa com `company`, com o endereço | `201` |
 | `GET` | `/api/1/properties?page=0&size=20` | Bearer | Lista os imóveis do usuário, do mais novo ao mais antigo (`size` até 50) | `200` |
 | `GET` | `/api/1/properties/{id}` | Bearer | Detalha um imóvel do usuário | `200` |
 | `PATCH` | `/api/1/properties/{id}` | Bearer | Altera descrição, tipo e categoria; campo ausente fica como está | `200` |
@@ -359,6 +366,15 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `PATCH` | `/api/1/people/{id}` | Bearer | Altera nome, nome fantasia (só jurídica), telefone e e-mail | `200` |
 | `GET` | `/api/1/catalog/rooms` | Bearer | Tipos de ambiente (padrão e do usuário), com os itens típicos | `200` |
 | `GET` | `/api/1/catalog/items` | Bearer | Tipos de item (padrão e do usuário) | `200` |
+| `POST` | `/api/1/catalog/rooms` | Bearer | Cria tipo de ambiente personalizado `{ name, items? }` (itens padrão ou do usuário) | `201` |
+| `POST` | `/api/1/catalog/items` | Bearer | Cria tipo de item personalizado `{ name }` | `201` |
+| `GET` | `/api/1/states` | Bearer | Os 27 estados (sigla e nome); cacheável por um dia | `200` |
+| `POST` | `/api/1/companies` | Bearer | Cadastra a empresa `{ name, tradeName, cnpj, role }`; `role` de administrador | `201` |
+| `GET` | `/api/1/companies` | Bearer | Empresas de que o usuário é membro, com o papel dele | `200` |
+| `GET` | `/api/1/companies/{id}` | Bearer | Detalha a empresa (só membros) | `200` |
+| `GET` | `/api/1/companies/{id}/members` | Bearer | Membros da empresa | `200` |
+| `POST` | `/api/1/companies/{id}/members` | Bearer | Inclui membro `{ email, role }` (só administradores); responde igual exista a conta ou não | `204` |
+| `DELETE` | `/api/1/companies/{id}/members/{user}` | Bearer | Remove o membro (administrador) ou sai da empresa (o próprio) | `204` |
 | `POST` | `/api/1/inspections` | Bearer | Inicia a vistoria: `{ property, type, entry?, notes? }`; a saída com `entry` copia ambientes e itens da entrada | `201` |
 | `GET` | `/api/1/inspections?property=&status=&page=&size=` | Bearer | Lista as vistorias do usuário; `status` é `em_andamento` ou `finalizada` | `200` |
 | `GET` | `/api/1/inspections/{id}` | Bearer | Detalha a vistoria com ambientes e itens | `200` |
@@ -493,6 +509,9 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
 | Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o rollback apaga o arquivo já gravado |
 | Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
+| Acesso residual de ex-membro | Imóveis e vistorias de empresa valem só para membros ativos, conferido em cada consulta |
+| Descoberta de contas pela inclusão de membro | A inclusão por e-mail responde `204` exista a conta ou não |
+| Catálogo padrão adulterado | A role da aplicação só insere no catálogo, e o trigger recusa tipo padrão ou sem dono |
 | Descoberta de CPF ou CNPJ de terceiros | O cadastro de pessoas é privado por usuário: cadastrar um CPF que outro usuário já tem não dá conflito nem revela o nome gravado por ele |
 | Adulteração de vistoria finalizada | Triggers no banco recusam qualquer alteração na vistoria finalizada e nos seus ambientes, itens, evidências e pessoas, mesmo fora da API |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
@@ -507,18 +526,18 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 - **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
 - **Pessoas:** ainda não há remoção de pessoa do cadastro, nem a escolha da própria conta como proprietária. A tabela `pessoa_titularidade` não é usada (a titularidade está em `pessoa.id_usuario_titular`).
-- **Catálogo personalizado:** a API só lê o catálogo (a role `vsr_app` não grava nele); criar tipos de ambiente e de item do usuário depende de liberar essa escrita.
+- **Catálogo personalizado:** tipos criados não são editados nem removidos.
 - **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
 - **Arquivos de evidências removidas** ficam no disco (a remoção é lógica, como no banco).
 - **Edição parcial:** um `PATCH` não limpa campos opcionais (enviar `null` mantém o valor atual).
-- **Endereços:** os nomes são comparados sem diferenciar maiúsculas, mas com acento: "Sao Paulo" e "São Paulo" viram cidades diferentes.
+- **Empresas:** não há verificação de que quem cadastra o CNPJ representa mesmo a empresa; o primeiro a cadastrar vira administrador.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
 - **Recuperação de senha:** ainda não existe.
 - **Limite por conta:** uma rede sozinha não tranca a vítima, mas quem ataca de várias redes ao mesmo tempo ainda pode esgotar o teto da conta (`RATE_LIMIT_CEILING_*`) e bloquear temporariamente novos logins dessa pessoa até a recarga. Sessões já abertas não são afetadas, porque a renovação por refresh token não passa por esse limite.
 - **Chaves em memória:** com 200 mil chaves por limite, quem cria chaves novas mais rápido do que elas ficam ociosas (muitos IPs ou e-mails inventados) pode encher um limite e fazer chaves novas receberem `429` até a limpeza.
 - **Limites em memória:** a aplicação roda em uma única instância; os contadores não sobrevivem a um reinício.
 - **Hashes de senha simultâneos:** não há limite de quantos hashes Argon2 (cerca de 19 MiB cada) rodam ao mesmo tempo; uma rajada de logins ou cadastros vindos de muitos IPs pode esgotar a memória. A proteção será reimplementada.
-- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias to vsr_app;` e `alter default privileges in schema enderecos, imoveis, vistorias grant execute on routines to vsr_app;`.
+- **Permissões no banco:** use a role `vsr_app` de `docs/db/app-role.sql` (só lê, insere e atualiza; não apaga, não altera o schema). As migrations rodam com outro usuário, em `FLYWAY_USERNAME`. Em um banco onde a role já existia antes da `V8`, rode uma vez, como dono: `grant execute on all routines in schema enderecos, imoveis, vistorias, vinculos, catalogo to vsr_app;`, `grant insert on all tables in schema catalogo to vsr_app;`, `grant usage, select on all sequences in schema catalogo to vsr_app;` e os `alter default privileges` equivalentes de `docs/db/app-role.sql`.
 
 **Riscos aceitos**
 
@@ -595,10 +614,10 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **600 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **606 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
-O `PropertyFlowTest`, o `InspectionFlowTest`, o `EvidenceFlowTest` e o `PersonFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
+O `PropertyFlowTest`, o `InspectionFlowTest`, o `EvidenceFlowTest`, o `PersonFlowTest` e o `CompanyFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
 
 O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.

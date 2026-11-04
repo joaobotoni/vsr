@@ -52,6 +52,10 @@ public class Property {
     @JoinColumn(name = "id_usuario", updatable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_pessoa_juridica", updatable = false)
+    private Company company;
+
     @Column(name = "descricao")
     private String description;
 

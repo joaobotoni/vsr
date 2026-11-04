@@ -13,11 +13,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Toda consulta filtra pelo responsável e ignora as vistorias removidas.
+ * Toda consulta filtra pelo acesso (responsável ou membro da empresa da vistoria) e ignora as vistorias removidas.
  */
 public interface InspectionRepository extends JpaRepository<Inspection, Integer> {
 
-    String OWNED = "where i.responsible.uuid = :user and i.removedAt is null";
+    String OWNED = "where " + Access.INSPECTION + "and i.removedAt is null";
 
     String FILTERED = OWNED + " and (:property is null or p.uuid = :property) and (:status is null or cast(i.status as String) = :status)";
 

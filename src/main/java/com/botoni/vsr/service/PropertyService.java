@@ -1,6 +1,7 @@
 package com.botoni.vsr.service;
 
 import com.botoni.vsr.database.entity.Address;
+import com.botoni.vsr.database.entity.Company;
 import com.botoni.vsr.database.entity.Property;
 import com.botoni.vsr.database.entity.User;
 import com.botoni.vsr.database.repository.PropertyRepository;
@@ -35,13 +36,15 @@ public class PropertyService {
     private final PropertyRepository propertyRepository;
     private final UserService userService;
     private final AddressService addressService;
+    private final CompanyService companyService;
     private final PropertyMapper propertyMapper;
 
     @Transactional
     public PropertyResponse add(UUID user, PropertyRequest request) {
         User owner = owner(user);
+        Company company = company(user, request.company());
         Address address = locate(request.address());
-        Property property = save(owner, address, request);
+        Property property = save(owner, company, address, request);
         return show(property);
     }
 
@@ -83,12 +86,12 @@ public class PropertyService {
         return addressService.locate(request);
     }
 
-    private Property save(User user, Address address, PropertyRequest request) {
-        return propertyRepository.save(create(user, address, request));
+    private Property save(User user, Company company, Address address, PropertyRequest request) {
+        return propertyRepository.save(create(user, company, address, request));
     }
 
-    private Property create(User user, Address address, PropertyRequest request) {
-        return propertyMapper.entity(user, address, request);
+    private Property create(User user, Company company, Address address, PropertyRequest request) {
+        return propertyMapper.entity(user, company, address, request);
     }
 
     private PropertyResponse show(Property property) {
@@ -113,6 +116,14 @@ public class PropertyService {
 
     private void discard(Property property) {
         propertyRepository.remove(property.getId());
+    }
+
+    /** Sem empresa, o imóvel é do usuário; com empresa, ele precisa ser membro dela. */
+    private Company company(UUID user, UUID company) {
+        if (company == null) {
+            return null;
+        }
+        return companyService.find(user, company);
     }
 
     private Property owned(UUID user, UUID property) {

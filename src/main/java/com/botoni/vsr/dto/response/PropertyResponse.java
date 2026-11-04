@@ -10,6 +10,7 @@ public record PropertyResponse(
         String description,
         PropertyType type,
         PropertyCategory category,
-        AddressResponse address
+        AddressResponse address,
+        UUID company
 ) {
 }

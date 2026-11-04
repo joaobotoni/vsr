@@ -28,7 +28,7 @@ class CatalogServiceTest {
 
     private final RoomTypeRepository roomTypeRepository = mock(RoomTypeRepository.class);
     private final CatalogService catalogService = new CatalogService(roomTypeRepository, mock(ItemTypeRepository.class),
-            Mappers.getMapper(CatalogMapper.class));
+            Mappers.getMapper(CatalogMapper.class), mock(UserService.class));
 
     @Test
     @Controle

@@ -196,6 +196,19 @@ Classes do rate limit:
 | `link` / `unlink` | vincular / desvincular (logicamente) uma pessoa a um imóvel ou a uma vistoria | `OwnerService`, `ParticipantService` |
 | `bind` / `release` | chamar o vínculo / o desvínculo no banco | `OwnerService`, `ParticipantService` |
 
+### Empresas e catálogo personalizado
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `open` (empresa) | cadastrar a empresa e vincular quem cadastra como administrador | `CompanyService`, `MembershipService` |
+| `verify` (vínculo) | exigir que o usuário seja membro ativo da empresa, senão `404` | `MembershipService`, `CompanyService` |
+| `admin` / `administrator` | exigir papel de administrador (sócio, representante, MEI) | `MembershipService`, `CompanyService` |
+| `removable` | o membro sai sozinho; remover outro exige administrar | `MembershipService` |
+| `companies` | os vínculos ativos do usuário | `MembershipService` |
+| `addRoom` / `addItem` | criar tipo de ambiente / de item personalizado | `CatalogService` |
+| `chosen` | os tipos de item escolhidos, conferidos um a um | `CatalogService` |
+| `attach` | ligar os itens ao tipo de ambiente personalizado | `CatalogService`, `RoomTypeRepository` |
+
 ### Evidências
 
 | Verbo | Sentido | Onde |
