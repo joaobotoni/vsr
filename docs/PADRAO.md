@@ -176,9 +176,20 @@ Classes do rate limit:
 | `finish` | caso de uso de finalização da vistoria | `InspectionService`, `InspectionRepository` |
 | `conclude` | chamar a finalização no banco | `InspectionService` |
 | `entry` | a vistoria de entrada do dono, ou `null` sem entrada | `InspectionService` |
-| `attach` | pôr na entidade nova a coleção recém-gravada, para a resposta | `RoomService` |
+| `fill` | pôr na entidade nova a coleção recém-gravada, para a resposta | `RoomService` |
 | `standard` | itens típicos do tipo de ambiente, criados no ambiente novo | `RoomService`, `ItemMapper` |
 | `rooms` / `items` | o catálogo de tipos de ambiente / de item que o usuário vê | `CatalogService` |
 | `room` / `item` | o tipo de ambiente / de item do catálogo que o usuário vê, ou `NOT_FOUND` | `CatalogService` |
 | `contents` | os itens de um tipo de ambiente que o usuário vê | `CatalogService` |
 | `accessible` | o tipo do catálogo é padrão ou do próprio usuário | `CatalogService` |
+
+### Evidências
+
+| Verbo | Sentido | Onde |
+|---|---|---|
+| `upload` | caso de uso de envio de evidência: confere o formato, grava o arquivo e o registro | `EvidenceService` |
+| `download` | caso de uso de leitura do arquivo da evidência do dono | `EvidenceService` |
+| `photo` | ler o arquivo enviado e conferir o formato pelos bytes (`Photo.of`) | `EvidenceService` |
+| `save` (arquivo) | gravar o arquivo com nome gerado e apagá-lo se a transação for desfeita | `StorageService` |
+| `load` (arquivo) | conferir e ler o arquivo uma vez, pelo caminho real e sem seguir link | `StorageService` |
+| `cleanup` | registrar a remoção do arquivo no rollback da transação | `StorageService` |

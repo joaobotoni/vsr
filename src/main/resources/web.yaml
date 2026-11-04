@@ -1,6 +1,14 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 vsr:
   request:
     max-body-size: 16KB
+    max-upload-size: 10MB
+  evidence:
+    directory: ${EVIDENCE_DIR}
   version:
     header: ${VERSION_HEADER}
     supported: ${VERSION_SUPPORTED}

@@ -12,7 +12,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(config = MapperConfiguration.class, uses = ItemMapper.class)
+@Mapper(config = MapperConfiguration.class, uses = {ItemMapper.class, EvidenceMapper.class})
 public interface RoomMapper {
 
     @Mapping(target = "id", ignore = true)
@@ -20,6 +20,7 @@ public interface RoomMapper {
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "items", ignore = true)
+    @Mapping(target = "evidences", ignore = true)
     @Mapping(target = "inspection", source = "inspection")
     @Mapping(target = "type", source = "type")
     @Mapping(target = "name", source = "request.name")
@@ -34,10 +35,12 @@ public interface RoomMapper {
     @Mapping(target = "origin", ignore = true)
     @Mapping(target = "removedAt", ignore = true)
     @Mapping(target = "items", ignore = true)
+    @Mapping(target = "evidences", ignore = true)
     void amend(RoomEditRequest request, @MappingTarget Room room);
 
     @Mapping(target = "id", source = "uuid")
     @Mapping(target = "type", source = "type.uuid")
     @Mapping(target = "origin", source = "origin.uuid")
+    @Mapping(target = "evidences", source = "evidences", defaultExpression = "java(java.util.List.of())")
     RoomResponse response(Room room);
 }

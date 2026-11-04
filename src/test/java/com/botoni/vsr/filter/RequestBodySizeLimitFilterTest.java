@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class RequestBodySizeLimitFilterTest {
 
     private static final int LIMIT = 16 * 1024;
+    private static final int UPLOAD_LIMIT = 64 * 1024;
     private static final String TRANSFER_ENCODING = "Transfer-Encoding";
 
     @Autowired
@@ -130,8 +131,33 @@ class RequestBodySizeLimitFilterTest {
         assertThat(FileCopyUtils.copyToString(forwarded.getReader())).isEqualTo(bodyOf(LIMIT));
     }
 
+    @Test
+    @Controle
+    @DisplayName("o upload de evidências tem limite próprio, maior que o da API")
+    void uploadRouteHasItsOwnLimit() throws Exception {
+        MockFilterChain accepted = new MockFilterChain();
+        filter().doFilter(declared("/api/1/rooms/" + java.util.UUID.randomUUID() + "/evidences", UPLOAD_LIMIT),
+                new MockHttpServletResponse(), accepted);
+        assertThat(accepted.getRequest()).isNotNull();
+
+        assertThatThrownBy(() -> filter().doFilter(declared("/api/1/rooms/x/evidences", UPLOAD_LIMIT + 1),
+                new MockHttpServletResponse(), new MockFilterChain()))
+                .isInstanceOf(RequestException.class)
+                .extracting("problem").isEqualTo(RequestProblem.BODY_TOO_LARGE);
+        assertThatThrownBy(() -> filter().doFilter(declared("/api/1/rooms/x/items", LIMIT + 1),
+                new MockHttpServletResponse(), new MockFilterChain()))
+                .isInstanceOf(RequestException.class)
+                .extracting("problem").isEqualTo(RequestProblem.BODY_TOO_LARGE);
+    }
+
+    private static MockHttpServletRequest declared(String path, int bytes) {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+        request.setContent(new byte[bytes]);
+        return request;
+    }
+
     private static RequestBodySizeLimitFilter filter() {
-        return new RequestBodySizeLimitFilter(new RequestProperties(DataSize.ofBytes(LIMIT)));
+        return new RequestBodySizeLimitFilter(new RequestProperties(DataSize.ofBytes(LIMIT), DataSize.ofBytes(UPLOAD_LIMIT)));
     }
 
     private static MockHttpServletRequest undeclared(int bytes) {

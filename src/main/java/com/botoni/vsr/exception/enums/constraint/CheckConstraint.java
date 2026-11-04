@@ -65,6 +65,7 @@ public enum CheckConstraint implements Constraint {
     CK_EVIDENCIA_CAMINHO_ARQUIVO("ck_evidencia_caminho_arquivo", text("O caminho do arquivo", 500)),
     CK_EVIDENCIA_TIPO_ARQUIVO("ck_evidencia_tipo_arquivo", "Formato de arquivo não suportado. São aceitas apenas imagens JPEG ou PNG."),
     CK_EVIDENCIA_TAMANHO("ck_evidencia_tamanho", "O arquivo excede o tamanho máximo permitido de 50 MB."),
+    CK_EVIDENCIA_REMOVIDO_EM("ck_evidencia_removido_em", "A data de remoção da evidência não pode ser anterior à data de criação."),
     CK_EVIDENCIA_DESCRICAO("ck_evidencia_descricao", text("A descrição da evidência", 500));
 
     private final String constraint;

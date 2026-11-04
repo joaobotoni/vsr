@@ -19,6 +19,7 @@ final class Routes {
         routes.put(matcher(Route.of(HttpMethod.POST, "/auth/register")), new TokenBucket(properties.register()));
         routes.put(matcher(Route.of(HttpMethod.POST, "/auth/refresh")), new TokenBucket(properties.refresh()));
         routes.put(matcher(Route.of(HttpMethod.PATCH, "/users/me/password")), new TokenBucket(properties.password()));
+        routes.put(matcher(Route.of(HttpMethod.POST, "/rooms/*/evidences")), new TokenBucket(properties.upload()));
         return routes;
     }
 

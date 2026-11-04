@@ -50,6 +50,11 @@ public class ItemService {
         discard(found);
     }
 
+    @Transactional(readOnly = true)
+    public Item find(UUID user, UUID item) {
+        return owned(user, item);
+    }
+
     private Room room(UUID user, UUID room) {
         return roomService.find(user, room);
     }

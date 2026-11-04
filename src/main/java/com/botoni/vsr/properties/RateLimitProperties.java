@@ -14,6 +14,7 @@ public record RateLimitProperties(
         @NotNull Limit refresh,
         @NotNull Limit account,
         @NotNull Limit ceiling,
-        @NotNull Limit password
+        @NotNull Limit password,
+        @NotNull Limit upload
 ) {
 }

@@ -9,6 +9,7 @@ public record RoomResponse(
         UUID type,
         String notes,
         UUID origin,
-        List<ItemResponse> items
+        List<ItemResponse> items,
+        List<EvidenceResponse> evidences
 ) {
 }

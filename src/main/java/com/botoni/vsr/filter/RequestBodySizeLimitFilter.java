@@ -12,6 +12,9 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -28,6 +31,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
 
     private static final String TRANSFER_ENCODING = "Transfer-Encoding";
     private static final String CHUNKED = "chunked";
+    private static final RequestMatcher UPLOAD = PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/*/rooms/*/evidences");
     private final RequestProperties properties;
 
     @Override
@@ -46,7 +50,7 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
         }
 
         if (isOversized(request)) {
-            throw new RequestException(RequestProblem.BODY_TOO_LARGE, max());
+            throw new RequestException(RequestProblem.BODY_TOO_LARGE, max(request));
         }
     }
 
@@ -56,21 +60,22 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
 
     private HttpServletRequest buffer(HttpServletRequest request) throws IOException {
         byte[] body = read(request);
-        fits(body);
+        fits(request, body);
         return new BufferedRequest(request, body);
     }
 
     private byte[] read(HttpServletRequest request) throws IOException {
-        return request.getInputStream().readNBytes(Math.toIntExact(max() + 1));
+        return request.getInputStream().readNBytes(Math.toIntExact(max(request) + 1));
     }
 
-    private long max() {
-        return properties.maxBodySize().toBytes();
+    /** O upload de evidências tem limite próprio; o resto da API, o limite geral. */
+    private long max(HttpServletRequest request) {
+        return upload(request) ? properties.maxUploadSize().toBytes() : properties.maxBodySize().toBytes();
     }
 
-    private void fits(byte[] body) {
-        if (exceeds(body)) {
-            throw new RequestException(RequestProblem.BODY_TOO_LARGE, max());
+    private void fits(HttpServletRequest request, byte[] body) {
+        if (exceeds(request, body)) {
+            throw new RequestException(RequestProblem.BODY_TOO_LARGE, max(request));
         }
     }
 
@@ -81,15 +86,19 @@ public class RequestBodySizeLimitFilter extends OncePerRequestFilter {
 
     private boolean isOversized(HttpServletRequest request) {
         long contentLength = request.getContentLengthLong();
-        return contentLength > max();
+        return contentLength > max(request);
     }
 
     private static boolean declared(HttpServletRequest request) {
         return request.getContentLengthLong() >= 0;
     }
 
-    private boolean exceeds(byte[] body) {
-        return body.length > max();
+    private boolean exceeds(HttpServletRequest request, byte[] body) {
+        return body.length > max(request);
+    }
+
+    private static boolean upload(HttpServletRequest request) {
+        return UPLOAD.matches(request);
     }
 
     private static final class BufferedRequest extends HttpServletRequestWrapper {

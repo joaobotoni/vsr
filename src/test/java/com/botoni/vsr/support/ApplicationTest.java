@@ -11,6 +11,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
+import org.springframework.test.web.servlet.request.AbstractMockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.io.IOException;
@@ -38,7 +40,8 @@ public abstract class ApplicationTest {
 
     private static final Path MIGRATIONS = Path.of("src/main/resources/db/migration");
     private static final List<String> FILES = List.of("V1__schema.sql", "V2__functions.sql", "V3__ddl.sql",
-            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql");
+            "V4__procedures.sql", "V5__triggers.sql", "V6__initial_data.sql", "V8__imoveis.sql", "V9__vistorias.sql",
+            "V10__evidencias.sql");
 
     private static final String DEVICE = """
             {"identifier":"7f1c2a8e-3b4d-4c5e-8f90-112233445566","platform":"android",
@@ -47,6 +50,9 @@ public abstract class ApplicationTest {
             {"name":"%s","cpf":"%s","email":"%s","password":"Senha@Segura123","device":%s}""";
 
     private static final EmbeddedPostgres POSTGRES = start();
+
+    /** Diretório temporário das evidências, um por execução. */
+    protected static final Path EVIDENCES = directory();
 
     @Autowired
     protected MockMvc mockMvc;
@@ -70,6 +76,7 @@ public abstract class ApplicationTest {
         registry.add("MAIL_USERNAME", () -> "test");
         registry.add("MAIL_PASSWORD", () -> "test");
         registry.add("MAIL_ATTACHMENTS_DIR", () -> System.getProperty("java.io.tmpdir"));
+        registry.add("EVIDENCE_DIR", EVIDENCES::toString);
     }
 
     /** Cadastra o usuário pela API e devolve o access token. */
@@ -81,7 +88,7 @@ public abstract class ApplicationTest {
     }
 
     /** Executa a requisição esperando o status e devolve o campo do corpo. */
-    protected String read(MockHttpServletRequestBuilder request, int expected, String path) throws Exception {
+    protected String read(RequestBuilder request, int expected, String path) throws Exception {
         String body = mockMvc.perform(request)
                 .andExpect(status().is(expected))
                 .andReturn().getResponse().getContentAsString();
@@ -92,7 +99,7 @@ public abstract class ApplicationTest {
         return request.contentType(MediaType.APPLICATION_JSON).content(body);
     }
 
-    protected static MockHttpServletRequestBuilder authorized(MockHttpServletRequestBuilder request, String token) {
+    protected static <B extends AbstractMockHttpServletRequestBuilder<B>> B authorized(B request, String token) {
         return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 
@@ -122,6 +129,14 @@ public abstract class ApplicationTest {
             throw new UncheckedIOException(exception);
         } catch (SQLException exception) {
             throw new IllegalStateException(exception);
+        }
+    }
+
+    private static Path directory() {
+        try {
+            return Files.createTempDirectory("vsr-evidencias");
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
         }
     }
 

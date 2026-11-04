@@ -14,7 +14,7 @@ public final class Policies {
     }
 
     public static RateLimitPolicy of(Limit account, Limit ceiling) {
-        return RateLimitPolicy.from(new RateLimitProperties(ROOMY, ROOMY, ROOMY, ROOMY, account, ceiling, ROOMY));
+        return RateLimitPolicy.from(new RateLimitProperties(ROOMY, ROOMY, ROOMY, ROOMY, account, ceiling, ROOMY, ROOMY));
     }
 
     public static RateLimitPolicy account(Limit account) {

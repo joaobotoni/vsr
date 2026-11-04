@@ -72,4 +72,9 @@ public class Room {
     @SQLRestriction("removido_em is null")
     @OneToMany(mappedBy = "room", fetch = FetchType.LAZY)
     private List<Item> items;
+
+    @OrderBy("id")
+    @SQLRestriction("removido_em is null")
+    @OneToMany(mappedBy = "room", fetch = FetchType.LAZY)
+    private List<Evidence> evidences;
 }

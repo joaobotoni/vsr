@@ -40,7 +40,7 @@ public class RoomService {
         RoomType type = type(user, request.type());
         Room room = save(found, type, request);
         List<Item> items = items(room, type, user);
-        attach(room, items);
+        fill(room, items);
         return show(room);
     }
 
@@ -80,7 +80,7 @@ public class RoomService {
                 .map(item -> itemMapper.standard(room, item)).toList());
     }
 
-    private void attach(Room room, List<Item> items) {
+    private void fill(Room room, List<Item> items) {
         room.setItems(items);
     }
 

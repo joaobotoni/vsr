@@ -2,7 +2,7 @@
 
 API REST para gestão de **vistorias de imóveis**: cadastro de pessoas e empresas, imóveis e seus proprietários, e o registro de vistorias de entrada e saída, organizadas em ambientes, itens e evidências fotográficas.
 
-Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis**, **catálogo** (leitura) e **vistorias** com ambientes e itens. Pessoas, empresas, pessoas da vistoria e evidências fotográficas já estão modeladas no banco e serão expostas nas próximas etapas.
+Estão implementados na API: **identidade e acesso** (cadastro, login, sessões por dispositivo, tokens e troca de senha), **imóveis**, **catálogo** (leitura) e **vistorias** com ambientes, itens e evidências fotográficas. Pessoas, empresas e pessoas da vistoria já estão modeladas no banco e serão expostas nas próximas etapas.
 
 ---
 
@@ -130,6 +130,7 @@ Ficam em `src/main/resources/db/migration`:
 | `V6__initial_data.sql` | Estados e catálogo inicial de ambientes e itens |
 | `V7__jobs.sql` | Agendamento dos jobs no `pg_cron` |
 | `V8__imoveis.sql` | `uuid` em `pessoa`, `tipo_ambiente` e `tipo_item`; remoção lógica do imóvel (`removido_em`), com o único de endereço por titular valendo só entre imóveis ativos; função `enderecos.registrar_endereco` e procedure `imoveis.remover_imovel` |
+| `V10__evidencias.sql` | Remoção lógica da evidência |
 | `V9__vistorias.sql` | Remoção lógica de vistoria, ambiente e item; nomes únicos só entre ativos; uma vistoria em andamento por imóvel e uma saída por entrada; triggers das regras de vistoria; procedure `vistorias.copiar_vistoria` |
 
 ### Procedures
@@ -263,6 +264,7 @@ O limite usa o algoritmo **token bucket** e tem duas camadas.
 | `POST /auth/login` | `RATE_LIMIT_LOGIN_*` |
 | `POST /auth/register` | `RATE_LIMIT_REGISTER_*` |
 | `POST /auth/refresh` | `RATE_LIMIT_REFRESH_*` |
+| `POST /rooms/{id}/evidences` | `RATE_LIMIT_UPLOAD_*` |
 | `PATCH /users/me/password` | `RATE_LIMIT_PASSWORD_RESET_*` (limita a **troca** de senha) |
 | Demais rotas | `RATE_LIMIT_API_*` |
 
@@ -357,6 +359,9 @@ Todas as rotas ficam sob `/api/{versao}`. A versão também pode ser enviada pel
 | `POST` | `/api/1/rooms/{id}/items` | Bearer | Adiciona um item `{ name, type?, description?, condition?, material?, notes? }` | `201` |
 | `PATCH` | `/api/1/items/{id}` | Bearer | Altera o item; `condition`: `novo`, `excelente`, `bom`, `regular`, `ruim` ou `danificado` | `200` |
 | `DELETE` | `/api/1/items/{id}` | Bearer | Remove logicamente o item | `204` |
+| `POST` | `/api/1/rooms/{id}/evidences` | Bearer | Envia uma foto em `multipart/form-data`: `file` (JPEG ou PNG, até 10 MB), `item?` (do mesmo ambiente), `description?` | `201` |
+| `GET` | `/api/1/evidences/{id}` | Bearer | Baixa a foto, com o tipo conferido no envio e sem cache compartilhado | `200` |
+| `DELETE` | `/api/1/evidences/{id}` | Bearer | Remove logicamente a evidência | `204` |
 
 **Exemplo de cadastro**
 
@@ -469,6 +474,10 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 | Escritas concorrentes | Renovação de token e troca de senha só gravam se o valor atual ainda for o lido |
 | Exposição de ids internos | A API expõe o UUID público do usuário e do imóvel, nunca o id sequencial; o JWT também não carrega o e-mail |
 | Acesso a dados de outro usuário | Imóveis, vistorias, ambientes e itens são sempre buscados pelo UUID **e** pelo dono (o responsável pela vistoria); o recurso alheio responde `404`, sem revelar que existe |
+| Arquivo malicioso no upload | O formato vem dos primeiros bytes (JPEG ou PNG), não do nome nem do `Content-Type` do cliente: HTML, SVG e scripts disfarçados de imagem são recusados (`415`). O nome no disco é gerado (UUID); o download sai com o tipo conferido, `nosniff` e `Content-Disposition: inline` |
+| Arquivo fora do diretório | A leitura confere o caminho real dentro de `EVIDENCE_DIR` e não segue link simbólico |
+| Arquivo órfão | Se o registro da evidência for recusado (vistoria finalizada, item de outro ambiente), o rollback apaga o arquivo já gravado |
+| Upload gigante | Limite próprio da rota de upload (10 MB, pelo `Content-Length`, antes da leitura) e do multipart; o resto da API segue com 16 KB |
 | Adulteração de vistoria finalizada | Triggers no banco recusam qualquer alteração na vistoria finalizada e nos seus ambientes, itens, evidências e pessoas, mesmo fora da API |
 | Vazamento de detalhes internos | Erros `500` com mensagem genérica; o detalhe vai só para o log |
 | Inundação do log | Erros do cliente (`4xx`) geram uma linha `WARN` sem stack trace; só erros reais geram `ERROR` |
@@ -482,6 +491,8 @@ Todos os erros seguem a RFC 9457 (`application/problem+json`), com o campo adici
 
 - **Autorização:** não existe modelo de permissões; só autenticação. Os imóveis já filtram pelo dono; cada endpoint futuro (vistorias, pessoas, catálogo) precisa fazer o mesmo. Imóveis de empresa (`id_pessoa_juridica`) ainda não são expostos: dependem dos vínculos.
 - **Catálogo personalizado:** a API só lê o catálogo (a role `vsr_app` não grava nele); criar tipos de ambiente e de item do usuário depende de liberar essa escrita.
+- **Metadados das fotos:** o arquivo é guardado como veio, com o EXIF (inclusive a localização GPS, se o aparelho gravou). Isso pode servir de prova, mas é dado pessoal; remover ou não é decisão pendente.
+- **Arquivos de evidências removidas** ficam no disco (a remoção é lógica, como no banco).
 - **Edição parcial:** um `PATCH` não limpa campos opcionais (enviar `null` mantém o valor atual).
 - **Endereços:** os nomes são comparados sem diferenciar maiúsculas, mas com acento: "Sao Paulo" e "São Paulo" viram cidades diferentes.
 - **Cadastro:** não há confirmação de e-mail, e o `409` revela que o CPF ou o e-mail já existe (sem dizer qual).
@@ -523,7 +534,8 @@ A configuração é feita **por variáveis de ambiente**:
 | Banco | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FLYWAY_USERNAME` e `FLYWAY_PASSWORD` (dono das migrations; sem eles, o Flyway usa `DB_USERNAME`), `DB_DRIVER`, `DB_POOL_NAME`, `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT`, `DB_POOL_IDLE_TIMEOUT`, `DB_POOL_MAX_LIFETIME`, `JPA_DIALECT`, `JPA_BATCH_SIZE` |
 | Segurança | `JWT_SECRET_KEY` e `REFRESH_TOKEN_SECRET_KEY` (Base64, mínimo de 32 bytes, diferentes entre si), `JWT_ISSUER`, `JWT_EXPIRATION_TIME` (ex.: `15m`; maior que zero, senão a aplicação não inicia) |
 | E-mail | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_ATTACHMENTS_DIR` |
-| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`) e `PASSWORD_RESET` |
+| Evidências | `EVIDENCE_DIR`: diretório dos arquivos das fotos (criado se não existir; faça backup junto com o banco) |
+| Limite de requisições | `RATE_LIMIT_<GRUPO>_CAPACITY`, `RATE_LIMIT_<GRUPO>_REFILL_RATE`, `RATE_LIMIT_<GRUPO>_REFILL_INTERVAL` para os grupos `API`, `LOGIN`, `REGISTER`, `REFRESH`, `ACCOUNT` (tentativas por conta e rede no login; por usuário na troca de senha), `CEILING` (teto da conta somando as redes; deve ser maior que `ACCOUNT`), `PASSWORD_RESET` e `UPLOAD` (envio de evidências) |
 | Proxy | `TRUSTED_PROXIES`: regex dos IPs dos proxies confiáveis (ex.: `10\.0\.0\.5`). Vazio quando a aplicação fica exposta direto: o `X-Forwarded-For` é ignorado. Use o IP exato do proxy, nunca uma faixa ampla como `.*` ou `10\..*`, senão qualquer conexão dela consegue forjar o IP |
 
 Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As chaves podem ser geradas com `openssl rand -base64 32`.
@@ -537,6 +549,7 @@ Trocar `REFRESH_TOKEN_SECRET_KEY` invalida todos os refresh tokens emitidos. As 
 | `REGISTER` | 30 | 30 | `10m` | Por IP; cadastro é raro, mas vários aparelhos podem dividir o IP |
 | `REFRESH` | 120 | 120 | `1m` | Por IP; cada app renova sozinho em segundo plano |
 | `PASSWORD_RESET` | 30 | 30 | `1m` | Por IP, contra flood na troca de senha |
+| `UPLOAD` | 60 | 60 | `1m` | Por IP; uma vistoria envia várias fotos seguidas, mas cada uma pesa até 10 MB |
 | `ACCOUNT` | 10 | 10 | `15m` | Tentativas por conta e rede; como a senha certa também conta, fica um pouco acima de 5 para não incomodar quem entra várias vezes |
 | `CEILING` | 50 | 50 | `1h` | Teto da conta somando as redes; maior que `ACCOUNT` |
 
@@ -552,6 +565,7 @@ Valores fixos nos arquivos de configuração:
 | `security.session.idle` | `7d` | Tempo máximo sem acesso antes de a sessão expirar por inatividade; precisa ser maior que zero e menor que `ttl`, senão a aplicação não inicia |
 | `security.session.max` | `10` | Máximo de sessões ativas por usuário; a mais antiga é revogada |
 | `vsr.request.max-body-size` | `16KB` | Limite do corpo das requisições |
+| `vsr.request.max-upload-size` e `spring.servlet.multipart.*` | `10MB` | Limite do upload de evidências |
 | `server.forward-headers-strategy` | `native` | O Tomcat troca o IP da conexão pelo `X-Forwarded-For` só quando ela vem de um proxy em `TRUSTED_PROXIES` |
 
 Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens recusados e limites excedidos são registrados em `WARN` com o IP de origem; erros inesperados, em `ERROR` com o stack trace.
@@ -564,10 +578,10 @@ Os logs vão para a saída padrão. Falhas de login, sessões e refresh tokens r
 ./mvnw test
 ```
 
-São **581 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
+São **592 execuções de teste**. A maior parte roda sem banco de dados: os serviços usam repositórios simulados com Mockito, e a cadeia de segurança real (filtros, JWT, limite de requisições e de corpo) é exercitada com MockMvc. O **ArchUnit** está declarado no projeto, mas ainda não há testes de arquitetura.
 
 As procedures são testadas contra um **PostgreSQL de verdade**, embutido no teste (`io.zonky.test:embedded-postgres`, PostgreSQL 14). O teste aplica as migrations e confere cada regra `rn_`, a revogação de sessões e que um dispositivo sem mudança não é regravado. Como o PostgreSQL embutido não tem o `pg_cron`, essa extensão e o agendamento dos jobs ficam de fora.
 
-O `PropertyFlowTest` e o `InspectionFlowTest` (base `support/ApplicationTest`) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
+O `PropertyFlowTest`, o `InspectionFlowTest` e o `EvidenceFlowTest` (base `support/ApplicationTest`, com um diretório temporário para as fotos) sobem a aplicação inteira contra um PostgreSQL embutido compartilhado (migrations sem o `pg_cron` e sem a `V7`): validam o mapeamento JPA com `ddl-auto: validate` e os fluxos de imóveis e vistorias de ponta a ponta, inclusive os triggers e o isolamento entre usuários.
 
 O teste que recusa anexos por link simbólico é pulado no Windows, porque criar links simbólicos exige permissão de administrador; ele roda normalmente em Linux.
